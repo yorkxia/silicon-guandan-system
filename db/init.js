@@ -1,4 +1,4 @@
-const { DatabaseSync } = require('node:sqlite');
+const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 
@@ -7,7 +7,7 @@ let db;
 
 function getDB() {
   if (!db) {
-    db = new DatabaseSync(DB_PATH);
+    db = new Database(DB_PATH);
     db.exec('PRAGMA journal_mode = WAL');
     db.exec('PRAGMA foreign_keys = ON');
   }
