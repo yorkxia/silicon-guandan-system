@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd C:/Users/yorkx/SiliconGuandanSystem && npm install 2>&1)",
+      "Bash(cd C:/Users/yorkx/SiliconGuandanSystem && node -e \"require\\('./db/init.js'\\).initDB\\(\\); console.log\\('OK'\\);\" 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/admin/login 2>&1 && curl -s -o /dev/null -w \" %{http_code}\" http://localhost:3000/admin/dashboard 2>&1)",
+      "Bash(pkill -f \"node server.js\" 2>/dev/null || true)",
+      "Bash(netstat -ano | grep \":3000\" 2>/dev/null || echo \"not found\")",
+      "Bash(taskkill /PID 26488 /F 2>&1)",
+      "Bash(cmd /c \"taskkill /PID 26488 /F\" 2>&1)",
+      "Bash(cmd /c \"taskkill /IM node.exe /F\" 2>&1)",
+      "Bash(netstat -ano 2>/dev/null | grep \":3000\" || echo \"Port 3000 is now free\")",
+      "Bash(cmd /c \"taskkill /F /PID 26488 2>&1 & tasklist | findstr node\")",
+      "Bash(cmd /c \"netstat -ano | findstr :3000\" 2>&1)",
+      "Bash(cd C:/Users/yorkx/SiliconGuandanSystem && node server.js 2>&1)",
+      "Bash(cmd /c \"for /f \\\\\"tokens=5\\\\\" %a in \\('netstat -ano ^| findstr :3000'\\) do taskkill /F /PID %a\" 2>&1)",
+      "Bash(sleep 2 && cmd /c \"netstat -ano | findstr :3000\" 2>&1)",
+      "Bash(cmd /c \"C:\\\\Users\\\\yorkx\\\\SiliconGuandanSystem\\\\stop.bat\" 2>&1)",
+      "Bash(sleep 3 && curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"首页:%{http_code} \" http://localhost:3000/ && curl -s -o /dev/null -w \"登录页:%{http_code} \" http://localhost:3000/admin/login && curl -s -o /dev/null -w \"后台\\(未登录\\):%{http_code}\" http://localhost:3000/admin/dashboard)",
+      "Bash(sleep 4 && curl -s -o /dev/null -w \"首页:%{http_code} 登录:%{http_code}\" http://localhost:3000/ http://localhost:3000/admin/login)"
+    ]
+  }
+}

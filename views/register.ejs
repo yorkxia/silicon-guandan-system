@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>比赛报名 | Tournament Registration</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="pub-header">
+  <div class="container header-inner">
+    <a href="/" class="logo-area">
+      <%- include('./partials/logo') %>
+      <div class="site-name">
+        硅谷掼蛋联赛
+        <small>Silicon Valley Guandan League</small>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="/" class="nav-link">← 返回首页 · Home</a>
+    </nav>
+  </div>
+</header>
+
+<div class="reg-page">
+  <div class="reg-container">
+
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap" style="margin-bottom:16px">
+        <% error.forEach(function(msg) { %>
+          <div class="flash flash-error"><%= msg %></div>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <div class="reg-card">
+      <div class="reg-head">
+        <h1>
+          <%= content['title'] ? content['title'].zh : '比赛报名' %>
+          <span style="display:block; font-size:1.1rem; font-weight:400; margin-top:4px; color:rgba(255,255,255,0.78)">
+            <%= content['title'] ? content['title'].en : 'Tournament Registration' %>
+          </span>
+        </h1>
+        <p class="reg-sub"><%= content['subtitle'] ? content['subtitle'].zh : '填写以下信息完成报名' %></p>
+        <div class="t-name-badge">
+          🏆 <%= tournament.title_zh %> &nbsp;·&nbsp; <%= tournament.title_en %>
+        </div>
+      </div>
+
+      <div class="reg-body">
+        <!-- Payment notice -->
+        <div style="background:linear-gradient(135deg,#FEF9E7,#FDF2D0); border:2px solid #D4AC0D; border-radius:11px; padding:18px 20px; margin-bottom:24px;">
+          <div style="font-weight:700; color:#641E16; margin-bottom:12px; font-size:1rem; text-align:center">
+            💳 报名费 · Registration Fee &nbsp;
+            <span style="font-size:1.6rem; font-weight:900; color:#C0392B">$<%= tournament.fee || 10 %></span>
+          </div>
+
+          <!-- Two payment options side by side -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+
+            <!-- Venmo -->
+            <div style="background:white; border-radius:9px; padding:14px; border:1.5px solid #E0D090; text-align:center;">
+              <div style="font-weight:700; color:#0074DE; margin-bottom:6px; font-size:0.92rem">📱 Venmo</div>
+              <div style="font-size:1.3rem; font-weight:900; color:#0074DE; background:rgba(0,116,222,0.08); padding:5px 12px; border-radius:6px; display:inline-block; margin-bottom:8px">
+                <%= tournament.venmo || '@yorkxia' %>
+              </div>
+              <p style="font-size:0.77rem; color:#888; line-height:1.5; margin:0">
+                <%= content['payment_note'] ? content['payment_note'].zh : '备注姓名及赛事名称' %>
+              </p>
+            </div>
+
+            <!-- WeChat Pay -->
+            <div style="background:white; border-radius:9px; padding:14px; border:1.5px solid #E0D090; text-align:center;">
+              <div style="font-weight:700; color:#07C160; margin-bottom:6px; font-size:0.92rem">💚 微信支付 · WeChat Pay</div>
+              <% const wechatQr = (tournament.wechat_qr && tournament.wechat_qr.startsWith('data:')) ? tournament.wechat_qr : (content['wechat_qr'] ? content['wechat_qr'].zh : ''); %>
+              <% if (wechatQr && wechatQr.startsWith('data:')) { %>
+                <img src="<%= wechatQr %>" alt="微信支付码" style="width:110px; height:110px; object-fit:contain; border-radius:6px; border:1px solid #EEE; display:block; margin:0 auto 8px;">
+              <% } else { %>
+                <div style="width:110px; height:110px; background:#F5F5F5; border-radius:6px; border:2px dashed #CCC; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; color:#BBB; font-size:0.75rem; text-align:center; line-height:1.4;">
+                  微信支付码<br>即将上传<br>WeChat QR<br>Coming soon
+                </div>
+              <% } %>
+              <p style="font-size:0.77rem; color:#888; line-height:1.5; margin:0">
+                <%= (tournament.wechat_note && tournament.wechat_note.trim()) ? tournament.wechat_note : (content['wechat_note'] ? content['wechat_note'].zh : '扫码支付，备注姓名') %>
+              </p>
+            </div>
+          </div>
+
+          <p style="text-align:center; font-size:0.78rem; color:#9A7D0A; margin-top:10px; margin-bottom:0">
+            ⚠️ 请报名后完成支付，并在备注中注明姓名和赛事名称
+          </p>
+        </div>
+
+        <!-- Registration form -->
+        <form action="/register/<%= tournament.id %>" method="POST" id="reg-form">
+
+          <!-- Section 1: Personal Info -->
+          <div style="font-size:0.82rem; font-weight:700; color:#922B21; text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; padding-bottom:6px; border-bottom:2px solid #F0D090">
+            👤 个人信息 · Personal Information
+          </div>
+
+          <div class="form-group">
+            <label for="name">姓名 · Name <span class="req">*</span></label>
+            <input type="text" id="name" name="name" class="form-control"
+              placeholder="请输入您的姓名 · Enter your full name"
+              required maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label for="phone">电话号码 · Phone Number <span class="req">*</span></label>
+            <input type="tel" id="phone" name="phone" class="form-control"
+              placeholder="请输入电话号码 · Enter your phone number"
+              required maxlength="30">
+          </div>
+
+          <div class="form-group">
+            <label for="email">
+              电子邮件 · Email
+              <span style="font-size:0.78rem; color:#999; font-weight:400">（可选 · Optional）</span>
+            </label>
+            <input type="email" id="email" name="email" class="form-control"
+              placeholder="请输入邮箱地址 · Enter your email"
+              maxlength="150">
+          </div>
+
+          <!-- Section 2: Team Info -->
+          <div style="font-size:0.82rem; font-weight:700; color:#922B21; text-transform:uppercase; letter-spacing:1px; margin:24px 0 14px; padding-bottom:6px; border-bottom:2px solid #F0D090">
+            🃏 参赛队伍信息 · Team Information
+          </div>
+
+          <div class="form-group">
+            <label for="team_name">
+              参赛队名 · Team Name
+              <span style="font-size:0.78rem; color:#999; font-weight:400">（可选 · Optional）</span>
+            </label>
+            <input type="text" id="team_name" name="team_name" class="form-control"
+              placeholder="请输入参赛队名 · Enter your team name"
+              maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label for="partner_name">
+              参赛队友姓名 · Partner Name
+              <span style="font-size:0.78rem; color:#999; font-weight:400">（可选 · Optional）</span>
+            </label>
+            <input type="text" id="partner_name" name="partner_name" class="form-control"
+              placeholder="请输入队友姓名，如无队友请留空 · Enter partner's name, or leave blank if solo"
+              maxlength="100" oninput="onPartnerInput()">
+          </div>
+
+          <!-- Random partner option — only shown when partner_name is empty -->
+          <div class="form-group" id="random-partner-box" style="display:none; background:#FEF9E7; border:2px solid #D4AC0D; border-radius:10px; padding:16px 18px;">
+            <label style="font-weight:700; color:#641E16; margin-bottom:10px; display:block">
+              🎲 单人参赛配队选项 · Solo Player Option
+            </label>
+            <p style="font-size:0.87rem; color:#666; margin-bottom:12px">
+              您未填写队友姓名，是否愿意由系统随机分配队友？<br>
+              <em>You haven't added a partner. Would you like the system to randomly assign one?</em>
+            </p>
+            <div style="display:flex; gap:16px; flex-wrap:wrap">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#27AE60; font-size:0.95rem">
+                <input type="radio" name="random_partner" value="yes" style="width:18px;height:18px;accent-color:#27AE60">
+                ✅ 愿意 YES — 随机分配队友
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#E74C3C; font-size:0.95rem">
+                <input type="radio" name="random_partner" value="no" checked style="width:18px;height:18px;accent-color:#E74C3C">
+                ❌ 不愿意 NO — 单独报名
+              </label>
+            </div>
+          </div>
+
+          <!-- Payment confirmation -->
+          <div id="payment-confirm-box" style="margin-top:20px; background:#FEF9E7; border:2px solid #D4AC0D; border-radius:10px; padding:16px 18px;">
+            <label style="display:flex; align-items:flex-start; gap:12px; cursor:pointer;">
+              <input type="checkbox" id="payment-check" name="payment_check" value="yes" onchange="onPaymentCheck()"
+                style="width:20px; height:20px; margin-top:2px; accent-color:#C0392B; flex-shrink:0;">
+              <span style="font-size:0.92rem; color:#641E16; line-height:1.55; font-weight:600;">
+                ✅ 我已通过 <span style="color:#0074DE">Venmo</span> 或 <span style="color:#07C160">微信支付</span> 完成 <strong>$<%= tournament.fee || 10 %></strong> 报名费支付
+                <br>
+                <span style="font-weight:400; color:#888; font-size:0.82rem">
+                  I confirm I have completed the $<%= tournament.fee || 10 %> payment via Venmo or WeChat Pay
+                </span>
+              </span>
+            </label>
+            <div id="payment-warning" style="display:none; margin-top:10px; padding:8px 12px; background:#FADBD8; border-radius:6px; font-size:0.85rem; color:#922B21;">
+              ⚠️ 请先完成付款再报名！支付后勾选上方确认框。<br>
+              <em>Please complete payment before registering. Check the box above after paying.</em>
+            </div>
+          </div>
+
+          <button type="submit" id="submit-btn" class="btn btn-red btn-full"
+            style="margin-top:14px; font-size:1rem; padding:15px; opacity:0.5; cursor:not-allowed;"
+            disabled onclick="return checkPayment()">
+            🔒 请先确认已付款 · Please Confirm Payment First
+          </button>
+        </form>
+
+        <p style="text-align:center; margin-top:14px; font-size:0.8rem; color:#999">
+          🔒 您的个人信息将被加密存储 | Your information is encrypted and stored securely
+        </p>
+      </div>
+    </div>
+
+    <!-- Tournament details -->
+    <div style="margin-top:20px; background:white; border-radius:12px; padding:20px 24px; box-shadow:0 2px 12px rgba(0,0,0,0.07)">
+      <h3 style="font-size:1rem; color:#641E16; margin-bottom:12px">📋 赛事信息 · Tournament Details</h3>
+      <% if (tournament.date) { %>
+        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📅</span><span><%= tournament.date %></span></div>
+      <% } %>
+      <% if (tournament.location_zh) { %>
+        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📍</span><span><%= tournament.location_zh %> | <%= tournament.location_en %></span></div>
+      <% } %>
+      <% if (tournament.description_zh) { %>
+        <div style="font-size:0.87rem; color:#666; margin-top:10px; line-height:1.6">
+          <p><%= tournament.description_zh %></p>
+          <p style="color:#888; font-size:0.82rem; margin-top:5px"><em><%= tournament.description_en %></em></p>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<footer class="pub-footer" style="margin-top:40px">
+  <div class="container">
+    <p>&copy; 2026 硅谷掼蛋联赛 · Silicon Valley Guandan League 🐎</p>
+  </div>
+</footer>
+
+<script>
+function onPartnerInput() {
+  const val = document.getElementById('partner_name').value.trim();
+  const box = document.getElementById('random-partner-box');
+  box.style.display = val === '' ? 'block' : 'none';
+}
+
+function onPaymentCheck() {
+  const checked = document.getElementById('payment-check').checked;
+  const btn = document.getElementById('submit-btn');
+  const warning = document.getElementById('payment-warning');
+
+  if (checked) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+    btn.textContent = '✅ 确认报名 · Submit Registration';
+    warning.style.display = 'none';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+    btn.style.cursor = 'not-allowed';
+    btn.textContent = '🔒 请先确认已付款 · Please Confirm Payment First';
+  }
+}
+
+function checkPayment() {
+  const checked = document.getElementById('payment-check').checked;
+  if (!checked) {
+    document.getElementById('payment-warning').style.display = 'block';
+    document.getElementById('payment-confirm-box').scrollIntoView({ behavior: 'smooth' });
+    return false;
+  }
+  return true;
+}
+</script>
+
+</body>
+</html>

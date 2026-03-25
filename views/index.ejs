@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>硅谷掼蛋联赛 | Silicon Valley Guandan League</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Header -->
+<header class="pub-header">
+  <div class="container header-inner">
+    <a href="/" class="logo-area">
+      <%- include('./partials/logo') %>
+      <div class="site-name">
+        硅谷掼蛋联赛
+        <small>Silicon Valley Guandan League</small>
+      </div>
+    </a>
+    <nav class="header-nav">
+      <a href="/#tournaments" class="nav-link">赛事 · Tournaments</a>
+      <a href="/#about" class="nav-link">关于 · About</a>
+      <a href="/admin/login" class="nav-link admin-btn">管理员 · Admin</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="card-floats">
+    <span class="float-suit fs1">♠</span>
+    <span class="float-suit fs2">♥</span>
+    <span class="float-suit fs3">♦</span>
+    <span class="float-suit fs4">♣</span>
+    <span class="float-suit fs5">♠</span>
+    <span class="float-suit fs6">♥</span>
+  </div>
+  <div class="lanterns">
+    <div class="lantern"></div>
+    <div class="lantern"></div>
+  </div>
+  <div class="container hero-content">
+    <div class="year-badge">
+      <span class="horse-char">🐎</span>
+      <span>2026 · 丙午年 · Year of the Horse</span>
+      <span class="horse-char">马</span>
+    </div>
+    <h1 class="hero-title">
+      <span class="gold"><%= content['hero_title'] ? content['hero_title'].zh : '硅谷掼蛋联赛' %></span>
+      <span class="hero-title-en"><%= content['hero_title'] ? content['hero_title'].en : 'Silicon Valley Guandan League' %></span>
+    </h1>
+    <p class="hero-sub">
+      <%= content['hero_subtitle'] ? content['hero_subtitle'].zh : '2026马年春季联赛 · 现在报名' %>
+    </p>
+    <div class="hero-btns">
+      <a href="#tournaments" class="btn btn-gold">🃏 立即报名 · Register Now</a>
+      <a href="#about" class="btn btn-outline-white">了解掼蛋 · Learn More</a>
+    </div>
+  </div>
+</section>
+
+<!-- Tournaments -->
+<section class="tournaments-sec" id="tournaments">
+  <div class="container">
+    <h2 class="sec-title">
+      <span class="suit">♦</span> 当前赛事 · Current Tournaments <span class="suit">♦</span>
+    </h2>
+
+    <% if (tournaments.length === 0) { %>
+      <div class="empty-state">
+        <div style="font-size:3rem;margin-bottom:12px">🃏</div>
+        <p>暂无开放赛事，敬请期待！</p>
+        <p style="font-size:0.85rem;margin-top:6px">No tournaments available yet. Stay tuned!</p>
+      </div>
+    <% } else { %>
+      <div class="t-grid">
+        <% tournaments.forEach(function(t) { %>
+          <div class="t-card">
+            <div class="t-card-head">
+              <span class="t-status">🟢 报名中 · Open</span>
+              <h3><%= t.title_zh %></h3>
+              <p class="t-en"><%= t.title_en %></p>
+            </div>
+            <div class="t-card-body">
+              <% if (t.date) { %>
+                <div class="info-row"><span class="ico">📅</span><span><%= t.date %></span></div>
+              <% } %>
+              <% if (t.location_zh) { %>
+                <div class="info-row"><span class="ico">📍</span><span><%= t.location_zh %> | <%= t.location_en %></span></div>
+              <% } %>
+              <div class="info-row"><span class="ico">👥</span><span>已报名 Registered: <strong><%= t.reg_count %></strong> / <%= t.max_participants %></span></div>
+              <% if (t.description_zh) { %>
+                <p class="t-desc"><%= t.description_zh %></p>
+              <% } %>
+              <div class="fee-row">
+                <span>报名费 · Fee: </span>
+                <span class="fee-amount">$<%= t.fee || 10 %></span>
+                <span class="venmo-chip">Venmo: <%= t.venmo || '@yorkxia' %></span>
+              </div>
+            </div>
+            <div class="t-card-foot">
+              <a href="/register/<%= t.id %>" class="btn btn-red btn-full">
+                🏆 报名参赛 · Register Now
+              </a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<!-- About -->
+<section class="about-sec" id="about">
+  <div class="container about-inner">
+    <div class="about-deco">
+      <div class="play-card-deco">
+        <div class="corner-tl">A<br>♥</div>
+        <div class="corner-br">A<br>♥</div>
+        <div class="center-suit">♥</div>
+      </div>
+    </div>
+    <div class="about-text">
+      <h2>
+        <%= content['about_title'] ? content['about_title'].zh : '关于掼蛋' %>
+        <span style="font-size:1.4rem; font-weight:400; display:block; margin-top:4px; color:rgba(255,255,255,0.7)">
+          <%= content['about_title'] ? content['about_title'].en : 'About Guandan' %>
+        </span>
+      </h2>
+      <p style="margin-top:14px">
+        <%= content['about_text'] ? content['about_text'].zh : '掼蛋是一种流行于中国的纸牌游戏...' %>
+      </p>
+      <p style="margin-top:10px; color:rgba(255,255,255,0.72); font-size:0.9rem">
+        <%= content['about_text'] ? content['about_text'].en : 'Guandan is a popular Chinese card game...' %>
+      </p>
+      <div style="margin-top:24px; padding:16px; background:rgba(212,172,13,0.15); border-radius:8px; border-left:4px solid #D4AC0D">
+        <p style="font-size:0.9rem; color:rgba(255,255,255,0.85)">
+          💳 <%= content['payment_note'] ? content['payment_note'].zh : '报名费 $10，请通过 Venmo 支付至' %>
+          <strong style="color:#D4AC0D"> @yorkxia</strong>
+        </p>
+        <p style="font-size:0.82rem; color:rgba(255,255,255,0.6); margin-top:4px">
+          <%= content['payment_note'] ? content['payment_note'].en : 'Registration fee $10, pay via Venmo to' %>
+          <strong style="color:#D4AC0D"> @yorkxia</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="pub-footer">
+  <div class="container">
+    <p>
+      ♠ ♥ ♦ ♣ &nbsp;&nbsp;
+      &copy; 2026 硅谷掼蛋联赛 · Silicon Valley Guandan League &nbsp;&nbsp;
+      ♣ ♦ ♥ ♠
+    </p>
+    <p style="margin-top:5px; font-size:0.78rem">
+      🐎 2026马年 Year of the Horse &nbsp;|&nbsp;
+      报名咨询 Contact: Venmo <a href="#">@yorkxia</a>
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

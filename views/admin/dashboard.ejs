@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 | Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = 'dashboard'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1>📊 控制台 · Dashboard
+        <% if (!isSuperAdmin) { %>
+          <span style="font-size:0.75rem; font-weight:400; color:#888; margin-left:10px">（仅显示您创建的赛事 · Showing your tournaments only）</span>
+        <% } %>
+      </h1>
+      <a href="/admin/tournaments/new" class="abtn abtn-primary">➕ 新建赛事 · New Tournament</a>
+    </div>
+
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap">
+        <% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap">
+        <% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num"><%= stats.total_tournaments %></div>
+        <div class="stat-lbl">总赛事 · Total Tournaments</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= stats.active_tournaments %></div>
+        <div class="stat-lbl">进行中 · Active</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= stats.total_registrations %></div>
+        <div class="stat-lbl">总报名 · Total Registrations</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= stats.paid_count %></div>
+        <div class="stat-lbl">已付款 · Paid</div>
+      </div>
+    </div>
+
+    <!-- Tournaments Table -->
+    <div class="a-card">
+      <h2>
+        🏆 所有赛事 · All Tournaments
+        <a href="/admin/tournaments/new" class="abtn abtn-primary">➕ 新建</a>
+      </h2>
+
+      <% if (tournaments.length === 0) { %>
+        <div style="text-align:center; padding:40px; color:#999">
+          暂无赛事，<a href="/admin/tournaments/new" style="color:#C0392B">点击创建</a>第一个赛事
+          <br><em style="font-size:0.85rem">No tournaments yet. Click to create the first one.</em>
+        </div>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>赛事名称 · Name</th>
+                <th>日期 · Date</th>
+                <th>地点 · Location</th>
+                <th>报名人数 · Registrations</th>
+                <th>报名费 · Fee</th>
+                <th>状态 · Status</th>
+                <% if (isSuperAdmin) { %><th>创建者 · Creator</th><% } %>
+                <th>操作 · Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% tournaments.forEach(function(t) { %>
+                <tr>
+                  <td>
+                    <strong style="color:#641E16"><%= t.title_zh %></strong><br>
+                    <span style="font-size:0.8rem; color:#888"><%= t.title_en %></span>
+                  </td>
+                  <td style="font-size:0.85rem"><%= t.date || '—' %></td>
+                  <td style="font-size:0.85rem"><%= t.location_zh || '—' %></td>
+                  <td>
+                    <strong><%= t.reg_count %></strong>
+                    <span style="color:#999;font-size:0.8rem"> / <%= t.max_participants %></span>
+                  </td>
+                  <td><strong>$<%= t.fee %></strong></td>
+                  <td>
+                    <% if (t.status === 'active') { %>
+                      <span class="badge badge-active">开放报名</span>
+                    <% } else { %>
+                      <span class="badge badge-closed">已关闭</span>
+                    <% } %>
+                  </td>
+                  <% if (isSuperAdmin) { %>
+                  <td style="font-size:0.82rem; color:#666"><%= t.creator_name || '—' %></td>
+                  <% } %>
+                  <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap">
+                      <a href="/admin/tournaments/<%= t.id %>/registrations" class="abtn abtn-blue">👥 报名列表</a>
+                      <a href="/admin/tournaments/<%= t.id %>/export" class="abtn abtn-success">📥 导出Excel</a>
+                      <a href="/admin/tournaments/<%= t.id %>/edit" class="abtn abtn-warning">✏️ 编辑</a>
+                      <form action="/admin/tournaments/<%= t.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('确认删除此赛事及所有报名记录？\nDelete this tournament and all registrations?')">
+                        <button type="submit" class="abtn abtn-danger">🗑️ 删除</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

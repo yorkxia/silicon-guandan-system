@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= tournament ? '编辑赛事' : '新建赛事' %> | Admin</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = tournament ? '' : 'new-tournament'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1><%= tournament ? '✏️ 编辑赛事 · Edit Tournament' : '➕ 新建赛事 · New Tournament' %></h1>
+      <a href="/admin/dashboard" class="abtn abtn-grey">← 返回 · Back</a>
+    </div>
+
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap">
+        <% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+
+    <div class="a-card">
+      <form action="<%= tournament ? '/admin/tournaments/' + tournament.id + '/update' : '/admin/tournaments' %>" method="POST" enctype="application/x-www-form-urlencoded">
+
+        <div style="margin-bottom:18px; padding:12px 16px; background:#FEF9E7; border-radius:8px; border-left:4px solid #D4AC0D; font-size:0.87rem; color:#666">
+          <strong style="color:#641E16">提示 · Note:</strong>
+          带 <span style="color:red">*</span> 号字段为必填 · Fields marked with * are required. 中英文信息都需填写 · Both Chinese and English required.
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>赛事名称（中文）· Tournament Name (Chinese) <span class="req">*</span></label>
+            <input type="text" name="title_zh" class="a-input" placeholder="如：2026马年春季掼蛋联赛" value="<%= tournament ? tournament.title_zh : '' %>" required maxlength="200">
+          </div>
+          <div class="a-form-group">
+            <label>赛事名称（英文）· Tournament Name (English) <span class="req">*</span></label>
+            <input type="text" name="title_en" class="a-input" placeholder="e.g.: 2026 Spring Guandan Tournament" value="<%= tournament ? tournament.title_en : '' %>" required maxlength="200">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>比赛日期 · Date</label>
+            <input type="text" name="date" class="a-input" placeholder="如：2026年5月15日 | May 15, 2026" value="<%= tournament ? tournament.date : '' %>" maxlength="100">
+          </div>
+          <div class="a-form-group">
+            <label>状态 · Status</label>
+            <select name="status" class="a-input">
+              <option value="active" <%= (!tournament || tournament.status === 'active') ? 'selected' : '' %>>🟢 开放报名 · Open</option>
+              <option value="closed" <%= (tournament && tournament.status === 'closed') ? 'selected' : '' %>>🔴 关闭报名 · Closed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>地点（中文）· Location (Chinese)</label>
+            <input type="text" name="location_zh" class="a-input" placeholder="如：硅谷某某活动中心" value="<%= tournament ? tournament.location_zh : '' %>" maxlength="200">
+          </div>
+          <div class="a-form-group">
+            <label>地点（英文）· Location (English)</label>
+            <input type="text" name="location_en" class="a-input" placeholder="e.g.: Silicon Valley Community Center" value="<%= tournament ? tournament.location_en : '' %>" maxlength="200">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>最大参赛人数 · Max Participants</label>
+            <input type="number" name="max_participants" class="a-input" min="1" max="9999" placeholder="100" value="<%= tournament ? tournament.max_participants : 100 %>">
+          </div>
+          <div class="a-form-group">
+            <label>报名费（$）· Registration Fee ($)</label>
+            <input type="number" name="fee" class="a-input" min="0" step="1" placeholder="10" value="<%= tournament ? tournament.fee : 10 %>">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>Venmo 账号 · Venmo Account</label>
+            <input type="text" name="venmo" class="a-input" placeholder="@yorkxia" value="<%= tournament ? tournament.venmo : '@yorkxia' %>" maxlength="100">
+            <p class="a-hint">参赛者报名后会看到此账号以完成付款 · Displayed to players for payment</p>
+          </div>
+          <div class="a-form-group">
+            <label>微信支付说明文字（可选）· WeChat Pay Note (Optional)</label>
+            <input type="text" name="wechat_note" class="a-input"
+              placeholder="如：扫码支付报名费，备注姓名"
+              value="<%= tournament && tournament.wechat_note ? tournament.wechat_note : '' %>"
+              maxlength="200">
+            <p class="a-hint">显示在微信支付码下方的说明 · Text shown below QR code</p>
+          </div>
+        </div>
+
+        <!-- WeChat QR Code Upload -->
+        <div class="a-form-group">
+          <label>💚 微信收款码 · WeChat Payment QR Code <span style="font-size:0.78rem; font-weight:400; color:#888">（可选 · Optional）</span></label>
+          <input type="hidden" name="wechat_qr" id="wechat-qr-input" value="<%= tournament && tournament.wechat_qr ? tournament.wechat_qr : '' %>">
+
+          <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; padding:16px; background:#F0FFF4; border:2px solid #07C160; border-radius:10px;">
+
+            <!-- Preview -->
+            <div style="text-align:center; flex-shrink:0;">
+              <div style="font-size:0.78rem; color:#555; margin-bottom:6px;">当前收款码 · Current QR</div>
+              <% const currentQr = tournament && tournament.wechat_qr ? tournament.wechat_qr : ''; %>
+              <% if (currentQr && currentQr.startsWith('data:')) { %>
+                <img id="qr-preview" src="<%= currentQr %>" alt="微信收款码"
+                  style="width:140px; height:140px; object-fit:contain; border:2px solid #07C160; border-radius:8px; display:block;">
+              <% } else { %>
+                <div id="qr-preview" style="width:140px; height:140px; background:white; border:2px dashed #07C160; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#AAA; font-size:0.78rem; text-align:center; line-height:1.6;">
+                  暂无收款码<br>No QR Code
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Upload controls -->
+            <div style="flex:1; min-width:200px;">
+              <label style="display:block; cursor:pointer; margin-bottom:10px;">
+                <div id="qr-drop-zone" style="border:2px dashed #07C160; border-radius:8px; padding:16px; text-align:center; background:white; cursor:pointer; transition:all 0.2s;">
+                  <div style="font-size:1.8rem; margin-bottom:4px;">📷</div>
+                  <div style="font-size:0.88rem; color:#07C160; font-weight:700;">点击上传 / 更换收款码</div>
+                  <div style="font-size:0.88rem; color:#07C160; font-weight:400;">Click to Upload / Change QR Code</div>
+                  <div style="font-size:0.75rem; color:#999; margin-top:4px;">支持 JPG · PNG · GIF（≤2MB）</div>
+                </div>
+                <input type="file" accept="image/*" style="display:none;" onchange="handleQrUpload(this)">
+              </label>
+
+              <% if (currentQr && currentQr.startsWith('data:')) { %>
+                <button type="button" onclick="clearQrCode()" class="abtn abtn-danger" style="font-size:0.8rem;">
+                  🗑️ 清除收款码 · Clear QR Code
+                </button>
+              <% } %>
+
+              <p style="font-size:0.78rem; color:#666; margin-top:8px; line-height:1.6;">
+                上传后点击底部"<strong>保存</strong>"按钮，微信收款码将显示在报名页的支付区域。<br>
+                <em>After uploading, click Save — the QR code will appear on the registration page.</em>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>赛事简介（中文）· Description (Chinese)</label>
+            <textarea name="description_zh" class="a-input" placeholder="请输入赛事详情说明..." maxlength="2000"><%= tournament ? tournament.description_zh : '' %></textarea>
+          </div>
+          <div class="a-form-group">
+            <label>赛事简介（英文）· Description (English)</label>
+            <textarea name="description_en" class="a-input" placeholder="Enter tournament description..." maxlength="2000"><%= tournament ? tournament.description_en : '' %></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:8px">
+          <button type="submit" class="abtn abtn-primary" style="padding:10px 28px; font-size:0.95rem">
+            <%= tournament ? '💾 保存更新 · Save Changes' : '✅ 创建赛事 · Create Tournament' %>
+          </button>
+          <a href="/admin/dashboard" class="abtn abtn-grey" style="padding:10px 20px">取消 · Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>
+
+<script>
+function handleQrUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert('图片不能超过 2MB | Image must be under 2MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result;
+    document.getElementById('wechat-qr-input').value = base64;
+
+    // Update preview
+    const preview = document.getElementById('qr-preview');
+    if (preview.tagName === 'IMG') {
+      preview.src = base64;
+    } else {
+      const img = document.createElement('img');
+      img.id = 'qr-preview';
+      img.src = base64;
+      img.alt = '微信收款码';
+      img.style.cssText = 'width:140px;height:140px;object-fit:contain;border:2px solid #07C160;border-radius:8px;display:block;';
+      preview.replaceWith(img);
+    }
+
+    // Update drop zone feedback
+    document.getElementById('qr-drop-zone').innerHTML =
+      '<div style="font-size:1.5rem">✅</div>' +
+      '<div style="font-size:0.88rem;color:#07C160;font-weight:700;">图片已选择 · Image Selected</div>' +
+      '<div style="font-size:0.78rem;color:#888;margin-top:4px;">点击底部"保存"按钮生效 · Click Save below</div>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearQrCode() {
+  if (!confirm('确认清除微信收款码？\nClear WeChat QR Code?')) return;
+  document.getElementById('wechat-qr-input').value = '';
+  const preview = document.getElementById('qr-preview');
+  const placeholder = document.createElement('div');
+  placeholder.id = 'qr-preview';
+  placeholder.style.cssText = 'width:140px;height:140px;background:white;border:2px dashed #07C160;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#AAA;font-size:0.78rem;text-align:center;line-height:1.6;';
+  placeholder.innerHTML = '已清除<br>Cleared';
+  preview.replaceWith(placeholder);
+}
+</script>
+</body>
+</html>

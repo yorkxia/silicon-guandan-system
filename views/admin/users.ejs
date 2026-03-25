@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户管理 | User Management</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = 'users'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1>👥 用户管理 · User Management</h1>
+    </div>
+
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap">
+        <% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap">
+        <% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+
+    <!-- Create new user -->
+    <div class="a-card">
+      <h2>➕ 添加管理员账号 · Add Admin Account</h2>
+      <form action="/admin/users" method="POST" onsubmit="return checkNewUserPwd(this)">
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>用户名 · Username <span class="req">*</span></label>
+            <input type="text" name="username" class="a-input" placeholder="请输入用户名" required maxlength="50" autocomplete="off">
+          </div>
+          <div class="a-form-group">
+            <label>初始密码 · Initial Password <span class="req">*</span></label>
+            <input type="password" name="password" id="new-user-pwd" class="a-input"
+              placeholder="至少8位 · Min 8 characters" required minlength="8" autocomplete="new-password"
+              oninput="checkNewUserMatch()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>确认密码 · Confirm Password <span class="req">*</span></label>
+            <input type="password" name="confirm_password" id="new-user-confirm" class="a-input"
+              placeholder="再次输入密码 · Re-enter password" required minlength="8" autocomplete="new-password"
+              oninput="checkNewUserMatch()">
+            <p id="new-user-match-msg" class="a-hint" style="margin-top:5px"></p>
+          </div>
+          <div class="a-form-group" style="display:flex; align-items:flex-end; padding-bottom:2px">
+            <div style="width:100%">
+              <p class="a-hint">密码将被 bcrypt 加密存储 · Password stored with bcrypt encryption</p>
+              <button type="submit" id="new-user-submit" class="abtn abtn-primary" style="margin-top:8px; width:100%; justify-content:center; padding:10px;">
+                ✅ 创建用户 · Create User
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Users list -->
+    <div class="a-card">
+      <h2>所有管理员 · All Admins</h2>
+      <div style="overflow-x:auto">
+        <table class="a-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>用户名 · Username</th>
+              <th>角色 · Role</th>
+              <th>状态 · Status</th>
+              <th>创建时间 · Created</th>
+              <th>操作 · Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% users.forEach(function(u, i) { %>
+              <tr>
+                <td style="color:#999; font-size:0.82rem"><%= i + 1 %></td>
+                <td>
+                  <strong><%= u.username %></strong>
+                  <% if (u.id === user.id) { %>
+                    <span style="font-size:0.75rem; color:#888; margin-left:6px">(您 · You)</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (u.is_super_admin) { %>
+                    <span class="badge badge-super">⭐ 超级管理员 · Super Admin</span>
+                  <% } else { %>
+                    <span class="badge badge-normal">👤 普通管理员 · Admin</span>
+                  <% } %>
+                </td>
+                <td>
+                  <% if (u.is_locked) { %>
+                    <span class="badge badge-locked">🔒 已锁定 · Locked</span>
+                  <% } else { %>
+                    <span class="badge badge-active">🟢 正常 · Active</span>
+                  <% } %>
+                </td>
+                <td style="font-size:0.82rem; color:#888">
+                  <%= new Date(u.created_at).toLocaleDateString('zh-CN') %>
+                </td>
+                <td>
+                  <% if (!u.is_super_admin) { %>
+                    <div style="display:flex; gap:6px">
+                      <form action="/admin/users/<%= u.id %>/toggle-lock" method="POST">
+                        <button type="submit" class="abtn <%= u.is_locked ? 'abtn-success' : 'abtn-warning' %>">
+                          <%= u.is_locked ? '🔓 解锁 · Unlock' : '🔒 锁定 · Lock' %>
+                        </button>
+                      </form>
+                      <form action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('确认删除用户 ' + '<%= u.username %>' + '?\nDelete user?')">
+                        <button type="submit" class="abtn abtn-danger">🗑️ 删除</button>
+                      </form>
+                    </div>
+                  <% } else { %>
+                    <span style="color:#bbb; font-size:0.82rem">超管不可修改 · Protected</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="background:#EBF5FB; border-radius:8px; padding:14px 18px; font-size:0.85rem; color:#1A5276; border-left:4px solid #2980B9">
+      <strong>💡 说明 · Notes:</strong>
+      <ul style="margin-top:6px; padding-left:18px; line-height:1.8">
+        <li>超级管理员 (admin) 账号受保护，无法被锁定或删除 · Super admin is protected</li>
+        <li>被锁定的账号无法登录，直到解锁 · Locked accounts cannot login until unlocked</li>
+        <li>所有密码均经过 bcrypt 加密存储 · All passwords are bcrypt encrypted</li>
+        <li>每个管理员可在"密码设置"页修改自己的密码 · Each admin can change own password in Settings</li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<script>
+function checkNewUserMatch() {
+  const pwd = document.getElementById('new-user-pwd').value;
+  const confirm = document.getElementById('new-user-confirm').value;
+  const msg = document.getElementById('new-user-match-msg');
+  const btn = document.getElementById('new-user-submit');
+  if (confirm.length === 0) { msg.textContent = ''; btn.disabled = false; return; }
+  if (pwd === confirm) {
+    msg.textContent = '✅ 密码一致 · Passwords match';
+    msg.style.color = '#27AE60';
+    btn.disabled = false;
+  } else {
+    msg.textContent = '❌ 密码不一致 · Passwords do not match';
+    msg.style.color = '#E74C3C';
+    btn.disabled = true;
+  }
+}
+
+function checkNewUserPwd(form) {
+  const pwd = form.password.value;
+  const confirm = form.confirm_password.value;
+  if (pwd !== confirm) {
+    alert('两次密码不一致 | Passwords do not match');
+    return false;
+  }
+  if (pwd.length < 8) {
+    alert('密码至少需要8位 | Password must be at least 8 characters');
+    return false;
+  }
+  return true;
+}
+</script>
+</body>
+</html>

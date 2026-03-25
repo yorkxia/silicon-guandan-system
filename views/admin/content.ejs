@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>内容管理 | Content Management</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = 'content'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1>✏️ 内容管理 · Content Management</h1>
+      <a href="/" target="_blank" class="abtn abtn-blue">🌐 预览网站 · Preview Site</a>
+    </div>
+
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap"><% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %></div>
+    <% } %>
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap"><% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %></div>
+    <% } %>
+
+    <div style="background:#FEF9E7; border-radius:8px; padding:12px 18px; margin-bottom:22px; font-size:0.85rem; color:#9A7D0A; border-left:4px solid #D4AC0D">
+      <strong>📝 说明 · How it works:</strong>
+      编辑各页面的中英文文字内容，保存后立即在网站上生效。微信支付码可直接上传图片。
+      Edit text content for each page — changes take effect immediately. WeChat QR code can be uploaded as an image.
+    </div>
+
+    <%
+    const pages = {};
+    content.forEach(function(c) {
+      if (!pages[c.page]) pages[c.page] = [];
+      pages[c.page].push(c);
+    });
+    const pageNames = { home: '首页 · Home Page', register: '报名页 · Register Page' };
+    %>
+
+    <% Object.keys(pages).forEach(function(pageName) { %>
+      <div class="a-card">
+        <h2>📄 <%= pageNames[pageName] || pageName %></h2>
+
+        <% pages[pageName].forEach(function(item) { %>
+          <div class="content-item">
+            <div class="content-item-head">
+              <span class="content-key">{{ <%= item.key_name %> }}</span>
+              <span class="content-page-tag"><%= pageName %></span>
+            </div>
+
+            <% if (item.key_name === 'wechat_qr') { %>
+              <!-- Special: WeChat QR Code Upload -->
+              <form action="/admin/content/<%= item.id %>" method="POST" id="wechat-qr-form-<%= item.id %>">
+                <input type="hidden" name="value_en" value="">
+                <input type="hidden" name="value_zh" id="wechat-qr-data-<%= item.id %>" value="<%= item.value_zh || '' %>">
+
+                <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+                  <!-- Current QR preview -->
+                  <div style="text-align:center;">
+                    <div style="font-size:0.8rem; color:#888; margin-bottom:8px;">当前二维码 · Current QR Code</div>
+                    <% if (item.value_zh && item.value_zh.startsWith('data:')) { %>
+                      <img id="wechat-preview-<%= item.id %>" src="<%= item.value_zh %>"
+                        alt="微信支付码" style="width:150px; height:150px; object-fit:contain; border:2px solid #07C160; border-radius:10px; display:block;">
+                    <% } else { %>
+                      <div id="wechat-preview-<%= item.id %>" style="width:150px; height:150px; background:#F5F5F5; border:2px dashed #CCC; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#AAA; font-size:0.8rem; text-align:center; line-height:1.5;">
+                        暂无二维码<br>No QR Code
+                      </div>
+                    <% } %>
+                  </div>
+
+                  <!-- Upload controls -->
+                  <div style="flex:1; min-width:220px;">
+                    <div style="font-size:0.8rem; color:#888; margin-bottom:8px;">上传新二维码 · Upload New QR Code</div>
+
+                    <label style="display:block; cursor:pointer;">
+                      <div style="border:2px dashed #07C160; border-radius:8px; padding:18px 20px; text-align:center; background:#F0FFF4; transition:all 0.2s;" id="qr-drop-<%= item.id %>">
+                        <div style="font-size:2rem; margin-bottom:6px;">📷</div>
+                        <div style="font-size:0.88rem; color:#07C160; font-weight:600;">点击上传图片 · Click to Upload</div>
+                        <div style="font-size:0.75rem; color:#888; margin-top:4px;">支持 JPG / PNG / GIF</div>
+                      </div>
+                      <input type="file" accept="image/*" style="display:none;" onchange="onQrUpload(this, '<%= item.id %>')">
+                    </label>
+
+                    <div style="margin-top:12px; font-size:0.8rem; color:#888; line-height:1.6;">
+                      💡 上传后点击"保存"即可在报名页显示微信支付码。<br>
+                      Upload image, then click Save to display on the registration page.
+                    </div>
+
+                    <% if (item.value_zh && item.value_zh.startsWith('data:')) { %>
+                      <button type="button" onclick="clearQr('<%= item.id %>')" class="abtn abtn-danger" style="margin-top:10px; font-size:0.8rem;">
+                        🗑️ 清除二维码 · Clear QR
+                      </button>
+                    <% } %>
+                  </div>
+                </div>
+
+                <div style="text-align:right; margin-top:14px;">
+                  <p style="font-size:0.76rem; color:#aaa; display:inline-block; margin-right:12px;">
+                    更新于: <%= new Date(item.updated_at).toLocaleString('zh-CN') %>
+                  </p>
+                  <button type="submit" class="abtn abtn-primary">💾 保存发布 · Save & Publish</button>
+                </div>
+              </form>
+
+            <% } else { %>
+              <!-- Regular text content -->
+              <form action="/admin/content/<%= item.id %>" method="POST">
+                <div class="form-row">
+                  <div class="a-form-group" style="margin-bottom:10px">
+                    <label style="font-size:0.8rem; color:#888; margin-bottom:3px">🇨🇳 中文内容 · Chinese</label>
+                    <% if (item.value_zh && item.value_zh.length > 80) { %>
+                      <textarea name="value_zh" class="a-input" style="min-height:70px"><%= item.value_zh %></textarea>
+                    <% } else { %>
+                      <input type="text" name="value_zh" class="a-input" value="<%= item.value_zh || '' %>">
+                    <% } %>
+                  </div>
+                  <div class="a-form-group" style="margin-bottom:10px">
+                    <label style="font-size:0.8rem; color:#888; margin-bottom:3px">🇺🇸 English Content</label>
+                    <% if (item.value_en && item.value_en.length > 80) { %>
+                      <textarea name="value_en" class="a-input" style="min-height:70px"><%= item.value_en %></textarea>
+                    <% } else { %>
+                      <input type="text" name="value_en" class="a-input" value="<%= item.value_en || '' %>">
+                    <% } %>
+                  </div>
+                </div>
+                <div style="text-align:right; margin-top:-4px">
+                  <p style="font-size:0.76rem; color:#aaa; display:inline-block; margin-right:12px">
+                    更新于: <%= new Date(item.updated_at).toLocaleString('zh-CN') %>
+                  </p>
+                  <button type="submit" class="abtn abtn-primary">💾 保存发布 · Save & Publish</button>
+                </div>
+              </form>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% }) %>
+  </main>
+</div>
+
+<script>
+function onQrUpload(input, itemId) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    alert('图片不能超过 2MB | Image must be under 2MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const base64 = e.target.result;
+    // Update hidden input
+    document.getElementById('wechat-qr-data-' + itemId).value = base64;
+    // Update preview
+    const preview = document.getElementById('wechat-preview-' + itemId);
+    if (preview.tagName === 'IMG') {
+      preview.src = base64;
+    } else {
+      const img = document.createElement('img');
+      img.src = base64;
+      img.alt = '微信支付码';
+      img.style.cssText = 'width:150px;height:150px;object-fit:contain;border:2px solid #07C160;border-radius:10px;display:block;';
+      preview.replaceWith(img);
+      img.id = 'wechat-preview-' + itemId;
+    }
+    // Update drop zone
+    const drop = document.getElementById('qr-drop-' + itemId);
+    drop.style.borderColor = '#07C160';
+    drop.innerHTML = '<div style="font-size:1.5rem">✅</div><div style="font-size:0.85rem;color:#07C160;font-weight:600">图片已选择，点击保存发布</div><div style="font-size:0.75rem;color:#888;margin-top:4px">Image selected — click Save</div>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearQr(itemId) {
+  if (!confirm('确认清除微信支付码？\nClear WeChat QR code?')) return;
+  document.getElementById('wechat-qr-data-' + itemId).value = '';
+  document.getElementById('wechat-qr-form-' + itemId).submit();
+}
+</script>
+
+</body>
+</html>

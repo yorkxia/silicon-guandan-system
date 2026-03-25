@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>报名名单 | Registrations</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = ''; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <div>
+        <h1>👥 报名名单 · Registrations</h1>
+        <p style="font-size:0.85rem; color:#666; margin-top:4px">
+          <strong style="color:#641E16"><%= tournament.title_zh %></strong>
+          &nbsp;·&nbsp; <%= tournament.title_en %>
+        </p>
+      </div>
+      <div style="display:flex; gap:10px">
+        <a href="/admin/tournaments/<%= tournament.id %>/export" class="abtn abtn-success">📥 导出Excel · Export</a>
+        <a href="/admin/dashboard" class="abtn abtn-grey">← 返回 · Back</a>
+      </div>
+    </div>
+
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap"><% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %></div>
+    <% } %>
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap"><% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %></div>
+    <% } %>
+
+    <!-- Stats bar -->
+    <div style="display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap">
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #C0392B">
+        <div style="font-size:1.8rem; font-weight:900; color:#641E16"><%= registrations.length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">总报名 · Total</div>
+      </div>
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #27AE60">
+        <div style="font-size:1.8rem; font-weight:900; color:#1E8449"><%= registrations.filter(function(r){ return r.payment_confirmed; }).length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">已付款 · Paid</div>
+      </div>
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #2980B9">
+        <div style="font-size:1.8rem; font-weight:900; color:#1A5276"><%= registrations.filter(function(r){ return r.partner_name; }).length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">有队友 · With Partner</div>
+      </div>
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #D4AC0D">
+        <div style="font-size:1.8rem; font-weight:900; color:#9A7D0A"><%= registrations.filter(function(r){ return !r.partner_name && r.random_partner; }).length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">随机配队 · Random</div>
+      </div>
+    </div>
+
+    <div class="a-card">
+      <h2>
+        报名记录 · Registration Records
+        <span style="font-size:0.82rem; font-weight:400; color:#888">
+          🔒 个人信息已加密存储 · Encrypted
+        </span>
+      </h2>
+
+      <% if (registrations.length === 0) { %>
+        <div style="text-align:center; padding:40px; color:#999">
+          暂无报名记录 | No registrations yet
+        </div>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>姓名 · Name</th>
+                <th>电话 · Phone</th>
+                <th>邮箱 · Email</th>
+                <th>参赛队名 · Team</th>
+                <th>队友 · Partner</th>
+                <th>随机配队 · Random</th>
+                <th>报名时间 · Date</th>
+                <th>付款 · Payment</th>
+                <th>操作 · Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% registrations.forEach(function(r, i) { %>
+                <tr>
+                  <td style="color:#999; font-size:0.82rem"><%= i + 1 %></td>
+                  <td><strong><%= r.name %></strong></td>
+                  <td><%= r.phone %></td>
+                  <td style="color:#666; font-size:0.83rem"><%= r.email || '—' %></td>
+                  <td style="font-size:0.85rem">
+                    <% if (r.team_name) { %>
+                      <span style="background:#FEF9E7; border:1px solid #D4AC0D; padding:2px 8px; border-radius:4px; font-size:0.8rem; color:#9A7D0A">🃏 <%= r.team_name %></span>
+                    <% } else { %>
+                      <span style="color:#ccc">—</span>
+                    <% } %>
+                  </td>
+                  <td style="font-size:0.85rem">
+                    <% if (r.partner_name) { %>
+                      <span style="color:#1A5276"><%= r.partner_name %></span>
+                    <% } else { %>
+                      <span style="color:#999; font-size:0.8rem">单人报名</span>
+                    <% } %>
+                  </td>
+                  <td style="font-size:0.85rem; text-align:center">
+                    <% if (!r.partner_name) { %>
+                      <% if (r.random_partner) { %>
+                        <span class="badge badge-active">✅ 愿意</span>
+                      <% } else { %>
+                        <span class="badge badge-closed">❌ 不愿意</span>
+                      <% } %>
+                    <% } else { %>
+                      <span style="color:#ccc">—</span>
+                    <% } %>
+                  </td>
+                  <td style="font-size:0.8rem; color:#888">
+                    <%= new Date(r.created_at).toLocaleString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) %>
+                  </td>
+                  <td>
+                    <% if (r.payment_confirmed) { %>
+                      <span class="badge badge-paid">✅ 已确认</span>
+                    <% } else { %>
+                      <span class="badge badge-pending">⏳ 待确认</span>
+                    <% } %>
+                  </td>
+                  <td>
+                    <div style="display:flex; gap:5px">
+                      <form action="/admin/registrations/<%= r.id %>/payment" method="POST">
+                        <button type="submit" class="abtn <%= r.payment_confirmed ? 'abtn-warning' : 'abtn-success' %>">
+                          <%= r.payment_confirmed ? '↩️ 取消' : '✅ 付款' %>
+                        </button>
+                      </form>
+                      <form action="/admin/registrations/<%= r.id %>/delete" method="POST" onsubmit="return confirm('确认删除？\nDelete?')">
+                        <button type="submit" class="abtn abtn-danger">🗑️</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

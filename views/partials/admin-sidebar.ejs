@@ -1,0 +1,58 @@
+<aside class="a-sidebar">
+  <div class="a-sidebar-logo">
+    <%- include('./logo') %>
+    <div class="site-name">
+      掼蛋联赛
+      <small>Admin Portal</small>
+    </div>
+  </div>
+
+  <nav class="a-nav">
+    <div class="a-nav-sec-title">主要 · Main</div>
+    <a href="/admin/dashboard" class="a-link <%= locals.activePage === 'dashboard' ? 'active' : '' %>">
+      <span class="li">📊</span> 控制台 · Dashboard
+    </a>
+
+    <div class="a-nav-sec-title" style="margin-top:10px">赛事管理 · Tournaments</div>
+    <a href="/admin/dashboard" class="a-link">
+      <span class="li">🏆</span> 所有赛事 · All Tournaments
+    </a>
+    <a href="/admin/tournaments/new" class="a-link <%= locals.activePage === 'new-tournament' ? 'active' : '' %>">
+      <span class="li">➕</span> 新建赛事 · New Tournament
+    </a>
+
+    <div class="a-nav-sec-title" style="margin-top:10px">系统 · System</div>
+    <a href="/admin/content" class="a-link <%= locals.activePage === 'content' ? 'active' : '' %>">
+      <span class="li">✏️</span> 内容管理 · Content
+    </a>
+    <% if (user && user.is_super_admin) { %>
+    <a href="/admin/users" class="a-link <%= locals.activePage === 'users' ? 'active' : '' %>">
+      <span class="li">👥</span> 用户管理 · Users
+    </a>
+    <% } %>
+    <a href="/admin/settings" class="a-link <%= locals.activePage === 'settings' ? 'active' : '' %>">
+      <span class="li">🔒</span> 密码设置 · Password
+    </a>
+
+    <div style="margin-top:16px; padding: 0 18px;">
+      <a href="/" class="a-link" style="padding-left:0; color:rgba(255,255,255,0.45); font-size:0.8rem;">
+        <span class="li">🌐</span> 返回网站 · View Site
+      </a>
+    </div>
+  </nav>
+
+  <div class="a-sidebar-foot">
+    <div class="a-user-info">
+      登录为 · Logged in as:<br>
+      <strong><%= user ? user.username : '' %></strong>
+      <% if (user && user.is_super_admin) { %>
+        <span class="badge badge-super" style="margin-left:5px;font-size:0.65rem;">超管 Super</span>
+      <% } %>
+    </div>
+    <form action="/admin/logout" method="POST">
+      <button type="submit" class="abtn abtn-grey" style="width:100%;justify-content:center;">
+        🚪 退出 · Logout
+      </button>
+    </form>
+  </div>
+</aside>
