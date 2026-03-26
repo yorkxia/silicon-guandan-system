@@ -1,7 +1,3 @@
-// Suppress experimental SQLite warning (Node.js built-in sqlite module)
-process.removeAllListeners('warning');
-process.on('warning', (w) => { if (!w.message.includes('SQLite')) process.stderr.write(w.toString() + '\n'); });
-
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
