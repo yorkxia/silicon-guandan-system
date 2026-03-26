@@ -1,34 +1,40 @@
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'guandan.db');
-let db;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
 
-function getDB() {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.exec('PRAGMA journal_mode = WAL');
-    db.exec('PRAGMA foreign_keys = ON');
+async function query(sql, params = []) {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(sql, params);
+    return result.rows;
+  } finally {
+    client.release();
   }
-  return db;
 }
 
-function initDB() {
-  const db = getDB();
+async function queryOne(sql, params = []) {
+  const rows = await query(sql, params);
+  return rows[0] || null;
+}
 
-  db.exec(`
+async function initDB() {
+  await query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      is_super_admin INTEGER DEFAULT 0,
-      is_locked INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
+      is_super_admin SMALLINT DEFAULT 0,
+      is_locked SMALLINT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS tournaments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title_zh TEXT NOT NULL,
       title_en TEXT NOT NULL,
       description_zh TEXT DEFAULT '',
@@ -41,35 +47,42 @@ function initDB() {
       venmo TEXT DEFAULT '@yorkxia',
       status TEXT DEFAULT 'active',
       created_by INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      wechat_qr TEXT DEFAULT '',
+      wechat_note TEXT DEFAULT ''
+    )
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS registrations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL,
       name_enc TEXT NOT NULL,
       phone_enc TEXT NOT NULL,
       email_enc TEXT,
-      payment_confirmed INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
+      payment_confirmed SMALLINT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      team_name_enc TEXT,
+      partner_name_enc TEXT,
+      random_partner SMALLINT DEFAULT 0
+    )
+  `);
+  await query(`
     CREATE TABLE IF NOT EXISTS page_content (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       page TEXT NOT NULL,
       key_name TEXT NOT NULL,
       value_zh TEXT,
       value_en TEXT,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(page, key_name)
-    );
+    )
   `);
 
   // Default admin
-  const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
+  const adminExists = await queryOne('SELECT id FROM users WHERE username = $1', ['admin']);
   if (!adminExists) {
     const hash = bcrypt.hashSync('Admin2025!', 12);
-    db.prepare('INSERT INTO users (username, password_hash, is_super_admin) VALUES (?, ?, 1)').run('admin', hash);
+    await query('INSERT INTO users (username, password_hash, is_super_admin) VALUES ($1, $2, 1)', ['admin', hash]);
     console.log('✅ Default admin created: admin / Admin2025!');
   }
 
@@ -87,25 +100,13 @@ function initDB() {
     { page: 'register', key: 'wechat_note', zh: '或通过微信扫码支付 $10 报名费，请在备注中注明您的姓名和赛事名称。', en: 'Or scan the WeChat QR code to pay $10. Include your name and tournament name in the payment note.' },
     { page: 'register', key: 'wechat_qr', zh: '', en: '' },
   ];
-
-  const ins = db.prepare('INSERT OR IGNORE INTO page_content (page, key_name, value_zh, value_en) VALUES (?, ?, ?, ?)');
   for (const c of defaultContent) {
-    ins.run(c.page, c.key, c.zh, c.en);
+    await query(
+      'INSERT INTO page_content (page, key_name, value_zh, value_en) VALUES ($1, $2, $3, $4) ON CONFLICT (page, key_name) DO NOTHING',
+      [c.page, c.key, c.zh, c.en]
+    );
   }
-
-  // Add new columns to registrations if they don't exist yet (migration)
-  const newCols = [
-    'ALTER TABLE registrations ADD COLUMN team_name_enc TEXT',
-    'ALTER TABLE registrations ADD COLUMN partner_name_enc TEXT',
-    'ALTER TABLE registrations ADD COLUMN random_partner INTEGER DEFAULT 0',
-    'ALTER TABLE tournaments ADD COLUMN wechat_qr TEXT DEFAULT \'\'',
-    'ALTER TABLE tournaments ADD COLUMN wechat_note TEXT DEFAULT \'\'',
-  ];
-  for (const sql of newCols) {
-    try { db.exec(sql); } catch (e) { /* column already exists, skip */ }
-  }
-
   console.log('✅ Database initialized');
 }
 
-module.exports = { getDB, initDB };
+module.exports = { query, queryOne, initDB };
