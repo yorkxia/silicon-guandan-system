@@ -5,6 +5,7 @@ const ExcelJS = require('exceljs');
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
+const { sendPaymentConfirmation } = require('../utils/email');
 
 function canAccessTournament(user, tournament) {
   if (!tournament) return false;
@@ -179,8 +180,22 @@ router.post('/registrations/:id/payment', requireAuth, async (req, res) => {
       req.flash('error', '无权操作 | Access denied');
       return res.redirect('/admin/dashboard');
     }
-    await query('UPDATE registrations SET payment_confirmed = $1 WHERE id = $2', [reg.payment_confirmed ? 0 : 1, req.params.id]);
-    res.redirect('back');
+    const newStatus = reg.payment_confirmed ? 0 : 1;
+    await query('UPDATE registrations SET payment_confirmed = $1 WHERE id = $2', [newStatus, req.params.id]);
+
+    if (newStatus === 1) {
+      const name = decrypt(reg.name_enc);
+      const email = reg.email_enc ? decrypt(reg.email_enc) : null;
+      req.flash('success', `✅ 已确认 ${name} 的付款 | Payment confirmed for ${name}`);
+      sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.name }).catch(err => {
+        console.error('Email send error:', err.message);
+      });
+    } else {
+      const name = decrypt(reg.name_enc);
+      req.flash('success', `↩️ 已取消 ${name} 的付款确认 | Payment uncofirmed for ${name}`);
+    }
+
+    res.redirect(`/admin/tournaments/${reg.tournament_id}/registrations`);
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
