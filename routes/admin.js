@@ -187,12 +187,23 @@ router.post('/registrations/:id/payment', requireAuth, async (req, res) => {
       const name = decrypt(reg.name_enc);
       const email = reg.email_enc ? decrypt(reg.email_enc) : null;
       req.flash('success', `✅ 已确认 ${name} 的付款 | Payment confirmed for ${name}`);
-      sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.name }).catch(err => {
-        console.error('Email send error:', err.message);
-      });
+      if (!email) {
+        req.flash('error', `⚠️ ${name} 未填写邮箱，无法发送通知邮件 | No email on file for ${name}`);
+      } else if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        req.flash('error', '⚠️ SMTP 未配置，通知邮件未发送 | SMTP not configured, email not sent');
+        console.error('Email skipped: SMTP env vars not set');
+      } else {
+        try {
+          await sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.name });
+          req.flash('success', `📧 通知邮件已发送至 ${email}`);
+        } catch (err) {
+          console.error('Email send error:', err.message);
+          req.flash('error', `⚠️ 邮件发送失败: ${err.message}`);
+        }
+      }
     } else {
       const name = decrypt(reg.name_enc);
-      req.flash('success', `↩️ 已取消 ${name} 的付款确认 | Payment uncofirmed for ${name}`);
+      req.flash('success', `↩️ 已取消 ${name} 的付款确认 | Payment unconfirmed for ${name}`);
     }
 
     res.redirect(`/admin/tournaments/${reg.tournament_id}/registrations`);
