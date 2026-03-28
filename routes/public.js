@@ -65,15 +65,32 @@ router.post('/register/:id', async (req, res) => {
         random_partner ? 1 : 0
       ]
     );
-    res.redirect('/success?status=ok');
+    res.redirect(`/success?status=ok&tid=${req.params.id}`);
   } catch (e) {
     console.error(e);
     res.status(500).send('Server Error');
   }
 });
 
-router.get('/success', (req, res) => {
-  res.render('success', { status: req.query.status });
+router.get('/success', async (req, res) => {
+  try {
+    const tid = req.query.tid;
+    let tournamentName = '';
+    let venmo = '@yorkxia';
+    let fee = 10;
+    if (tid) {
+      const t = await queryOne('SELECT * FROM tournaments WHERE id = $1', [tid]);
+      if (t) {
+        tournamentName = t.name;
+        venmo = t.venmo || venmo;
+        fee = t.fee || fee;
+      }
+    }
+    res.render('success', { status: req.query.status, tournament: tournamentName, venmo, fee });
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('Server Error');
+  }
 });
 
 module.exports = router;
