@@ -1,32 +1,21 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-let transporter = null;
+let client = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  return transporter;
+function getClient() {
+  if (client) return client;
+  if (!process.env.RESEND_API_KEY) return null;
+  client = new Resend(process.env.RESEND_API_KEY);
+  return client;
 }
 
-/**
- * Send payment confirmation email to registrant.
- * Silently skips if SMTP is not configured.
- */
 async function sendPaymentConfirmation({ toEmail, toName, tournamentName }) {
-  const t = getTransporter();
-  if (!t || !toEmail) return;
+  const resend = getClient();
+  if (!resend || !toEmail) return;
 
-  const from = process.env.EMAIL_FROM || process.env.SMTP_USER;
-  await t.sendMail({
+  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+  await resend.emails.send({
     from,
     to: toEmail,
     subject: `【报名确认】${tournamentName} · Registration Confirmed`,

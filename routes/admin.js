@@ -201,9 +201,9 @@ router.post('/registrations/:id/payment', requireAuth, async (req, res) => {
       req.flash('success', `✅ 已确认 ${name} 的付款 | Payment confirmed for ${name}`);
       if (!email) {
         req.flash('error', `⚠️ ${name} 未填写邮箱，无法发送通知邮件 | No email on file for ${name}`);
-      } else if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        req.flash('error', '⚠️ SMTP 未配置，通知邮件未发送 | SMTP not configured, email not sent');
-        console.error('Email skipped: SMTP_HOST=' + process.env.SMTP_HOST + ' SMTP_USER=' + process.env.SMTP_USER + ' SMTP_PASS=' + (process.env.SMTP_PASS ? 'set' : 'missing'));
+      } else if (!process.env.RESEND_API_KEY) {
+        req.flash('error', '⚠️ 邮件服务未配置，通知邮件未发送 | Email service not configured');
+        console.error('Email skipped: RESEND_API_KEY not set');
       } else {
         req.flash('success', `📧 通知邮件正在发送至 ${email}`);
         sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.name })
