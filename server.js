@@ -42,7 +42,9 @@ initDB().then(() => {
     console.log(`\n✅ 掼蛋比赛系统已启动 | Guandan Tournament System running`);
     console.log(`   访问地址 URL: http://localhost:${PORT}`);
     console.log(`   管理后台 Admin: http://localhost:${PORT}/admin/login`);
-    console.log(`   默认账号 Default: admin / Admin2025!\n`);
+    console.log(`   默认账号 Default: admin / Admin2025!`);
+    console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ set' : '❌ NOT SET'}`);
+    console.log(`   EMAIL_FROM: ${process.env.EMAIL_FROM || '(not set)'}\n`);
   });
 }).catch(err => {
   console.error('❌ Database init failed:', err);
