@@ -13,6 +13,18 @@ function canAccessTournament(user, tournament) {
   return tournament.created_by === user.id;
 }
 
+// ============ SMTP DEBUG (temporary) ============
+router.get('/smtp-check', requireAuth, (req, res) => {
+  res.json({
+    SMTP_HOST: process.env.SMTP_HOST || '(not set)',
+    SMTP_PORT: process.env.SMTP_PORT || '(not set)',
+    SMTP_SECURE: process.env.SMTP_SECURE || '(not set)',
+    SMTP_USER: process.env.SMTP_USER || '(not set)',
+    SMTP_PASS: process.env.SMTP_PASS ? '(set, length=' + process.env.SMTP_PASS.length + ')' : '(not set)',
+    EMAIL_FROM: process.env.EMAIL_FROM || '(not set)',
+  });
+});
+
 // ============ AUTH ============
 
 router.get('/login', (req, res) => {
