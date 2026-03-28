@@ -45,7 +45,7 @@ router.post('/register/:id', async (req, res) => {
     if (!tournament) return res.redirect('/');
 
     const { name, phone, email, team_name, partner_name, random_partner } = req.body;
-    if (!name || !phone) return res.redirect(`/register/${req.params.id}`);
+    if (!name || !phone || !email) return res.redirect(`/register/${req.params.id}`);
 
     const regCount = await queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]);
     if (parseInt(regCount.c) >= tournament.max_participants) {
