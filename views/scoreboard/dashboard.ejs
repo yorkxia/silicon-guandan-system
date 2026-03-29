@@ -103,10 +103,15 @@
           <div style="overflow-y:auto; max-height:320px">
             <table class="a-table" style="font-size:0.78rem">
               <thead>
-                <tr><th>状态</th><th>时间</th><th>国家</th><th>地区</th><th>城市</th></tr>
+                <tr><th>状态</th><th>来源</th><th>时间</th><th>国家</th><th>地区</th><th>城市</th></tr>
               </thead>
               <tbody>
                 <% recentVisits.forEach(function(v) { %>
+                  <%
+                    var ua = v.user_agent || '';
+                    var isWeChat = /MicroMessenger/i.test(ua);
+                    var isMobile = /Mobile|Android|iPhone|iPad/i.test(ua);
+                  %>
                   <tr style="<%= v.is_active ? 'background:rgba(76,175,80,0.05)' : '' %>">
                     <td>
                       <% if (v.is_active) { %>
@@ -115,6 +120,17 @@
                         <span style="display:inline-flex;align-items:center;font-size:0.72rem;color:#555">
                           <span class="online-dot offline"></span>离线
                         </span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <% if (isWeChat) { %>
+                        <span style="display:inline-flex;align-items:center;gap:3px;background:rgba(7,193,96,0.15);border:1px solid rgba(7,193,96,0.4);border-radius:8px;padding:1px 7px;font-size:0.72rem;color:#07c160;font-weight:700;white-space:nowrap">
+                          💬 微信
+                        </span>
+                      <% } else if (isMobile) { %>
+                        <span style="font-size:0.72rem;color:#888">📱 手机</span>
+                      <% } else { %>
+                        <span style="font-size:0.72rem;color:#555">🖥 网页</span>
                       <% } %>
                     </td>
                     <td><%= new Date(v.visited_at).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) %></td>
