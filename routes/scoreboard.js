@@ -10,15 +10,24 @@ function ipHash(ip) {
   return crypto.createHash('sha256').update(ip + 'sbsalt2026').digest('hex').slice(0, 16);
 }
 
+// 内存缓存：同一 IP 1小时内只查一次，避免 ipapi.co 每日1000次限额耗尽
+const geoCache = new Map();
+
 async function geoLocate(ip) {
   // 本地/内网 IP 直接返回 GLOBAL
   if (!ip || ip === '::1' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
     return { country: 'LOCAL', region_code: 'GLOBAL', city: 'Local' };
   }
+  // 命中缓存直接返回
+  const cached = geoCache.get(ip);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
   try {
     const fetch = (await import('node-fetch')).default;
-    const res = await fetch(`https://ipapi.co/${ip}/json/`, { timeout: 3000 });
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, { timeout: 4000 });
     const data = await res.json();
+    // ipapi.co 限流时返回 {error:true, reason:"RateLimited"}
+    if (data.error) throw new Error(data.reason || 'geo error');
     const country = data.country_code || 'GLOBAL';
     const city = data.city || '';
     let region_code = 'GLOBAL';
@@ -41,8 +50,17 @@ async function geoLocate(ip) {
     } else if (country === 'CN') region_code = 'CN';
     else if (country === 'TW') region_code = 'TW';
     else if (country === 'HK') region_code = 'HK';
-    return { country, region_code, city };
+    const result = { country, region_code, city };
+    // 写入缓存，有效期1小时；缓存超 5000 条时清除最旧一半
+    if (geoCache.size > 5000) {
+      const half = [...geoCache.keys()].slice(0, 2500);
+      half.forEach(k => geoCache.delete(k));
+    }
+    geoCache.set(ip, { data: result, expires: Date.now() + 3600_000 });
+    return result;
   } catch {
+    // 限流或网络错误：优先复用旧缓存（即使已过期），否则返回 GLOBAL
+    if (cached) return cached.data;
     return { country: 'GLOBAL', region_code: 'GLOBAL', city: '' };
   }
 }
