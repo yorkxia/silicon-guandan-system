@@ -158,12 +158,22 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
 
     if (u.role === 'admin') {
       visitStats = await query(`
-        SELECT region_code, COUNT(*) as cnt
+        SELECT region_code, COUNT(*) as cnt,
+          COUNT(DISTINCT CASE WHEN visited_at >= NOW() - INTERVAL '5 minutes' THEN ip_hash END) as online_cnt
         FROM sb_visits WHERE visited_at >= NOW() - INTERVAL '30 days'
         GROUP BY region_code ORDER BY cnt DESC
       `);
       adStats = await queryOne('SELECT COUNT(*) as total, SUM(impressions) as imp, SUM(clicks) as clk FROM sb_ads WHERE is_active = 1');
-      recentVisits = await query('SELECT * FROM sb_visits ORDER BY visited_at DESC LIMIT 20');
+      recentVisits = await query(`
+        SELECT v.*,
+          CASE WHEN EXISTS (
+            SELECT 1 FROM sb_visits v2
+            WHERE v2.ip_hash = v.ip_hash
+              AND v2.visited_at >= NOW() - INTERVAL '5 minutes'
+          ) THEN true ELSE false END AS is_active
+        FROM sb_visits v
+        ORDER BY is_active DESC, v.visited_at DESC LIMIT 30
+      `);
       regions = await query('SELECT * FROM sb_regions ORDER BY country, area_code');
     } else {
       // 区域用户：只看自己管辖的区域
@@ -175,14 +185,23 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
       regions = userRegions;
       if (codes.length > 0) {
         visitStats = await query(`
-          SELECT region_code, COUNT(*) as cnt FROM sb_visits
+          SELECT region_code, COUNT(*) as cnt,
+            COUNT(DISTINCT CASE WHEN visited_at >= NOW() - INTERVAL '5 minutes' THEN ip_hash END) as online_cnt
+          FROM sb_visits
           WHERE region_code = ANY($1) AND visited_at >= NOW() - INTERVAL '30 days'
           GROUP BY region_code ORDER BY cnt DESC
         `, [codes]);
-        recentVisits = await query(
-          'SELECT * FROM sb_visits WHERE region_code = ANY($1) ORDER BY visited_at DESC LIMIT 20',
-          [codes]
-        );
+        recentVisits = await query(`
+          SELECT v.*,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM sb_visits v2
+              WHERE v2.ip_hash = v.ip_hash
+                AND v2.visited_at >= NOW() - INTERVAL '5 minutes'
+            ) THEN true ELSE false END AS is_active
+          FROM sb_visits v
+          WHERE v.region_code = ANY($1)
+          ORDER BY is_active DESC, v.visited_at DESC LIMIT 30
+        `, [codes]);
         adStats = await queryOne(
           'SELECT COUNT(*) as total, SUM(impressions) as imp, SUM(clicks) as clk FROM sb_ads WHERE is_active = 1 AND region_id IN (SELECT id FROM sb_regions WHERE area_code = ANY($1))',
           [codes]
@@ -197,7 +216,13 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
         : 'SELECT COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - INTERVAL \'30 days\' AND region_code = ANY($1)',
       u.role === 'admin' ? [] : [(await query('SELECT area_code FROM sb_regions r JOIN sb_user_regions ur ON ur.region_id=r.id WHERE ur.user_id=$1',[u.id])).map(r=>r.area_code)]
     );
-    res.render('scoreboard/dashboard', { sbUser: u, visitStats, adStats, recentVisits, regions, totalVisits30d });
+    const onlineTotal = await queryOne(
+      u.role === 'admin'
+        ? `SELECT COUNT(DISTINCT ip_hash) as cnt FROM sb_visits WHERE visited_at >= NOW() - INTERVAL '5 minutes'`
+        : `SELECT COUNT(DISTINCT ip_hash) as cnt FROM sb_visits WHERE visited_at >= NOW() - INTERVAL '5 minutes' AND region_code = ANY($1)`,
+      u.role === 'admin' ? [] : [(await query('SELECT area_code FROM sb_regions r JOIN sb_user_regions ur ON ur.region_id=r.id WHERE ur.user_id=$1',[u.id])).map(r=>r.area_code)]
+    );
+    res.render('scoreboard/dashboard', { sbUser: u, visitStats, adStats, recentVisits, regions, totalVisits30d, onlineTotal });
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
