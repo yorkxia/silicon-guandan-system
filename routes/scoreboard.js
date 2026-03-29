@@ -280,6 +280,29 @@ router.post('/ads/add', requireSbAuth, async (req, res) => {
   res.redirect('/scoreboard/ads');
 });
 
+router.post('/ads/:id/edit', requireSbAuth, async (req, res) => {
+  const u = req.session.sbUser;
+  const { title, content_type, content_text, content_url, link_url, region_id, start_time, end_time, frequency_minutes } = req.body;
+  if (!title) { req.flash('error', '请填写广告标题'); return res.redirect('/scoreboard/ads'); }
+  // 区域用户只能编辑自己区域的广告
+  if (u.role !== 'admin') {
+    const ad = await queryOne('SELECT * FROM sb_ads WHERE id = $1', [req.params.id]);
+    if (!ad || (ad.region_id && !await queryOne('SELECT 1 FROM sb_user_regions WHERE user_id=$1 AND region_id=$2', [u.id, ad.region_id]))) {
+      req.flash('error', '无权操作该广告'); return res.redirect('/scoreboard/ads');
+    }
+  }
+  const freqMin = frequency_minutes && parseInt(frequency_minutes) > 0 ? parseInt(frequency_minutes) : null;
+  await query(
+    `UPDATE sb_ads SET title=$1, content_type=$2, content_text=$3, content_url=$4,
+     link_url=$5, region_id=$6, start_time=$7, end_time=$8, frequency_minutes=$9,
+     is_active=1 WHERE id=$10`,
+    [title, content_type || 'text', content_text || '', content_url || '', link_url || '',
+     region_id || null, start_time || null, end_time || null, freqMin, req.params.id]
+  );
+  req.flash('success', '广告已更新并重新发布');
+  res.redirect('/scoreboard/ads');
+});
+
 router.post('/ads/:id/toggle', requireSbAuth, async (req, res) => {
   const ad = await queryOne('SELECT * FROM sb_ads WHERE id = $1', [req.params.id]);
   if (ad) await query('UPDATE sb_ads SET is_active = $1 WHERE id = $2', [ad.is_active ? 0 : 1, ad.id]);
