@@ -47,6 +47,25 @@ router.get('/api/ads', async (req, res) => {
   }
 });
 
+// 管理员诊断接口：列出所有广告状态 + 调用者IP的geo结果
+router.get('/api/debug/ads', async (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+  const geo = await geoLocate(ip);
+  const allAds = await query(`
+    SELECT a.id, a.title, a.is_active, a.region_id, r.area_code,
+           a.start_time, a.end_time, a.frequency_minutes,
+           CASE
+             WHEN a.is_active = 0 THEN '⛔ 已暂停'
+             WHEN a.start_time IS NOT NULL AND a.start_time > NOW() THEN '⏳ 未到开始时间'
+             WHEN a.end_time   IS NOT NULL AND a.end_time   < NOW() THEN '⌛ 已过期'
+             ELSE '✅ 有效'
+           END as status
+    FROM sb_ads a LEFT JOIN sb_regions r ON r.id = a.region_id
+    ORDER BY a.id DESC
+  `);
+  res.json({ caller_ip: ip, geo, ads: allAds });
+});
+
 // 广告曝光追踪（客户端每次展示时调用）
 router.post('/api/ads/:id/impression', async (req, res) => {
   try {
