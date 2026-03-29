@@ -5,20 +5,20 @@
     <div style="font-size:0.8rem; color:#D4AC0D; margin-top:4px">监控系统</div>
   </div>
   <ul class="sb-nav">
-    <li class="<%= activePage === 'dashboard' ? 'active' : '' %>">
+    <li class="<%= locals.activePage ==='dashboard' ? 'active' : '' %>">
       <a href="/scoreboard/dashboard">🏠 控制台</a>
     </li>
-    <li class="<%= activePage === 'ads' ? 'active' : '' %>">
+    <li class="<%= locals.activePage ==='ads' ? 'active' : '' %>">
       <a href="/scoreboard/ads">📢 广告管理</a>
     </li>
-    <li class="<%= activePage === 'analytics' ? 'active' : '' %>">
+    <li class="<%= locals.activePage ==='analytics' ? 'active' : '' %>">
       <a href="/scoreboard/analytics">📈 流量统计</a>
     </li>
     <% if (sbUser.role === 'admin') { %>
-    <li class="<%= activePage === 'regions' ? 'active' : '' %>">
+    <li class="<%= locals.activePage ==='regions' ? 'active' : '' %>">
       <a href="/scoreboard/regions">🗺️ 区域管理</a>
     </li>
-    <li class="<%= activePage === 'users' ? 'active' : '' %>">
+    <li class="<%= locals.activePage ==='users' ? 'active' : '' %>">
       <a href="/scoreboard/users">👥 用户管理</a>
     </li>
     <% } %>
