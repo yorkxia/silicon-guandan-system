@@ -8,6 +8,7 @@ const { initDB } = require('./db/init');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const scoreboardRoutes = require('./routes/scoreboard');
+const guandanRoutes = require('./routes/guandan');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use((req, res, next) => {
 app.use('/', publicRoutes);
 app.use('/admin', adminRoutes);
 app.use('/scoreboard', scoreboardRoutes);
+app.use('/guandan', guandanRoutes);
 
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
@@ -45,6 +47,7 @@ initDB().then(() => {
     console.log(`   访问地址 URL: http://localhost:${PORT}`);
     console.log(`   管理后台 Admin: http://localhost:${PORT}/admin/login`);
     console.log(`   监控系统 Monitor: http://localhost:${PORT}/scoreboard/login`);
+    console.log(`   掼蛋计分器 Game:   http://localhost:${PORT}/guandan`);
     console.log(`   默认账号 Default: admin / Admin2025!`);
     console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ set' : '❌ NOT SET'}`);
     console.log(`   EMAIL_FROM: ${process.env.EMAIL_FROM || '(not set)'}\n`);

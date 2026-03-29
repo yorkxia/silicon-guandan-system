@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="format-detection" content="telephone=no,email=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>掼蛋计分器 · 硅谷掼蛋协会</title>
+<meta name="description" content="硅谷掼蛋协会专用计分器，支持升级计分、胜局记录、每局计时">
+<meta property="og:title" content="掼蛋计分器 · 硅谷掼蛋协会">
+<meta property="og:description" content="点击即用！升级计分 · 胜局记录 · 每局计时">
+<meta property="og:image" content="https://yorkxia.github.io/guandan-scoreboard/Gemini_Generated_Image_logoyork.png">
+<meta property="og:url" content="https://yorkxia.github.io/guandan-scoreboard/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<script>
+(function(){
+  function setVH(){document.documentElement.style.setProperty('--vh',(window.innerHeight*0.01)+'px');}
+  setVH();
+  window.addEventListener('resize',setVH);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Serif+SC:wght@400;700;900&family=Oswald:wght@600;700&display=swap" media="print" onload="this.media='all'">
+<style>
+:root{
+  --red:#D10A1E;--red-deep:#8B0000;--red-mid:#C0000F;--red-light:#FF4D5E;--red-border:#E07080;
+  --blue:#0055BB;--blue-deep:#003380;--blue-mid:#0044AA;--blue-light:#3388EE;--blue-border:#6699DD;
+  --gold:#A86800;--gold-mid:#C8860A;--gold-light:#E8A020;--divider:#B8A890;
+}
+html{height:100%;}
+*{margin:0;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;}
+body{
+  background:-webkit-linear-gradient(135deg,#FDF5E8 0%,#EAF0FC 45%,#FCE8EE 100%);
+  background:linear-gradient(150deg,#FDF5E8 0%,#EAF0FC 45%,#FCE8EE 100%);
+  min-height:100%;
+  font-family:'Noto Serif SC','PingFang SC','Hiragino Sans GB','Microsoft YaHei',serif;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  overflow-x:hidden;position:relative;
+}
+body::before{
+  content:'';position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 55% 45% at 8% 55%,rgba(209,10,30,0.09) 0%,transparent 60%),
+    radial-gradient(ellipse 55% 45% at 92% 55%,rgba(0,85,187,0.09) 0%,transparent 60%);
+}
+
+/* HEADER */
+header{
+  position:relative;z-index:1;width:100%;max-width:540px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:stretch;align-items:stretch;
+  padding:8px 12px 4px;
+  gap:10px;
+}
+.title-wrap{
+  -webkit-flex:4;flex:4;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:flex-start;align-items:flex-start;
+  -webkit-justify-content:center;justify-content:center;
+  background:-webkit-linear-gradient(150deg,#FFFDF5,#FFF8DC,#FFF0B0);
+  background:linear-gradient(150deg,#FFFDF5,#FFF8DC,#FFF0B0);
+  border:2.5px solid var(--gold-light);border-radius:20px;
+  padding:10px 14px 10px 16px;position:relative;overflow:hidden;
+  -webkit-box-shadow:0 8px 28px rgba(168,104,0,0.18),inset 0 1px 0 rgba(255,255,255,0.95);
+  box-shadow:0 8px 28px rgba(168,104,0,0.18),inset 0 1px 0 rgba(255,255,255,0.95);
+}
+.title-wrap::before{
+  content:'♠♥♦♣';
+  position:absolute;bottom:6px;right:10px;
+  font-size:10px;letter-spacing:3px;color:var(--gold-light);opacity:0.7;
+}
+.title-wrap::after{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:100px;height:100px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,200,66,0.12),transparent 70%);
+  pointer-events:none;
+}
+.title-main{
+  font-family:'Noto Serif SC','PingFang SC','Microsoft YaHei',serif;
+  font-size:19px;font-weight:900;letter-spacing:4px;color:var(--gold);
+  text-shadow:0 2px 0 rgba(255,255,255,0.9),0 4px 14px rgba(168,104,0,0.25);
+  line-height:1;white-space:nowrap;
+}
+.title-reg{
+  font-size:10px;font-weight:900;vertical-align:super;color:var(--gold-mid);
+  font-family:Georgia,serif;margin-left:1px;
+}
+.title-sub{
+  font-family:'Noto Serif SC','PingFang SC',serif;
+  font-size:11px;font-weight:700;color:var(--gold-mid);
+  margin-top:4px;letter-spacing:3px;opacity:0.90;
+}
+.title-en{
+  font-family:'Oswald','PingFang SC','Microsoft YaHei',sans-serif;
+  font-weight:700;font-size:7.5px;letter-spacing:3px;color:var(--gold-mid);margin-top:3px;opacity:0.55;
+}
+
+/* ROUND BAR */
+.round-bar{
+  position:relative;z-index:1;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  margin:8px 0 6px;
+  background:rgba(255,255,255,0.85);border:2px solid var(--divider);border-radius:24px;
+  padding:5px 22px;
+  -webkit-box-shadow:0 3px 12px rgba(0,0,0,0.07);box-shadow:0 3px 12px rgba(0,0,0,0.07);
+}
+.round-zh{font-size:12px;font-weight:700;color:#666;letter-spacing:2px;margin:0 3px;}
+.round-num{font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:900;color:var(--gold);line-height:1;margin:0 3px;}
+.round-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:10px;font-weight:600;color:#999;letter-spacing:3px;margin-left:6px;}
+
+/* BOARD */
+.board{
+  position:relative;z-index:1;
+  width:100%;max-width:540px;
+  display:-ms-grid;display:grid;
+  grid-template-columns:1fr 46px 1fr;
+  padding:0 10px;
+}
+
+/* TEAM PANEL */
+.team{
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  padding:0 6px 14px;border-radius:28px;
+  position:relative;overflow:hidden;cursor:pointer;
+  -webkit-user-select:none;user-select:none;
+  -webkit-transition:-webkit-transform 0.12s,box-shadow 0.15s;
+  transition:transform 0.12s,box-shadow 0.15s;
+}
+.team:active{-webkit-transform:scale(0.972);transform:scale(0.972);}
+.team.red{
+  background:-webkit-linear-gradient(top,#FFF3F4 0%,#FFE4E7 55%,#FFD8DC 100%);
+  background:linear-gradient(175deg,#FFF3F4 0%,#FFE4E7 55%,#FFD8DC 100%);
+  border:3px solid var(--red-border);
+  -webkit-box-shadow:0 10px 36px rgba(209,10,30,0.16),inset 0 1px 0 rgba(255,255,255,0.96);
+  box-shadow:0 10px 36px rgba(209,10,30,0.16),inset 0 1px 0 rgba(255,255,255,0.96);
+}
+.team.blue{
+  background:-webkit-linear-gradient(top,#EEF6FF 0%,#DCE9FF 55%,#D0E2FF 100%);
+  background:linear-gradient(175deg,#EEF6FF 0%,#DCE9FF 55%,#D0E2FF 100%);
+  border:3px solid var(--blue-border);
+  -webkit-box-shadow:0 10px 36px rgba(0,85,187,0.16),inset 0 1px 0 rgba(255,255,255,0.96);
+  box-shadow:0 10px 36px rgba(0,85,187,0.16),inset 0 1px 0 rgba(255,255,255,0.96);
+}
+.team-header{
+  width:100%;padding:11px 8px 9px;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  border-radius:25px 25px 0 0;margin-bottom:8px;
+}
+.team.red .team-header{background:-webkit-linear-gradient(135deg,#E8001A,#7A0000);background:linear-gradient(135deg,#E8001A,#7A0000);}
+.team.blue .team-header{background:-webkit-linear-gradient(135deg,#0044BB,#002277);background:linear-gradient(135deg,#0044BB,#002277);}
+.team-name{font-size:22px;font-weight:900;letter-spacing:6px;color:#FFF;text-shadow:0 1px 4px rgba(0,0,0,0.35);line-height:1.1;}
+.team-name-en{font-family:'Oswald','PingFang SC',sans-serif;font-weight:700;font-size:10px;letter-spacing:4px;color:rgba(255,255,255,0.65);margin-top:2px;}
+
+/* CARD */
+.card-display{
+  width:90%;height:200px;
+  border-radius:22px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  margin-bottom:10px;position:relative;
+  -webkit-transition:-webkit-transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  transition:transform 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  background:#FFFFFF;
+}
+.team.red .card-display{
+  border:3px solid var(--red-border);
+  -webkit-box-shadow:0 10px 32px rgba(209,10,30,0.22),inset 0 1px 0 #FFF;
+  box-shadow:0 10px 32px rgba(209,10,30,0.22),inset 0 1px 0 #FFF;
+}
+.team.blue .card-display{
+  border:3px solid var(--blue-border);
+  -webkit-box-shadow:0 10px 32px rgba(0,85,187,0.22),inset 0 1px 0 #FFF;
+  box-shadow:0 10px 32px rgba(0,85,187,0.22),inset 0 1px 0 #FFF;
+}
+.card-display::before{
+  content:'';position:absolute;top:7px;right:7px;bottom:7px;left:7px;
+  border-radius:16px;opacity:0.04;
+}
+.team.red .card-display::before{background:repeating-linear-gradient(45deg,var(--red) 0,var(--red) 1px,transparent 1px,transparent 8px);}
+.team.blue .card-display::before{background:repeating-linear-gradient(45deg,var(--blue) 0,var(--blue) 1px,transparent 1px,transparent 8px);}
+.card-value-wrap{
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  z-index:1;position:relative;
+}
+.card-value{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:110px;font-weight:900;line-height:0.85;
+  -webkit-transition:all 0.25s;transition:all 0.25s;text-align:center;
+}
+.team.red .card-value{color:var(--red);text-shadow:0 4px 20px rgba(209,10,30,0.38);}
+.team.blue .card-value{color:var(--blue);text-shadow:0 4px 20px rgba(0,85,187,0.38);}
+.card-sub{
+  font-family:'Oswald','PingFang SC',sans-serif;font-weight:700;
+  font-size:14px;letter-spacing:3px;margin-top:2px;opacity:0;
+  -webkit-transition:opacity 0.25s;transition:opacity 0.25s;
+}
+.card-sub.show{opacity:1;}
+.team.red .card-sub{color:var(--red-mid);}
+.team.blue .card-sub{color:var(--blue-mid);}
+.card-corner{
+  position:absolute;font-family:'Playfair Display',Georgia,serif;
+  font-size:14px;font-weight:900;line-height:1;z-index:2;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+}
+.card-corner.tl{top:9px;left:11px;}
+.card-corner.br{bottom:9px;right:11px;-webkit-transform:rotate(180deg);transform:rotate(180deg);}
+.team.red .card-corner{color:var(--red);}
+.team.blue .card-corner{color:var(--blue);}
+.card-corner .suit{font-size:10px;}
+.card-center-suit{position:absolute;font-size:24px;opacity:0.06;bottom:14px;left:50%;-webkit-transform:translateX(-50%);transform:translateX(-50%);z-index:1;}
+.team.red .card-center-suit{color:var(--red);}
+.team.blue .card-center-suit{color:var(--blue);}
+.a-badge{
+  position:absolute;top:8px;right:8px;z-index:3;
+  background:-webkit-linear-gradient(135deg,var(--gold-light),var(--gold));
+  background:linear-gradient(135deg,var(--gold-light),var(--gold));
+  color:#FFF;font-family:'Oswald','PingFang SC',sans-serif;
+  font-size:12px;font-weight:700;letter-spacing:1px;
+  padding:4px 9px;border-radius:20px;opacity:0;
+  -webkit-transition:opacity 0.3s;transition:opacity 0.3s;
+  -webkit-box-shadow:0 2px 10px rgba(168,104,0,0.50);box-shadow:0 2px 10px rgba(168,104,0,0.50);
+}
+.a-badge.show{opacity:1;}
+
+/* WINS */
+.wins-block{
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  margin-top:6px;
+}
+.wins-block>*+*{margin-top:2px;}
+.wins-num{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:38px;font-weight:900;line-height:1;
+  -webkit-transition:all 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+  transition:all 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+.team.red .wins-num{color:var(--red);text-shadow:0 2px 10px rgba(209,10,30,0.32);}
+.team.blue .wins-num{color:var(--blue);text-shadow:0 2px 10px rgba(0,85,187,0.32);}
+.wins-zh{font-size:10px;font-weight:700;letter-spacing:3px;}
+.team.red .wins-zh{color:var(--red-mid);}
+.team.blue .wins-zh{color:var(--blue-mid);}
+.wins-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:8px;font-weight:600;letter-spacing:3px;opacity:0.55;}
+.team.red .wins-en{color:var(--red);}
+.team.blue .wins-en{color:var(--blue);}
+
+/* PIPS */
+.pips{
+  display:-webkit-flex;display:flex;
+  -webkit-flex-wrap:wrap;flex-wrap:wrap;
+  -webkit-justify-content:center;justify-content:center;
+  margin-top:8px;max-width:120px;
+}
+.pip{width:9px;height:9px;border-radius:50%;margin:3px;-webkit-transition:all 0.3s;transition:all 0.3s;}
+.team.red .pip{background:rgba(209,10,30,0.10);border:2px solid rgba(209,10,30,0.22);}
+.team.red .pip.active{background:var(--red);border-color:var(--red-deep);-webkit-box-shadow:0 0 8px rgba(209,10,30,0.55);box-shadow:0 0 8px rgba(209,10,30,0.55);-webkit-transform:scale(1.2);transform:scale(1.2);}
+.team.blue .pip{background:rgba(0,85,187,0.10);border:2px solid rgba(0,85,187,0.22);}
+.team.blue .pip.active{background:var(--blue);border-color:var(--blue-deep);-webkit-box-shadow:0 0 8px rgba(0,85,187,0.55);box-shadow:0 0 8px rgba(0,85,187,0.55);-webkit-transform:scale(1.2);transform:scale(1.2);}
+
+/* DIVIDER */
+.divider{
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  padding:8px 0;position:relative;z-index:2;
+}
+.divider>*+*{margin-top:6px;}
+.divider-line{width:2px;-webkit-flex:1;flex:1;background:-webkit-linear-gradient(top,transparent,var(--divider),transparent);background:linear-gradient(to bottom,transparent,var(--divider),transparent);}
+.vs-badge{
+  width:40px;height:40px;border-radius:50%;
+  background:-webkit-linear-gradient(145deg,#FFFDF0,#FFF8D0);
+  background:linear-gradient(145deg,#FFFDF0,#FFF8D0);
+  border:2.5px solid var(--gold-light);
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  font-family:'Oswald','PingFang SC',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;
+  -webkit-box-shadow:0 4px 16px rgba(168,104,0,0.25);box-shadow:0 4px 16px rgba(168,104,0,0.25);
+}
+
+/* CONTROLS */
+.controls{
+  position:relative;z-index:1;width:100%;max-width:540px;padding:10px 10px 6px;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+}
+.controls>*+*{margin-top:8px;}
+.btn-row{display:-webkit-flex;display:flex;}
+.btn-row>*+*{margin-left:7px;}
+.btn{
+  -webkit-flex:1;flex:1;border:none;border-radius:18px;padding:0 4px;height:52px;
+  font-family:'Noto Serif SC','PingFang SC',serif;font-weight:900;cursor:pointer;
+  -webkit-transition:-webkit-transform 0.14s,opacity 0.14s;transition:transform 0.14s,opacity 0.14s;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+}
+.btn:active{-webkit-transform:scale(0.93);transform:scale(0.93);}
+.btn .btn-zh{font-size:13px;font-weight:900;letter-spacing:1px;line-height:1;}
+.btn .btn-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:8px;font-weight:600;letter-spacing:2px;opacity:0.75;}
+.btn-red-plus{background:-webkit-linear-gradient(145deg,#FF2D40,#8B0000);background:linear-gradient(145deg,#FF2D40,#8B0000);color:#FFF;-webkit-box-shadow:0 5px 18px rgba(209,10,30,0.42);box-shadow:0 5px 18px rgba(209,10,30,0.42);border:1.5px solid rgba(255,255,255,0.15);}
+.btn-red-minus{background:-webkit-linear-gradient(145deg,#FFE8EA,#FFCDD2);background:linear-gradient(145deg,#FFE8EA,#FFCDD2);color:var(--red-deep);border:2px solid var(--red-border);}
+.btn-blue-plus{background:-webkit-linear-gradient(145deg,#1A6AFF,#002277);background:linear-gradient(145deg,#1A6AFF,#002277);color:#FFF;-webkit-box-shadow:0 5px 18px rgba(0,85,187,0.42);box-shadow:0 5px 18px rgba(0,85,187,0.42);border:1.5px solid rgba(255,255,255,0.15);}
+.btn-blue-minus{background:-webkit-linear-gradient(145deg,#DDE8FF,#C8D8FF);background:linear-gradient(145deg,#DDE8FF,#C8D8FF);color:var(--blue-deep);border:2px solid var(--blue-border);}
+.btn-reset{
+  -webkit-flex:none;flex:none;width:64px;height:52px;
+  background:-webkit-linear-gradient(145deg,#F5F0E0,#EAE0C8);background:linear-gradient(145deg,#F5F0E0,#EAE0C8);
+  border:2px solid var(--divider);color:#6A5C40;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  border-radius:18px;cursor:pointer;
+  -webkit-transition:-webkit-transform 0.14s;transition:transform 0.14s;
+}
+.btn-reset:active{-webkit-transform:scale(0.93);transform:scale(0.93);}
+.btn-reset .btn-zh{font-family:'Noto Serif SC','PingFang SC',serif;font-size:12px;font-weight:900;letter-spacing:1px;}
+.btn-reset .btn-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:7px;font-weight:600;letter-spacing:2px;opacity:0.6;}
+.btn-new-round{
+  width:100%;height:50px;
+  background:-webkit-linear-gradient(145deg,#F0B020,#A86800);background:linear-gradient(145deg,#F0B020,#A86800);
+  border:2px solid rgba(255,255,255,0.22);color:#FFF;
+  border-radius:18px;cursor:pointer;
+  -webkit-transition:-webkit-transform 0.14s;transition:transform 0.14s;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  -webkit-box-shadow:0 6px 22px rgba(168,104,0,0.40);box-shadow:0 6px 22px rgba(168,104,0,0.40);
+  text-shadow:0 1px 3px rgba(0,0,0,0.15);
+}
+.btn-new-round:active{-webkit-transform:scale(0.96);transform:scale(0.96);}
+.btn-new-round .btn-zh{font-family:'Noto Serif SC','PingFang SC',serif;font-size:15px;font-weight:900;letter-spacing:5px;line-height:1;}
+.btn-new-round .btn-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:8px;font-weight:600;letter-spacing:4px;opacity:0.80;}
+.hint{text-align:center;font-size:10px;font-weight:700;color:#9A8870;letter-spacing:2px;padding:4px 0 8px;position:relative;z-index:1;}
+
+/* A-STAGE POPUP */
+.a-popup-overlay{
+  display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:200;
+  background:rgba(238,224,198,0.97);
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+}
+.a-popup-overlay.show{display:-webkit-flex;display:flex;}
+.a-popup{
+  border-radius:28px;padding:30px 28px 26px;text-align:center;
+  min-width:260px;max-width:310px;
+  -webkit-box-shadow:0 20px 60px rgba(0,0,0,0.22);box-shadow:0 20px 60px rgba(0,0,0,0.22);
+  -webkit-animation:popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);animation:popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+.a-popup.red{background:-webkit-linear-gradient(145deg,#FFF0F1,#FFE0E4);background:linear-gradient(145deg,#FFF0F1,#FFE0E4);border:3px solid var(--red-border);}
+.a-popup.blue{background:-webkit-linear-gradient(145deg,#EEF5FF,#DDEEFF);background:linear-gradient(145deg,#EEF5FF,#DDEEFF);border:3px solid var(--blue-border);}
+.a-popup-badge{
+  display:inline-block;padding:4px 16px;border-radius:20px;margin-bottom:12px;
+  font-family:'Oswald','PingFang SC',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:#FFF;
+}
+.a-popup.red .a-popup-badge{background:-webkit-linear-gradient(135deg,var(--red-light),var(--red-deep));background:linear-gradient(135deg,var(--red-light),var(--red-deep));}
+.a-popup.blue .a-popup-badge{background:-webkit-linear-gradient(135deg,var(--blue-light),var(--blue-deep));background:linear-gradient(135deg,var(--blue-light),var(--blue-deep));}
+.a-popup-title{font-family:'Playfair Display',Georgia,serif;font-size:52px;font-weight:900;line-height:1;margin-bottom:4px;}
+.a-popup.red .a-popup-title{color:var(--red-deep);}
+.a-popup.blue .a-popup-title{color:var(--blue-deep);}
+.a-popup-stage{font-family:'Oswald','PingFang SC',sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;opacity:0.6;margin-bottom:16px;}
+.a-popup.red .a-popup-stage{color:var(--red);}
+.a-popup.blue .a-popup-stage{color:var(--blue);}
+.a-popup-desc{font-size:12px;color:#666;letter-spacing:1px;margin-bottom:22px;line-height:1.9;font-weight:700;}
+.a-popup-btns{display:-webkit-flex;display:flex;}
+.a-popup-btns>*+*{margin-left:10px;}
+.a-pop-btn{
+  -webkit-flex:1;flex:1;padding:0 8px;height:56px;border:none;border-radius:18px;
+  cursor:pointer;
+  -webkit-transition:-webkit-transform 0.14s;transition:transform 0.14s;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+}
+.a-pop-btn:active{-webkit-transform:scale(0.95);transform:scale(0.95);}
+.a-pop-btn .p-zh{font-family:'Noto Serif SC','PingFang SC',serif;font-size:16px;font-weight:900;letter-spacing:2px;line-height:1;}
+.a-pop-btn .p-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:8px;font-weight:700;letter-spacing:3px;opacity:0.80;}
+.a-pop-btn-pass{background:-webkit-linear-gradient(135deg,#2ECC71,#1A9950);background:linear-gradient(135deg,#2ECC71,#1A9950);color:#FFF;-webkit-box-shadow:0 5px 18px rgba(30,160,80,0.40);box-shadow:0 5px 18px rgba(30,160,80,0.40);}
+.a-pop-btn-fail{background:rgba(0,0,0,0.07);border:2px solid var(--divider);color:#444;}
+
+/* WIN OVERLAY */
+.win-overlay{
+  display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:300;
+  background:rgba(238,224,200,0.98);
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  -webkit-flex-direction:column;flex-direction:column;
+}
+.win-overlay.show{display:-webkit-flex;display:flex;}
+.win-box{
+  border-radius:28px;padding:36px 44px;text-align:center;
+  -webkit-animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);animation:popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275);
+  -webkit-box-shadow:0 24px 70px rgba(0,0,0,0.18);box-shadow:0 24px 70px rgba(0,0,0,0.18);
+}
+.win-box.red{background:-webkit-linear-gradient(145deg,#FFF0F1,#FFE0E4);background:linear-gradient(145deg,#FFF0F1,#FFE0E4);border:3px solid var(--red-border);}
+.win-box.blue{background:-webkit-linear-gradient(145deg,#EEF5FF,#DDEEFF);background:linear-gradient(145deg,#EEF5FF,#DDEEFF);border:3px solid var(--blue-border);}
+.win-emoji{font-size:64px;margin-bottom:10px;}
+.win-title-zh{font-family:'Playfair Display',Georgia,serif;font-size:34px;font-weight:900;letter-spacing:4px;line-height:1;}
+.win-box.red .win-title-zh{color:var(--red-deep);}
+.win-box.blue .win-title-zh{color:var(--blue-deep);}
+.win-title-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:11px;font-weight:700;letter-spacing:5px;opacity:0.55;margin-top:3px;margin-bottom:8px;}
+.win-box.red .win-title-en{color:var(--red);}
+.win-box.blue .win-title-en{color:var(--blue);}
+.win-sub{font-size:13px;font-weight:700;color:var(--gold-mid);letter-spacing:2px;line-height:1.8;}
+.win-btns{display:-webkit-flex;display:flex;margin-top:26px;}
+.win-btns>*+*{margin-left:12px;}
+.win-btn{
+  padding:0 22px;height:52px;border-radius:18px;border:none;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  cursor:pointer;
+  -webkit-transition:-webkit-transform 0.14s;transition:transform 0.14s;
+}
+.win-btn:active{-webkit-transform:scale(0.95);transform:scale(0.95);}
+.win-btn .w-zh{font-family:'Noto Serif SC','PingFang SC',serif;font-size:14px;font-weight:900;letter-spacing:2px;line-height:1;}
+.win-btn .w-en{font-family:'Oswald','PingFang SC',sans-serif;font-size:8px;font-weight:600;letter-spacing:3px;opacity:0.75;}
+.win-btn-next{background:-webkit-linear-gradient(135deg,var(--gold-light),var(--gold));background:linear-gradient(135deg,var(--gold-light),var(--gold));color:#FFF;-webkit-box-shadow:0 5px 18px rgba(168,104,0,0.38);box-shadow:0 5px 18px rgba(168,104,0,0.38);}
+.win-btn-reset{background:rgba(0,0,0,0.06);border:2px solid var(--divider);color:#666;}
+
+/* FOOTER */
+.footer-bar{
+  position:relative;z-index:1;width:100%;max-width:540px;
+  padding:10px 16px 28px;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+}
+.footer-line{width:55%;height:1px;background:-webkit-linear-gradient(left,transparent,#C8860A,transparent);background:linear-gradient(90deg,transparent,#C8860A,transparent);opacity:0.28;margin-bottom:10px;}
+.footer-contact{font-family:'Noto Serif SC','PingFang SC',serif;font-size:12px;font-weight:700;color:#5A3E20;letter-spacing:1px;text-align:center;}
+.footer-copy{font-family:'Oswald','PingFang SC',sans-serif;font-size:9px;font-weight:600;color:rgba(168,104,0,0.38);letter-spacing:3px;margin-top:5px;text-align:center;}
+
+/* ANIMATIONS */
+@-webkit-keyframes flashRed{
+  0%,100%{-webkit-box-shadow:0 10px 36px rgba(209,10,30,0.16),inset 0 1px 0 rgba(255,255,255,0.96);}
+  40%{-webkit-box-shadow:0 12px 52px rgba(209,10,30,0.55),inset 0 1px 0 rgba(255,255,255,0.96);}
+}
+@keyframes flashRed{
+  0%,100%{box-shadow:0 10px 36px rgba(209,10,30,0.16),inset 0 1px 0 rgba(255,255,255,0.96);}
+  40%{box-shadow:0 12px 52px rgba(209,10,30,0.55),inset 0 1px 0 rgba(255,255,255,0.96);}
+}
+@-webkit-keyframes flashBlue{
+  0%,100%{-webkit-box-shadow:0 10px 36px rgba(0,85,187,0.16),inset 0 1px 0 rgba(255,255,255,0.96);}
+  40%{-webkit-box-shadow:0 12px 52px rgba(0,85,187,0.55),inset 0 1px 0 rgba(255,255,255,0.96);}
+}
+@keyframes flashBlue{
+  0%,100%{box-shadow:0 10px 36px rgba(0,85,187,0.16),inset 0 1px 0 rgba(255,255,255,0.96);}
+  40%{box-shadow:0 12px 52px rgba(0,85,187,0.55),inset 0 1px 0 rgba(255,255,255,0.96);}
+}
+@-webkit-keyframes popIn{0%{-webkit-transform:scale(0.75);opacity:0.5;}65%{-webkit-transform:scale(1.06);}100%{-webkit-transform:scale(1);opacity:1;}}
+@keyframes popIn{0%{transform:scale(0.75);opacity:0.5;}65%{transform:scale(1.06);}100%{transform:scale(1);opacity:1;}}
+@-webkit-keyframes winsUp{0%{-webkit-transform:scale(0.5) translateY(8px);opacity:0;}100%{-webkit-transform:scale(1) translateY(0);opacity:1;}}
+@keyframes winsUp{0%{transform:scale(0.5) translateY(8px);opacity:0;}100%{transform:scale(1) translateY(0);opacity:1;}}
+.flash-red{-webkit-animation:flashRed 0.45s ease;animation:flashRed 0.45s ease;}
+.flash-blue{-webkit-animation:flashBlue 0.45s ease;animation:flashBlue 0.45s ease;}
+.pop{-webkit-animation:popIn 0.32s cubic-bezier(0.175,0.885,0.32,1.275);animation:popIn 0.32s cubic-bezier(0.175,0.885,0.32,1.275);}
+.wins-anim{-webkit-animation:winsUp 0.4s cubic-bezier(0.175,0.885,0.32,1.275);animation:winsUp 0.4s cubic-bezier(0.175,0.885,0.32,1.275);}
+#particles{position:fixed;top:0;right:0;bottom:0;left:0;pointer-events:none;z-index:50;display:none;}
+#particles.show{display:block;}
+
+
+
+.timer-widget{
+  -webkit-flex:5;flex:5;
+  background:-webkit-linear-gradient(150deg,#0D1628,#1A0C06,#0A1420);
+  background:linear-gradient(150deg,#0D1628,#1A0C06,#0A1420);
+  border-radius:20px;
+  border:2.5px solid rgba(200,140,10,0.55);
+  -webkit-box-shadow:0 8px 28px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,220,80,0.08);
+  box-shadow:0 8px 28px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,220,80,0.08);
+  padding:9px 12px;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:space-between;justify-content:space-between;
+  position:relative;overflow:hidden;
+}
+.timer-widget::before{
+  content:'';position:absolute;top:-40px;left:50%;
+  -webkit-transform:translateX(-50%);transform:translateX(-50%);
+  width:160px;height:80px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(245,200,66,0.10),transparent 70%);
+  pointer-events:none;
+}
+.timer-label{
+  font-family:'Oswald','PingFang SC',sans-serif;
+  font-size:8px;font-weight:700;letter-spacing:4px;
+  color:rgba(200,140,10,0.65);text-transform:uppercase;
+}
+.timer-display{
+  font-family:'Oswald','Courier New',monospace;
+  font-size:38px;font-weight:700;line-height:1;
+  color:#F5C842;letter-spacing:4px;
+  text-shadow:0 0 22px rgba(245,200,66,0.60),0 2px 0 rgba(0,0,0,0.5);
+  -webkit-transition:color 0.4s;transition:color 0.4s;
+}
+.timer-display.warning{
+  color:#FF9040;
+  text-shadow:0 0 22px rgba(255,144,64,0.70),0 2px 0 rgba(0,0,0,0.5);
+}
+.timer-display.expired{
+  color:#FF3A50;
+  text-shadow:0 0 22px rgba(255,58,80,0.80),0 2px 0 rgba(0,0,0,0.5);
+  -webkit-animation:timerBlink 0.6s infinite;animation:timerBlink 0.6s infinite;
+}
+@-webkit-keyframes timerBlink{0%,100%{opacity:1;}50%{opacity:0.30;}}
+@keyframes timerBlink{0%,100%{opacity:1;}50%{opacity:0.30;}}
+.timer-btn-row{
+  width:100%;display:-webkit-flex;display:flex;gap:7px;
+}
+.timer-toggle-btn{
+  -webkit-flex:1;flex:1;height:26px;border:none;border-radius:10px;cursor:pointer;
+  font-family:'Noto Serif SC','PingFang SC',serif;font-size:11px;font-weight:900;letter-spacing:1px;
+  background:-webkit-linear-gradient(145deg,#2ECC71,#1A7A40);
+  background:linear-gradient(145deg,#2ECC71,#1A7A40);
+  color:#FFF;-webkit-box-shadow:0 3px 10px rgba(30,160,80,0.45);box-shadow:0 3px 10px rgba(30,160,80,0.45);
+  -webkit-transition:-webkit-transform 0.12s;transition:transform 0.12s;
+}
+.timer-toggle-btn:active{-webkit-transform:scale(0.93);transform:scale(0.93);}
+.timer-toggle-btn.running{
+  background:-webkit-linear-gradient(145deg,#E8A020,#A86800);
+  background:linear-gradient(145deg,#E8A020,#A86800);
+  -webkit-box-shadow:0 3px 10px rgba(168,104,0,0.45);box-shadow:0 3px 10px rgba(168,104,0,0.45);
+}
+.timer-set-row{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  gap:5px;
+}
+.timer-set-row input{
+  width:42px;height:22px;border-radius:8px;
+  border:1.5px solid rgba(200,134,10,0.45);
+  background:rgba(255,255,255,0.07);color:#F5C842;
+  font-family:'Oswald','PingFang SC',sans-serif;font-size:14px;font-weight:700;
+  text-align:center;outline:none;
+  -webkit-appearance:none;-moz-appearance:textfield;
+}
+.timer-set-row input::-webkit-outer-spin-button,
+.timer-set-row input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.timer-set-row span{
+  font-family:'Noto Serif SC',serif;font-size:10px;font-weight:700;
+  color:rgba(200,134,10,0.65);letter-spacing:1px;
+}
+
+/* AD BANNER */
+.ad-banner{
+  position:relative;z-index:1;
+  width:100%;max-width:540px;
+  margin:6px 0 0;
+  box-sizing:border-box;
+  padding:0 12px;
+  display:none;
+}
+.ad-inner{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  background:linear-gradient(135deg,rgba(255,248,220,0.97),rgba(255,238,160,0.97));
+  border:2px solid rgba(200,134,10,0.45);
+  border-radius:18px;
+  padding:18px 16px;
+  gap:14px;
+  min-height:80px;
+  box-shadow:0 5px 20px rgba(168,104,0,0.18),inset 0 1px 0 rgba(255,255,255,0.9);
+  cursor:pointer;
+  text-decoration:none;
+  transition:box-shadow 0.2s;
+}
+.ad-inner:hover{box-shadow:0 6px 24px rgba(168,104,0,0.28);}
+.ad-label{
+  font-size:11px;font-weight:900;letter-spacing:2px;
+  color:rgba(168,104,0,0.65);
+  background:rgba(200,134,10,0.16);
+  border-radius:8px;padding:5px 9px;
+  white-space:nowrap;flex-shrink:0;
+}
+.ad-text-wrap{
+  flex:1;overflow:hidden;position:relative;
+}
+.ad-text{
+  font-family:'Noto Serif SC',serif;
+  font-size:18px;font-weight:700;
+  color:var(--gold);
+  display:inline-block;
+  white-space:nowrap;
+  animation:ad-scroll 20s linear infinite;
+}
+@keyframes ad-scroll{
+  0%  { transform:translateX(100%); }
+  100%{ transform:translateX(-100%); }
+}
+.ad-img{max-height:52px;max-width:140px;border-radius:10px;object-fit:contain;flex-shrink:0;}
+.ad-close{
+  font-size:16px;color:rgba(168,104,0,0.4);
+  flex-shrink:0;padding:4px 6px;cursor:pointer;line-height:1;
+}
+.ad-close:hover{color:rgba(168,104,0,0.7);}
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+
+<header>
+  <div class="title-wrap">
+    <div class="title-main">掼蛋计分器<span class="title-reg">&#174;</span></div>
+    <div class="title-sub">硅谷掼蛋协会</div>
+    <div class="title-en">SILICON VALLEY GUANDAN ASSOCIATION</div>
+  </div>
+  <div class="timer-widget">
+    <div class="timer-label">每局计时 · ROUND TIMER</div>
+    <div class="timer-display" id="timerDisplay">60:00</div>
+    <div class="timer-btn-row">
+      <button class="timer-toggle-btn" id="timerToggleBtn" onclick="timerToggle()">▶ 开始</button>
+    </div>
+    <div class="timer-set-row">
+      <input type="number" id="timerInput" value="60" min="1" max="999" onchange="timerSetMinutes(this.value)">
+      <span>分钟</span>
+    </div>
+  </div>
+  <div style="display:none"><svg width="1" height="1" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" style="stop-color:#0A1628"/>
+    <stop offset="50%" style="stop-color:#0D1F3C"/>
+    <stop offset="100%" style="stop-color:#1A0A08"/>
+  </linearGradient>
+  <clipPath id="clipCN"><rect x="0" y="0" width="118" height="165" rx="12"/></clipPath>
+  <clipPath id="clipUS"><rect x="0" y="0" width="118" height="165" rx="12"/></clipPath>
+</defs>
+
+<rect width="680" height="560" fill="url(#bgGrad)" rx="20"/>
+<g stroke="#1E3A5F" stroke-width="0.5" opacity="0.35">
+  <line x1="0" y1="100" x2="680" y2="100"/><line x1="0" y1="200" x2="680" y2="200"/>
+  <line x1="0" y1="300" x2="680" y2="300"/><line x1="0" y1="400" x2="680" y2="400"/>
+  <line x1="100" y1="0" x2="100" y2="560"/><line x1="200" y1="0" x2="200" y2="560"/>
+  <line x1="340" y1="0" x2="340" y2="560"/><line x1="480" y1="0" x2="480" y2="560"/>
+  <line x1="580" y1="0" x2="580" y2="560"/>
+</g>
+<g fill="#1E3A5F" opacity="0.4">
+  <circle cx="100" cy="100" r="3"/><circle cx="200" cy="100" r="3"/>
+  <circle cx="480" cy="100" r="3"/><circle cx="580" cy="100" r="3"/>
+  <circle cx="100" cy="400" r="3"/><circle cx="580" cy="400" r="3"/>
+</g>
+
+<!-- LEFT CARD: CHINA FLAG + 掼 -->
+<g transform="translate(80,110)">
+  <rect x="4" y="4" width="118" height="165" rx="12" fill="rgba(0,0,0,0.45)"/>
+  <rect width="118" height="165" rx="12" fill="#CC0011"/>
+  <g clip-path="url(#clipCN)">
+    <rect width="118" height="165" fill="#DE2910"/>
+    <polygon points="20,8 23.8,19.4 35.8,19.4 26.0,26.3 29.8,37.7 20,30.8 10.2,37.7 14.0,26.3 4.2,19.4 16.2,19.4" fill="#FFDE00"/>
+    <polygon points="38,5 39.5,9.6 44.4,9.6 40.5,12.4 42.0,17 38,14.2 34,17 35.5,12.4 31.6,9.6 36.5,9.6" fill="#FFDE00"/>
+    <polygon points="46,13 47.5,17.6 52.4,17.6 48.5,20.4 50.0,25 46,22.2 42,25 43.5,20.4 39.6,17.6 44.5,17.6" fill="#FFDE00"/>
+    <polygon points="46,24 47.5,28.6 52.4,28.6 48.5,31.4 50.0,36 46,33.2 42,36 43.5,31.4 39.6,28.6 44.5,28.6" fill="#FFDE00"/>
+    <polygon points="38,32 39.5,36.6 44.4,36.6 40.5,39.4 42.0,44 38,41.2 34,44 35.5,39.4 31.6,36.6 36.5,36.6" fill="#FFDE00"/>
+    <rect width="118" height="165" fill="rgba(180,0,0,0.15)"/>
+  </g>
+  <rect x="2" y="2" width="114" height="161" rx="11" fill="none" stroke="rgba(255,220,220,0.3)" stroke-width="1"/>
+  <text x="59" y="120" text-anchor="middle" font-family="'Noto Serif SC',serif" font-size="58" font-weight="900" fill="rgba(255,255,255,0.97)">掼</text>
+  <text x="10" y="22" font-family="Georgia,serif" font-size="14" font-weight="700" fill="rgba(255,230,120,0.9)">A</text>
+  <text x="10" y="34" font-family="serif" font-size="10" fill="rgba(255,230,120,0.7)">♥</text>
+  <text x="59" y="155" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="rgba(255,230,120,0.85)" letter-spacing="2">中  国</text>
+</g>
+
+<!-- RIGHT CARD: USA FLAG + 蛋 -->
+<g transform="translate(482,110)">
+  <rect x="4" y="4" width="118" height="165" rx="12" fill="rgba(0,0,0,0.45)"/>
+  <rect width="118" height="165" rx="12" fill="#002868"/>
+  <g clip-path="url(#clipUS)">
+    <rect x="0" y="0" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="12.7" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="25.4" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="38.1" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="50.8" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="63.5" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="76.2" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="88.9" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="101.6" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="114.3" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="127.0" width="118" height="12.7" fill="#B22234"/>
+    <rect x="0" y="139.7" width="118" height="12.7" fill="#FFFFFF"/>
+    <rect x="0" y="152.4" width="118" height="12.6" fill="#B22234"/>
+    <rect x="0" y="0" width="50" height="70" fill="#002868"/>
+    <g fill="#FFFFFF">
+      <polygon points="5,4 6,7 9,7 7,9 8,12 5,10 2,12 3,9 1,7 4,7"/>
+      <polygon points="13,4 14,7 17,7 15,9 16,12 13,10 10,12 11,9 9,7 12,7"/>
+      <polygon points="21,4 22,7 25,7 23,9 24,12 21,10 18,12 19,9 17,7 20,7"/>
+      <polygon points="29,4 30,7 33,7 31,9 32,12 29,10 26,12 27,9 25,7 28,7"/>
+      <polygon points="37,4 38,7 41,7 39,9 40,12 37,10 34,12 35,9 33,7 36,7"/>
+      <polygon points="45,4 46,7 49,7 47,9 48,12 45,10 42,12 43,9 41,7 44,7"/>
+      <polygon points="9,15 10,18 13,18 11,20 12,23 9,21 6,23 7,20 5,18 8,18"/>
+      <polygon points="17,15 18,18 21,18 19,20 20,23 17,21 14,23 15,20 13,18 16,18"/>
+      <polygon points="25,15 26,18 29,18 27,20 28,23 25,21 22,23 23,20 21,18 24,18"/>
+      <polygon points="33,15 34,18 37,18 35,20 36,23 33,21 30,23 31,20 29,18 32,18"/>
+      <polygon points="41,15 42,18 45,18 43,20 44,23 41,21 38,23 39,20 37,18 40,18"/>
+      <polygon points="5,26 6,29 9,29 7,31 8,34 5,32 2,34 3,31 1,29 4,29"/>
+      <polygon points="13,26 14,29 17,29 15,31 16,34 13,32 10,34 11,31 9,29 12,29"/>
+      <polygon points="21,26 22,29 25,29 23,31 24,34 21,32 18,34 19,31 17,29 20,29"/>
+      <polygon points="29,26 30,29 33,29 31,31 32,34 29,32 26,34 27,31 25,29 28,29"/>
+      <polygon points="37,26 38,29 41,29 39,31 40,34 37,32 34,34 35,31 33,29 36,29"/>
+      <polygon points="45,26 46,29 49,29 47,31 48,34 45,32 42,34 43,31 41,29 44,29"/>
+      <polygon points="9,37 10,40 13,40 11,42 12,45 9,43 6,45 7,42 5,40 8,40"/>
+      <polygon points="17,37 18,40 21,40 19,42 20,45 17,43 14,45 15,42 13,40 16,40"/>
+      <polygon points="25,37 26,40 29,40 27,42 28,45 25,43 22,45 23,42 21,40 24,40"/>
+      <polygon points="33,37 34,40 37,40 35,42 36,45 33,43 30,45 31,42 29,40 32,40"/>
+      <polygon points="41,37 42,40 45,40 43,42 44,45 41,43 38,45 39,42 37,40 40,40"/>
+      <polygon points="5,48 6,51 9,51 7,53 8,56 5,54 2,56 3,53 1,51 4,51"/>
+      <polygon points="13,48 14,51 17,51 15,53 16,56 13,54 10,56 11,53 9,51 12,51"/>
+      <polygon points="21,48 22,51 25,51 23,53 24,56 21,54 18,56 19,53 17,51 20,51"/>
+      <polygon points="29,48 30,51 33,51 31,53 32,56 29,54 26,56 27,53 25,51 28,51"/>
+      <polygon points="37,48 38,51 41,51 39,53 40,56 37,54 34,56 35,53 33,51 36,51"/>
+      <polygon points="45,48 46,51 49,51 47,53 48,56 45,54 42,56 43,53 41,51 44,51"/>
+    </g>
+    <rect width="118" height="165" fill="rgba(0,10,40,0.18)"/>
+  </g>
+  <rect x="2" y="2" width="114" height="161" rx="11" fill="none" stroke="rgba(200,220,255,0.3)" stroke-width="1"/>
+  <text x="59" y="120" text-anchor="middle" font-family="'Noto Serif SC',serif" font-size="58" font-weight="900" fill="rgba(255,255,255,0.97)">蛋</text>
+  <text x="10" y="22" font-family="Georgia,serif" font-size="14" font-weight="700" fill="rgba(255,240,160,0.9)">A</text>
+  <text x="10" y="34" font-family="serif" font-size="10" fill="rgba(255,240,160,0.7)">♠</text>
+  <text x="59" y="155" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="rgba(255,240,160,0.85)" letter-spacing="2">美  国</text>
+</g>
+
+<!-- CENTER AI EMBLEM -->
+<g transform="translate(340,192)">
+  <circle r="72" fill="none" stroke="#C8860A" stroke-width="1.5" opacity="0.5"/>
+  <circle r="58" fill="none" stroke="#F5C842" stroke-width="0.8" opacity="0.35"/>
+  <circle r="50" fill="#060E1E"/>
+  <g stroke="#3388EE" stroke-width="1" fill="none" opacity="0.6">
+    <path d="M-30,-38 Q0,-55 30,-38"/>
+    <path d="M-30,38 Q0,55 30,38"/>
+    <path d="M-48,-10 Q-58,0 -48,10"/>
+    <path d="M48,-10 Q58,0 48,10"/>
+  </g>
+  <g fill="#3388EE" opacity="0.85">
+    <circle cx="-30" cy="-38" r="4"/><circle cx="30" cy="-38" r="4"/>
+    <circle cx="-30" cy="38" r="4"/><circle cx="30" cy="38" r="4"/>
+    <circle cx="-48" cy="0" r="4"/><circle cx="48" cy="0" r="4"/>
+  </g>
+  <g stroke="rgba(100,180,255,0.25)" stroke-width="0.8">
+    <line x1="-30" y1="-38" x2="0" y2="0"/><line x1="30" y1="-38" x2="0" y2="0"/>
+    <line x1="-30" y1="38" x2="0" y2="0"/><line x1="30" y1="38" x2="0" y2="0"/>
+    <line x1="-48" y1="0" x2="0" y2="0"/><line x1="48" y1="0" x2="0" y2="0"/>
+  </g>
+  <text y="-8" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="700" fill="#F5C842">AI</text>
+  <text y="14" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="600" fill="#4499EE" letter-spacing="3">POWERED</text>
+  <g stroke="#C8860A" stroke-width="1.5" opacity="0.55">
+    <line x1="0" y1="-72" x2="0" y2="-63"/><line x1="0" y1="72" x2="0" y2="63"/>
+    <line x1="-72" y1="0" x2="-63" y2="0"/><line x1="72" y1="0" x2="63" y2="0"/>
+    <line x1="-51" y1="-51" x2="-44" y2="-44"/><line x1="51" y1="-51" x2="44" y2="-44"/>
+    <line x1="-51" y1="51" x2="-44" y2="44"/><line x1="51" y1="51" x2="44" y2="44"/>
+  </g>
+</g>
+
+<!-- Bridge lines -->
+<g stroke="#F5C842" stroke-width="1.2" fill="none" opacity="0.45" stroke-dasharray="4,4">
+  <line x1="198" y1="192" x2="268" y2="192"/>
+  <line x1="412" y1="192" x2="482" y2="192"/>
+</g>
+<g fill="#C8860A" opacity="0.65">
+  <circle cx="214" cy="192" r="2.5"/><circle cx="232" cy="192" r="2.5"/><circle cx="250" cy="192" r="2.5"/>
+  <circle cx="430" cy="192" r="2.5"/><circle cx="448" cy="192" r="2.5"/><circle cx="466" cy="192" r="2.5"/>
+</g>
+
+<!-- Stars arc -->
+<g fill="#F5C842" opacity="0.9">
+  <polygon points="220,62 223,71 232,71 225,77 228,86 220,80 212,86 215,77 208,71 217,71" transform="scale(0.62)translate(135,-8)"/>
+  <polygon points="270,58 273,67 282,67 275,73 278,82 270,76 262,82 265,73 258,67 267,67" transform="scale(0.50)translate(270,5)"/>
+  <polygon points="340,52 343,61 352,61 345,67 348,76 340,70 332,76 335,67 328,61 337,61" transform="scale(0.58)translate(246,-2)"/>
+  <polygon points="410,58 413,67 422,67 415,73 418,82 410,76 402,82 405,73 398,67 407,67" transform="scale(0.50)translate(220,5)"/>
+  <polygon points="460,62 463,71 472,71 465,77 468,86 460,80 452,86 455,77 448,71 457,71" transform="scale(0.62)translate(96,-8)"/>
+</g>
+
+<!-- NAME BLOCK -->
+<line x1="80" y1="318" x2="600" y2="318" stroke="#F5C842" stroke-width="1" opacity="0.55"/>
+<text x="340" y="360" text-anchor="middle" font-family="'Noto Serif SC',serif" font-size="50" font-weight="900" fill="#F5C842" letter-spacing="18">夏跃坚</text>
+<text x="340" y="386" text-anchor="middle" font-family="Arial,sans-serif" font-size="13" font-weight="600" fill="rgba(210,175,100,0.70)" letter-spacing="9">XIA  YUEJIAN</text>
+<line x1="80" y1="402" x2="600" y2="402" stroke="#F5C842" stroke-width="1" opacity="0.55"/>
+<polygon points="340,397 345,402 340,407 335,402" fill="#F5C842" opacity="0.75"/>
+
+<text x="340" y="428" text-anchor="middle" font-family="'Noto Serif SC',serif" font-size="15" font-weight="700" fill="rgba(255,255,255,0.88)" letter-spacing="6">硅谷掼蛋  ·  全民欢乐</text>
+<text x="340" y="450" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="600" fill="rgba(100,160,220,0.68)" letter-spacing="4">SILICON VALLEY  ·  AI GUANDAN  ·  FOR EVERYONE</text>
+
+<!-- CONTACT -->
+<line x1="80" y1="468" x2="600" y2="468" stroke="rgba(200,160,40,0.25)" stroke-width="0.8"/>
+<g transform="translate(148,478)" fill="none">
+  <rect width="20" height="14" rx="2" stroke="#C8A020" stroke-width="1.2" fill="rgba(200,160,20,0.1)"/>
+  <path d="M0,2 L10,9 L20,2" stroke="#C8A020" stroke-width="1.2" stroke-linecap="round"/>
+</g>
+<text x="176" y="490" text-anchor="start" font-family="Arial,sans-serif" font-size="13" font-weight="600" fill="rgba(210,175,100,0.90)" letter-spacing="1">联系：york.xia@gmail.com</text>
+<text x="340" y="530" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" font-weight="600" fill="rgba(200,150,60,0.40)" letter-spacing="3">© XIA YUEJIAN  ·  硅谷掼蛋  ·  ALL RIGHTS RESERVED</text>
+
+<!-- Corner brackets -->
+<g stroke="#C8860A" stroke-width="1.5" fill="none" opacity="0.35">
+  <path d="M28,62 L28,28 L62,28"/><path d="M618,28 L652,28 L652,62"/>
+  <path d="M28,498 L28,532 L62,532"/><path d="M618,532 L652,532 L652,498"/>
+</g>
+<g fill="#D4A017" opacity="0.30">
+  <polygon points="28,28 34,22 40,28 34,34"/><polygon points="652,28 658,22 664,28 658,34"/>
+  <polygon points="28,532 34,526 40,532 34,538"/><polygon points="652,532 658,526 664,532 658,538"/>
+</g>
+</svg>
+  </div>
+</header>
+
+<!-- AD BANNER -->
+<div class="ad-banner" id="adBanner">
+  <div class="ad-inner" id="adLink">
+    <span class="ad-label">广告</span>
+    <div class="ad-text-wrap">
+      <span class="ad-text" id="adText"></span>
+    </div>
+    <img class="ad-img" id="adImg" src="" alt="" style="display:none">
+    <span class="ad-close" onclick="closeAd(event)" title="关闭">✕</span>
+  </div>
+</div>
+
+<div class="round-bar">
+  <span class="round-zh">&#31532;</span>
+  <span class="round-num" id="roundNum">1</span>
+  <span class="round-zh">&#23616;</span>
+  <span class="round-en">ROUND</span>
+</div>
+
+<div class="board">
+  <div class="team red" id="redTeam" onclick="onCardClick('red')">
+    <div class="team-header">
+      <div class="team-name">红队</div>
+      <div class="team-name-en">RED TEAM</div>
+    </div>
+    <div class="card-display" id="redCard">
+      <div class="card-corner tl"><span id="redCornerTL">2</span><span class="suit">&#9829;</span></div>
+      <div class="card-value-wrap">
+        <div class="card-value" id="redCardVal">2</div>
+        <div class="card-sub" id="redCardSub"></div>
+      </div>
+      <div class="card-corner br"><span id="redCornerBR">2</span><span class="suit">&#9829;</span></div>
+      <div class="card-center-suit">&#9829;</div>
+      <div class="a-badge" id="redABadge"></div>
+    </div>
+    <div class="wins-block">
+      <div class="wins-num" id="redWins">0</div>
+      <div class="wins-zh">&#32988; &#23616;</div>
+      <div class="wins-en">WINS</div>
+    </div>
+    <div class="pips" id="redPips"></div>
+  </div>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="vs-badge">VS</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <div class="team blue" id="blueTeam" onclick="onCardClick('blue')">
+    <div class="team-header">
+      <div class="team-name">蓝队</div>
+      <div class="team-name-en">BLUE TEAM</div>
+    </div>
+    <div class="card-display" id="blueCard">
+      <div class="card-corner tl"><span id="blueCornerTL">2</span><span class="suit">&#9824;</span></div>
+      <div class="card-value-wrap">
+        <div class="card-value" id="blueCardVal">2</div>
+        <div class="card-sub" id="blueCardSub"></div>
+      </div>
+      <div class="card-corner br"><span id="blueCornerBR">2</span><span class="suit">&#9824;</span></div>
+      <div class="card-center-suit">&#9824;</div>
+      <div class="a-badge" id="blueABadge"></div>
+    </div>
+    <div class="wins-block">
+      <div class="wins-num" id="blueWins">0</div>
+      <div class="wins-zh">&#32988; &#23616;</div>
+      <div class="wins-en">WINS</div>
+    </div>
+    <div class="pips" id="bluePips"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="btn-row">
+    <button class="btn btn-red-minus" onclick="adjustLevel('red',-1);event.stopPropagation()">
+      <span class="btn-zh">红 &#8722;1</span><span class="btn-en">RED MINUS</span>
+    </button>
+    <button class="btn btn-red-plus" onclick="adjustLevel('red',1);event.stopPropagation()">
+      <span class="btn-zh">红 +1</span><span class="btn-en">RED PLUS</span>
+    </button>
+    <button class="btn-reset" onclick="fullReset();event.stopPropagation()">
+      <span class="btn-zh">&#37325;&#32622;</span><span class="btn-en">RESET</span>
+    </button>
+    <button class="btn btn-blue-plus" onclick="adjustLevel('blue',1);event.stopPropagation()">
+      <span class="btn-zh">蓝 +1</span><span class="btn-en">BLUE PLUS</span>
+    </button>
+    <button class="btn btn-blue-minus" onclick="adjustLevel('blue',-1);event.stopPropagation()">
+      <span class="btn-zh">蓝 &#8722;1</span><span class="btn-en">BLUE MINUS</span>
+    </button>
+  </div>
+  <button class="btn-new-round" onclick="newRound()">
+    <span class="btn-zh">&#26032; &#23616; &#24320; &#22987;</span>
+    <span class="btn-en">NEW ROUND</span>
+  </button>
+</div>
+
+<div class="hint">&#28857;&#20987;&#21345;&#29224;&#21319;&#32423; &#183; &#21040; A &#21518;&#28857;&#20987;&#21028;&#23450;&#36807;&#19981;&#36807;</div>
+
+<div class="a-popup-overlay" id="aPopup">
+  <div class="a-popup" id="aPopupBox">
+    <div class="a-popup-badge" id="aPopupBadge">红队</div>
+    <div class="a-popup-title" id="aPopupTitle">A</div>
+    <div class="a-popup-stage" id="aPopupStage">&#31532; 1 &#20851; &#183; STAGE 1</div>
+    <div class="a-popup-desc" id="aPopupDesc"></div>
+    <div class="a-popup-btns">
+      <button class="a-pop-btn a-pop-btn-pass" onclick="aResult(true)">
+        <span class="p-zh">&#36807; &#20102; &#10003;</span><span class="p-en">PASSED</span>
+      </button>
+      <button class="a-pop-btn a-pop-btn-fail" onclick="aResult(false)">
+        <span class="p-zh">&#19981; &#36807; &#10007;</span><span class="p-en">FAILED</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="win-box" id="winBox">
+    <div class="win-emoji">&#127942;</div>
+    <div class="win-title-zh" id="winTitleZH">红队&#32988;&#21033;&#65281;</div>
+    <div class="win-title-en" id="winTitleEN">RED TEAM WINS!</div>
+    <div class="win-sub" id="winSub"></div>
+    <div class="win-btns">
+      <button class="win-btn win-btn-next" onclick="startNextRound()">
+        <span class="w-zh">&#19979;&#19968;&#23616;</span><span class="w-en">NEXT ROUND</span>
+      </button>
+      <button class="win-btn win-btn-reset" onclick="fullReset()">
+        <span class="w-zh">&#20840;&#37096;&#37325;&#32622;</span><span class="w-en">FULL RESET</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-bar">
+  <div class="footer-line"></div>
+  <div class="footer-contact">&#25216;&#26415;&#25903;&#25345;&#32852;&#31995;&#65306;york.xia&#64;gmail.com</div>
+  <div class="footer-copy">&#169; YORK XIA &#183; &#30721;&#�8183;&#25481;&#34903;&#174; &#183; AI GUANDAN</div>
+</div>
+
+<script>
+/*
+  掼蛋计分逻辑
+  ─────────────────────────────────────────────────
+  level: 2-13  = 正常级牌 (2,3,...,K)
+         14    = A   (第1关)
+         15    = A²  (第2关)
+         16    = A³  (第3关)
+
+  点击流程:
+  • level < A  → level +1，动画
+  • level 升到 A → 显示A，等待下一次点击
+  • 在A/A²/A³ 再次点击 → 弹出"过了/不过"窗口
+
+  过了 → 点击方胜局+1，双方level回2，继续比赛
+  不过:
+    A  → A²
+    A² → A³
+    A³ → 己方level回2，继续比赛（不算胜负）
+
+  新局开始 → 双方level回2，局数+1，胜局保留
+  重置     → 全部归零
+  ─────────────────────────────────────────────────
+*/
+var MAX=14, INIT=2;
+var state={
+  red:INIT, blue:INIT,
+  round:1,
+  wins:{red:0, blue:0},
+  aReady:{red:false, blue:false}
+};
+
+/* ── 标签 ── */
+function levelLabel(lv){
+  if(lv>=14) return 'A';
+  if(lv<=10) return String(lv);
+  return {11:'J',12:'Q',13:'K'}[lv];
+}
+function subLabel(lv){
+  if(lv===15) return 'STAGE 2';
+  if(lv===16) return 'STAGE 3';
+  return '';
+}
+function badgeLabel(lv){
+  if(lv===15) return 'A\u00B2';
+  if(lv===16) return 'A\u00B3';
+  return '';
+}
+
+/* ── 渲染 ── */
+function renderPips(t,lv){
+  var el=document.getElementById(t+'Pips');
+  el.innerHTML='';
+  var filled=Math.min(lv,14)-2;
+  for(var i=0;i<13;i++){
+    var d=document.createElement('div');
+    d.className='pip'+(i<filled?' active':'');
+    el.appendChild(d);
+  }
+}
+function renderTeam(t){
+  var lv=state[t];
+  var lbl=levelLabel(lv);
+  document.getElementById(t+'CardVal').textContent=lbl;
+  document.getElementById(t+'CornerTL').textContent=lbl;
+  document.getElementById(t+'CornerBR').textContent=lbl;
+  var sub=document.getElementById(t+'CardSub');
+  var sl=subLabel(lv);
+  sub.textContent=sl;
+  sl ? sub.classList.add('show') : sub.classList.remove('show');
+  var badge=document.getElementById(t+'ABadge');
+  var bl=badgeLabel(lv);
+  badge.textContent=bl;
+  bl ? badge.classList.add('show') : badge.classList.remove('show');
+  document.getElementById(t+'Wins').textContent=state.wins[t];
+  renderPips(t,lv);
+}
+function render(){
+  renderTeam('red');
+  renderTeam('blue');
+  document.getElementById('roundNum').textContent=state.round;
+}
+
+/* ── 动画 ── */
+function flashCard(t){
+  var card=document.getElementById(t+'Card');
+  var panel=document.getElementById(t+'Team');
+  card.classList.remove('pop');
+  panel.classList.remove('flash-'+t);
+  void card.offsetWidth;
+  card.classList.add('pop');
+  panel.classList.add('flash-'+t);
+  setTimeout(function(){panel.classList.remove('flash-'+t);},450);
+}
+function flashWins(t){
+  var el=document.getElementById(t+'Wins');
+  el.classList.remove('wins-anim');
+  void el.offsetWidth;
+  el.classList.add('wins-anim');
+}
+
+/* ── 点击卡牌区域 ──
+   规则：
+   · level < A  → +1升级
+   · 刚升到A那一次点击 → 只显示A，不弹窗（aReady=true表示下次才弹）
+   · 已在A/A²/A³ 且 aReady=true → 弹出判定窗
+*/
+function onCardClick(t){
+  var lv=state[t];
+  if(lv < MAX){
+    /* 正常升级 */
+    state[t]++;
+    if(state[t]===MAX){
+      /* 刚升到A：显示A，标记下次点击才判定 */
+      state.aReady[t]=true;
+    }
+    flashCard(t);
+    render();
+    return;
+  }
+  /* 已在A阶段 */
+  if(state.aReady[t]){
+    /* 再次点击 → 弹出判定 */
+    openAPopup(t);
+  }
+  /* aReady=false说明刚通过+1按钮到达A，首次点击卡牌才算"再打一次" */
+  else{
+    state.aReady[t]=true;
+  }
+}
+
+/* ── ±1 按钮 ── */
+function adjustLevel(t, delta){
+  var lv=state[t];
+  if(delta<0){
+    if(lv<=INIT) return;
+    state[t]--;
+    state.aReady[t]=false;
+    flashCard(t); render();
+  } else {
+    if(lv>=16) return;
+    state[t]++;
+    if(state[t]>=MAX){
+      /* +1按钮升到A：aReady=false，需点卡牌一次才触发判定 */
+      state.aReady[t]=false;
+    }
+    flashCard(t); render();
+  }
+}
+
+/* ── A阶段弹窗 ── */
+var aTeam=null;
+function openAPopup(t){
+  aTeam=t;
+  var lv=state[t];
+  var box=document.getElementById('aPopupBox');
+  box.className='a-popup '+t;
+
+  var tName=(t==='red')?'红队  RED TEAM':'蓝队  BLUE TEAM';
+  document.getElementById('aPopupBadge').textContent=tName;
+
+  var titleMap={14:'A',15:'A\u00B2',16:'A\u00B3'};
+  document.getElementById('aPopupTitle').textContent=titleMap[lv]||'A';
+
+  var stageMap={
+    14:'第 1 关  STAGE 1',
+    15:'第 2 关  STAGE 2',
+    16:'第 3 关  STAGE 3'
+  };
+  document.getElementById('aPopupStage').textContent=stageMap[lv];
+
+  var wName=(t==='red')?'红队':'蓝队';
+  var desc='';
+  if(lv===14){
+    desc='过了：'+wName+'胜局+1，双方回到 2\n不过：升至 A\u00B2，继续比赛';
+  } else if(lv===15){
+    desc='过了：'+wName+'胜局+1，双方回到 2\n不过：升至 A\u00B3，继续比赛';
+  } else {
+    desc='过了：'+wName+'胜局+1，双方回到 2\n不过：'+wName+'回到 2，继续比赛';
+  }
+  document.getElementById('aPopupDesc').innerHTML=desc.replace('\n','<br>');
+  document.getElementById('aPopup').classList.add('show');
+}
+
+function aResult(passed){
+  document.getElementById('aPopup').classList.remove('show');
+  var t=aTeam; aTeam=null;
+  var lv=state[t];
+
+  if(passed){
+    /* 过了 → 点击方胜 */
+    recordWin(t);
+  } else {
+    /* 不过 */
+    if(lv===14){
+      /* A → A² */
+      state[t]=15;
+      state.aReady[t]=true;
+      flashCard(t); render();
+    } else if(lv===15){
+      /* A² → A³ */
+      state[t]=16;
+      state.aReady[t]=true;
+      flashCard(t); render();
+    } else {
+      /* A³ 不过 → 己方回到2，继续比赛，不算胜负 */
+      state[t]=INIT;
+      state.aReady[t]=false;
+      flashCard(t); render();
+    }
+  }
+}
+
+/* ── 记录胜局 ── */
+function recordWin(winner){
+  state.wins[winner]++;
+  flashWins(winner);
+  /* 双方level回初始值 */
+  state.red=INIT; state.blue=INIT;
+  state.aReady={red:false,blue:false};
+  render();
+  /* 显示胜利弹窗 */
+  var box=document.getElementById('winBox');
+  box.className='win-box '+winner;
+  var zh=(winner==='red')?'红队':'蓝队';
+  var en=(winner==='red')?'RED TEAM':'BLUE TEAM';
+  document.getElementById('winTitleZH').textContent=zh+' 胜利！';
+  document.getElementById('winTitleEN').textContent=en+' WINS!';
+  var lv=state[winner]; /* already reset, use wins to show */
+  document.getElementById('winSub').innerHTML=
+    '恭喜'+zh+'赢得本局！<br>'+
+    '红队 '+state.wins.red+' 局  ·  蓝队 '+state.wins.blue+' 局';
+  document.getElementById('winOverlay').classList.add('show');
+  launchParticles(winner);
+}
+
+/* ── 下一局（胜利弹窗里的按钮） ── */
+function startNextRound(){
+  document.getElementById('winOverlay').classList.remove('show');
+  stopParticles();
+  state.round++;
+  state.red=INIT; state.blue=INIT;
+  state.aReady={red:false,blue:false};
+  render();
+  timerReset(true);
+}
+
+/* ── 新局开始（底部按钮） ── */
+function newRound(){
+  state.round++;
+  state.red=INIT; state.blue=INIT;
+  state.aReady={red:false,blue:false};
+  render();
+  ['red','blue'].forEach(function(t){
+    var c=document.getElementById(t+'Card');
+    c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  });
+  timerReset(true);
+}
+
+/* ── 全部重置 ── */
+function fullReset(){
+  document.getElementById('winOverlay').classList.remove('show');
+  stopParticles();
+  state={
+    red:INIT, blue:INIT,
+    round:1,
+    wins:{red:0,blue:0},
+    aReady:{red:false,blue:false}
+  };
+  render();
+  ['red','blue'].forEach(function(t){
+    var c=document.getElementById(t+'Card');
+    c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  });
+  timerReset(false);
+}
+
+/* ── 计时器 ── */
+var timerDefault=60;
+var timerSecs=60*60;
+var timerInterval=null;
+var timerRunning=false;
+
+function timerUpdateDisplay(){
+  var m=Math.floor(timerSecs/60);
+  var s=timerSecs%60;
+  var el=document.getElementById('timerDisplay');
+  el.textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  el.classList.remove('warning','expired');
+  if(timerSecs<=0) el.classList.add('expired');
+  else if(timerSecs<=300) el.classList.add('warning');
+}
+
+function timerTick(){
+  if(timerSecs>0){ timerSecs--; timerUpdateDisplay(); }
+  else { timerStop(); }
+}
+
+function timerStart(){
+  if(timerRunning) return;
+  timerRunning=true;
+  timerInterval=setInterval(timerTick,1000);
+  var btn=document.getElementById('timerToggleBtn');
+  btn.textContent='⏸ 暂停';
+  btn.classList.add('running');
+}
+
+function timerStop(){
+  timerRunning=false;
+  clearInterval(timerInterval); timerInterval=null;
+  var btn=document.getElementById('timerToggleBtn');
+  btn.textContent='▶ 开始';
+  btn.classList.remove('running');
+}
+
+function timerToggle(){
+  if(timerRunning) timerStop(); else timerStart();
+}
+
+function timerReset(autoStart){
+  timerStop();
+  timerSecs=timerDefault*60;
+  timerUpdateDisplay();
+  if(autoStart) timerStart();
+}
+
+function timerSetMinutes(val){
+  var n=parseInt(val);
+  if(isNaN(n)||n<1) n=60;
+  if(n>999) n=999;
+  timerDefault=n;
+  document.getElementById('timerInput').value=n;
+  timerReset(false);
+}
+
+/* ── 彩带粒子 ── */
+var pAnim=null, pArr=[];
+function launchParticles(t){
+  var canvas=document.getElementById('particles');
+  canvas.classList.add('show');
+  var ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  var colors=(t==='red')
+    ?['#D10A1E','#FF4D5E','#FFAAAA','#A86800','#FFD700','#FFFFFF']
+    :['#0055BB','#3388EE','#88CCFF','#A86800','#FFD700','#FFFFFF'];
+  pArr=[];
+  for(var i=0;i<150;i++){
+    pArr.push({
+      x:Math.random()*canvas.width, y:canvas.height+10,
+      vx:(Math.random()-0.5)*6, vy:-(Math.random()*11+4),
+      r:Math.random()*7+2,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      alpha:1, rot:Math.random()*360, rotV:(Math.random()-0.5)*10
+    });
+  }
+  function loop(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    pArr.forEach(function(p){
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.13;
+      p.rot+=p.rotV; p.alpha-=0.007;
+      ctx.save();
+      ctx.globalAlpha=Math.max(0,p.alpha);
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot*Math.PI/180);
+      ctx.fillStyle=p.color;
+      if(p.r>5){ctx.beginPath();ctx.arc(0,0,p.r/2,0,Math.PI*2);ctx.fill();}
+      else{ctx.fillRect(-p.r,-p.r/2,p.r*2,p.r);}
+      ctx.restore();
+    });
+    pArr=pArr.filter(function(p){return p.alpha>0;});
+    if(pArr.length>0){pAnim=requestAnimationFrame(loop);}
+    else{stopParticles();}
+  }
+  if(pAnim) cancelAnimationFrame(pAnim);
+  pAnim=requestAnimationFrame(loop);
+}
+function stopParticles(){
+  if(pAnim){cancelAnimationFrame(pAnim);pAnim=null;}
+  var c=document.getElementById('particles');
+  c.classList.remove('show');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+}
+
+render();
+
+// ── 广告模块（服务端渲染版：访问已在服务端记录，广告数据直接注入）───────────────────────
+(function(){
+  var API = 'https://silicon-guandan-system.onrender.com/scoreboard';
+
+  // 广告数据由服务端直接注入，无需 fetch，无跨域，即时显示
+  var allAds = <%- JSON.stringify(ads) %>;
+  var normalAds = allAds.filter(function(a){ return !a.frequency_minutes; });
+  var specialAds = allAds.filter(function(a){ return !!a.frequency_minutes; });
+  var normalIdx = 0;
+  var normalTimer = null;
+  var adClosed = false;
+
+  if (allAds.length > 0) {
+    if (normalAds.length > 0) {
+      showNormal(0);
+      if (normalAds.length > 1) normalTimer = setTimeout(rotateNormal, 30000);
+    } else if (specialAds.length > 0) {
+      displayAd(specialAds[0]);
+    }
+    specialAds.forEach(function(ad) {
+      setInterval(function(){
+        if (adClosed) return;
+        if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
+        displayAd(ad);
+        if (normalAds.length > 0) normalTimer = setTimeout(rotateNormal, 30000);
+      }, ad.frequency_minutes * 60 * 1000);
+    });
+  }
+
+  function showNormal(idx) {
+    if (normalAds.length === 0) return;
+    normalIdx = idx % normalAds.length;
+    displayAd(normalAds[normalIdx]);
+  }
+
+  function rotateNormal() {
+    if (adClosed) return;
+    normalIdx = (normalIdx + 1) % normalAds.length;
+    displayAd(normalAds[normalIdx]);
+    normalTimer = setTimeout(rotateNormal, 30000);
+  }
+
+  function displayAd(ad) {
+    var banner = document.getElementById('adBanner');
+    var adLink = document.getElementById('adLink');
+    var adText = document.getElementById('adText');
+    var adImg  = document.getElementById('adImg');
+
+    if (ad.content_type === 'image' && ad.content_url) {
+      adImg.src = ad.content_url;
+      adImg.style.display = 'block';
+      adText.textContent = ad.title;
+    } else {
+      adText.textContent = ad.content_text || ad.title;
+      adImg.style.display = 'none';
+    }
+
+    // 重启滚动动画
+    adText.style.animation = 'none';
+    void adText.offsetWidth;
+    adText.style.animation = '';
+
+    adLink.onclick = null;
+    if (ad.link_url) {
+      adLink.style.cursor = 'pointer';
+      adLink.onclick = function(e){
+        if (e.target.classList.contains('ad-close')) return;
+        trackClick(ad.id);
+        window.open(ad.link_url, '_blank', 'noopener');
+      };
+    } else {
+      adLink.style.cursor = 'default';
+    }
+
+    banner.style.display = 'block';
+    adClosed = false;
+    trackImpression(ad.id);
+  }
+
+  function trackImpression(id) {
+    try { fetch(API + '/api/ads/' + id + '/impression', { method: 'POST' }).catch(function(){}); } catch(e){}
+  }
+
+  function trackClick(id) {
+    try { fetch(API + '/api/ads/' + id + '/click', { method: 'POST' }).catch(function(){}); } catch(e){}
+  }
+
+  window.closeAd = function(e) {
+    e.stopPropagation();
+    document.getElementById('adBanner').style.display = 'none';
+    adClosed = true;
+    if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
+  };
+})();
+</script>
+</body>
+</html>
