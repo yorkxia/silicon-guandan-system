@@ -184,11 +184,8 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
       adStats = await queryOne('SELECT COUNT(*) as total, SUM(impressions) as imp, SUM(clicks) as clk FROM sb_ads WHERE is_active = 1');
       recentVisits = await query(`
         SELECT v.*,
-          CASE WHEN EXISTS (
-            SELECT 1 FROM sb_visits v2
-            WHERE v2.ip_hash = v.ip_hash
-              AND v2.visited_at >= NOW() - INTERVAL '5 minutes'
-          ) THEN true ELSE false END AS is_active
+          CASE WHEN v.visited_at >= NOW() - INTERVAL '5 minutes'
+            THEN true ELSE false END AS is_active
         FROM sb_visits v
         ORDER BY is_active DESC, v.visited_at DESC LIMIT 30
       `);
@@ -211,11 +208,8 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
         `, [codes]);
         recentVisits = await query(`
           SELECT v.*,
-            CASE WHEN EXISTS (
-              SELECT 1 FROM sb_visits v2
-              WHERE v2.ip_hash = v.ip_hash
-                AND v2.visited_at >= NOW() - INTERVAL '5 minutes'
-            ) THEN true ELSE false END AS is_active
+            CASE WHEN v.visited_at >= NOW() - INTERVAL '5 minutes'
+              THEN true ELSE false END AS is_active
           FROM sb_visits v
           WHERE v.region_code = ANY($1)
           ORDER BY is_active DESC, v.visited_at DESC LIMIT 30
