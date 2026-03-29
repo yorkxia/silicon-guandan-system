@@ -68,6 +68,8 @@ header.pub-header {
 }
 .nav-link:hover { background: rgba(212,172,13,0.15); color: var(--gold); }
 .nav-link.admin-btn { border: 1.5px solid var(--gold); color: var(--gold); }
+.nav-link.monitor-btn { border: 1.5px solid rgba(100,200,255,0.6); color: rgba(140,220,255,0.9); font-size: 0.8rem; }
+.nav-link.monitor-btn:hover { background: rgba(100,200,255,0.12); color: #7dd3fc; border-color: #7dd3fc; }
 
 /* ============================
    HERO SECTION
