@@ -63,10 +63,10 @@ router.get('/api/ads', async (req, res) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     const geo = await geoLocate(ip);
     const now = new Date();
-    // 先找区域广告，再找全球广告
+    // 三级查询：1) 精确区域匹配  2) 全球广告(NULL或GLOBAL)  3) 任意活跃广告兜底
     let ad = await queryOne(`
       SELECT a.*, r.area_code FROM sb_ads a
-      LEFT JOIN sb_regions r ON r.id = a.region_id
+      JOIN sb_regions r ON r.id = a.region_id
       WHERE a.is_active = 1
         AND (a.start_time IS NULL OR a.start_time <= $1)
         AND (a.end_time IS NULL OR a.end_time >= $1)
@@ -77,10 +77,22 @@ router.get('/api/ads', async (req, res) => {
     if (!ad) {
       ad = await queryOne(`
         SELECT a.* FROM sb_ads a
+        LEFT JOIN sb_regions r ON r.id = a.region_id
         WHERE a.is_active = 1
           AND (a.start_time IS NULL OR a.start_time <= $1)
           AND (a.end_time IS NULL OR a.end_time >= $1)
-          AND a.region_id IS NULL
+          AND (a.region_id IS NULL OR r.area_code = 'GLOBAL')
+        ORDER BY a.created_at DESC LIMIT 1
+      `, [now]);
+    }
+
+    // 兜底：仍无匹配则显示任意一条活跃广告
+    if (!ad) {
+      ad = await queryOne(`
+        SELECT a.* FROM sb_ads a
+        WHERE a.is_active = 1
+          AND (a.start_time IS NULL OR a.start_time <= $1)
+          AND (a.end_time IS NULL OR a.end_time >= $1)
         ORDER BY a.created_at DESC LIMIT 1
       `, [now]);
     }
