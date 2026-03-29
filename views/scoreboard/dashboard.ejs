@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>监控控制台 | Monitor Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/scoreboard-admin.css">
+</head>
+<body>
+<% const activePage = 'dashboard'; %>
+<div class="sb-wrap">
+  <%- include('_layout') %>
+
+  <main class="sb-main">
+    <div class="sb-page-head">
+      <h1>🏠 控制台 · Dashboard</h1>
+      <span style="color:#888; font-size:0.85rem">欢迎，<%= sbUser.display_name || sbUser.username %></span>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num"><%= totalVisits30d ? totalVisits30d.cnt : 0 %></div>
+        <div class="stat-lbl">近30天访问 · Visits (30d)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= adStats ? adStats.total || 0 : 0 %></div>
+        <div class="stat-lbl">活跃广告 · Active Ads</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= adStats ? adStats.imp || 0 : 0 %></div>
+        <div class="stat-lbl">广告展示 · Impressions</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num"><%= adStats ? adStats.clk || 0 : 0 %></div>
+        <div class="stat-lbl">广告点击 · Clicks</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px">
+      <!-- Visit Stats by Region -->
+      <div class="a-card">
+        <h3 style="margin:0 0 16px; color:#D4AC0D">📍 区域访问分布（近30天）</h3>
+        <% if (visitStats && visitStats.length > 0) { %>
+          <table class="a-table">
+            <thead><tr><th>区域代码</th><th>访问次数</th></tr></thead>
+            <tbody>
+              <% visitStats.forEach(function(v) { %>
+                <tr><td><%= v.region_code %></td><td><strong><%= v.cnt %></strong></td></tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <p style="color:#666; font-size:0.88rem">暂无访问数据</p>
+        <% } %>
+      </div>
+
+      <!-- Recent Visits -->
+      <div class="a-card">
+        <h3 style="margin:0 0 16px; color:#D4AC0D">🕐 最近访问记录</h3>
+        <% if (recentVisits && recentVisits.length > 0) { %>
+          <div style="overflow-y:auto; max-height:280px">
+            <table class="a-table" style="font-size:0.78rem">
+              <thead><tr><th>时间</th><th>国家</th><th>地区</th><th>城市</th></tr></thead>
+              <tbody>
+                <% recentVisits.forEach(function(v) { %>
+                  <tr>
+                    <td><%= new Date(v.visited_at).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) %></td>
+                    <td><%= v.country %></td>
+                    <td><%= v.region_code %></td>
+                    <td><%= v.city || '-' %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } else { %>
+          <p style="color:#666; font-size:0.88rem">暂无访问记录</p>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Regions Overview -->
+    <% if (regions && regions.length > 0) { %>
+    <div class="a-card" style="margin-top:20px">
+      <h3 style="margin:0 0 16px; color:#D4AC0D">🗺️ 管辖区域</h3>
+      <div style="display:flex; flex-wrap:wrap; gap:10px">
+        <% regions.forEach(function(r) { %>
+          <div style="background:rgba(212,172,13,0.1); border:1px solid rgba(212,172,13,0.3); border-radius:8px; padding:8px 16px; font-size:0.85rem">
+            <strong style="color:#D4AC0D"><%= r.area_code %></strong>
+            <span style="color:#ccc; margin-left:6px"><%= r.area_name_zh %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+
+    <div style="margin-top:20px; text-align:center">
+      <a href="/scoreboard/analytics" class="abtn abtn-primary" style="margin-right:10px">📈 查看详细统计</a>
+      <a href="/scoreboard/ads" class="abtn abtn-secondary">📢 管理广告</a>
+    </div>
+  </main>
+</div>
+</body>
+</html>

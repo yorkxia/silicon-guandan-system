@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>广告管理 | Ad Management</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/scoreboard-admin.css">
+</head>
+<body>
+<% const activePage = 'ads'; %>
+<div class="sb-wrap">
+  <%- include('_layout') %>
+
+  <main class="sb-main">
+    <div class="sb-page-head">
+      <h1>📢 广告管理 · Ad Management</h1>
+    </div>
+
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap"><% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %></div>
+    <% } %>
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap"><% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %></div>
+    <% } %>
+
+    <!-- Add Ad Form -->
+    <div class="a-card" style="margin-bottom:24px">
+      <h3 style="margin:0 0 16px; color:#D4AC0D">➕ 新增广告</h3>
+      <form action="/scoreboard/ads/add" method="POST">
+        <div style="display:grid; grid-template-columns:2fr 1fr 1fr; gap:12px; margin-bottom:12px">
+          <div class="a-form-group" style="margin:0">
+            <label>广告标题 *</label>
+            <input type="text" name="title" class="a-input" placeholder="广告标题" required>
+          </div>
+          <div class="a-form-group" style="margin:0">
+            <label>内容类型</label>
+            <select name="content_type" class="a-input" id="adContentType" onchange="toggleAdFields(this.value)">
+              <option value="text">文字</option>
+              <option value="image">图片</option>
+              <option value="banner">横幅</option>
+            </select>
+          </div>
+          <div class="a-form-group" style="margin:0">
+            <label>目标区域</label>
+            <select name="region_id" class="a-input">
+              <option value="">全球通用</option>
+              <% regions.forEach(function(r) { %>
+                <option value="<%= r.id %>"><%= r.area_code %> · <%= r.area_name_zh %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px">
+          <div class="a-form-group" style="margin:0" id="fieldText">
+            <label>广告文字内容</label>
+            <textarea name="content_text" class="a-input" rows="3" placeholder="广告文字内容..."></textarea>
+          </div>
+          <div class="a-form-group" style="margin:0" id="fieldUrl" style="display:none">
+            <label>图片/媒体 URL</label>
+            <input type="url" name="content_url" class="a-input" placeholder="https://...">
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px">
+          <div class="a-form-group" style="margin:0">
+            <label>点击跳转链接</label>
+            <input type="url" name="link_url" class="a-input" placeholder="https://...（可选）">
+          </div>
+          <div class="a-form-group" style="margin:0">
+            <label>开始时间（可选）</label>
+            <input type="datetime-local" name="start_time" class="a-input">
+          </div>
+          <div class="a-form-group" style="margin:0">
+            <label>结束时间（可选）</label>
+            <input type="datetime-local" name="end_time" class="a-input">
+          </div>
+        </div>
+        <button type="submit" class="abtn abtn-primary">➕ 发布广告</button>
+      </form>
+    </div>
+
+    <!-- Ads Table -->
+    <div class="a-card">
+      <h3 style="margin:0 0 16px; color:#D4AC0D">广告列表 (<%= ads.length %>)</h3>
+      <% if (ads.length > 0) { %>
+      <table class="a-table">
+        <thead>
+          <tr><th>ID</th><th>标题</th><th>类型</th><th>区域</th><th>状态</th><th>展示</th><th>点击</th><th>有效期</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          <% ads.forEach(function(ad) { %>
+            <tr>
+              <td><%= ad.id %></td>
+              <td>
+                <strong><%= ad.title %></strong>
+                <% if (ad.content_text) { %>
+                  <div style="font-size:0.75rem; color:#888; margin-top:2px"><%= ad.content_text.slice(0,50) %><%= ad.content_text.length > 50 ? '...' : '' %></div>
+                <% } %>
+              </td>
+              <td><span style="font-size:0.78rem; color:#aaa"><%= ad.content_type %></span></td>
+              <td><%= ad.area_name_zh || '<span style="color:#666">全球</span>' %></td>
+              <td>
+                <span style="color:<%= ad.is_active ? '#4CAF50' : '#e53' %>">
+                  <%= ad.is_active ? '✅ 启用' : '⛔ 暂停' %>
+                </span>
+              </td>
+              <td><strong><%= ad.impressions %></strong></td>
+              <td><strong><%= ad.clicks %></strong></td>
+              <td style="font-size:0.75rem; color:#777">
+                <% if (ad.start_time || ad.end_time) { %>
+                  <%= ad.start_time ? new Date(ad.start_time).toLocaleDateString('zh-CN') : '即刻' %>
+                  ~
+                  <%= ad.end_time ? new Date(ad.end_time).toLocaleDateString('zh-CN') : '永久' %>
+                <% } else { %>
+                  永久有效
+                <% } %>
+              </td>
+              <td style="white-space:nowrap">
+                <form action="/scoreboard/ads/<%= ad.id %>/toggle" method="POST" style="display:inline">
+                  <button type="submit" class="abtn" style="font-size:0.75rem; padding:4px 10px; background:<%= ad.is_active ? '#e74c3c' : '#27ae60' %>; color:#fff; border:none; cursor:pointer">
+                    <%= ad.is_active ? '暂停' : '启用' %>
+                  </button>
+                </form>
+                <form action="/scoreboard/ads/<%= ad.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('确认删除广告?')">
+                  <button type="submit" class="abtn" style="font-size:0.75rem; padding:4px 10px; background:#555; color:#fff; border:none; cursor:pointer">删除</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <% } else { %>
+        <p style="color:#666; text-align:center; padding:30px">暂无广告，请添加第一条广告</p>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<script>
+function toggleAdFields(type) {
+  document.getElementById('fieldUrl').style.display = (type === 'image' || type === 'banner') ? '' : 'none';
+}
+</script>
+</body>
+</html>
