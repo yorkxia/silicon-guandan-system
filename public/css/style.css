@@ -72,8 +72,9 @@ header.pub-header {
 .nav-link.monitor-btn:hover { background: rgba(100,200,255,0.12); color: #7dd3fc; border-color: #7dd3fc; }
 /* 协会名 + 分隔线 */
 .assoc-name {
-  font-size: 0.82rem; font-weight: 700; color: rgba(212,172,13,0.65);
-  letter-spacing: 1.5px; white-space: nowrap;
+  font-size: 1.15rem; font-weight: 900; color: #D4AC0D;
+  letter-spacing: 2px; white-space: nowrap;
+  text-shadow: 0 0 12px rgba(212,172,13,0.45);
 }
 .header-vdivider {
   width: 1px; height: 26px; background: rgba(212,172,13,0.3); flex-shrink: 0;
