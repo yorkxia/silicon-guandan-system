@@ -70,6 +70,46 @@ header.pub-header {
 .nav-link.admin-btn { border: 1.5px solid var(--gold); color: var(--gold); }
 .nav-link.monitor-btn { border: 1.5px solid rgba(100,200,255,0.6); color: rgba(140,220,255,0.9); font-size: 0.8rem; }
 .nav-link.monitor-btn:hover { background: rgba(100,200,255,0.12); color: #7dd3fc; border-color: #7dd3fc; }
+/* 协会名 + 分隔线 */
+.assoc-name {
+  font-size: 0.82rem; font-weight: 700; color: rgba(212,172,13,0.65);
+  letter-spacing: 1.5px; white-space: nowrap;
+}
+.header-vdivider {
+  width: 1px; height: 26px; background: rgba(212,172,13,0.3); flex-shrink: 0;
+}
+/* Hero 广告栏 */
+.hero-ad-wrap {
+  width: 100%; max-width: 620px; margin: 0 auto 22px; display: none;
+}
+.hero-ad-inner {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(0,0,0,0.38); border: 1px solid rgba(212,172,13,0.5);
+  border-radius: 30px; padding: 10px 18px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(212,172,13,0.1);
+}
+.hero-ad-label {
+  font-size: 10px; font-weight: 900; letter-spacing: 2px;
+  color: #D4AC0D; background: rgba(212,172,13,0.15);
+  border: 1px solid rgba(212,172,13,0.4); border-radius: 6px;
+  padding: 3px 8px; white-space: nowrap; flex-shrink: 0;
+}
+.hero-ad-text-wrap { flex: 1; overflow: hidden; }
+.hero-ad-text {
+  font-size: 14px; font-weight: 700; color: #FFD700;
+  white-space: nowrap; display: inline-block;
+  animation: hero-ad-scroll 20s linear infinite;
+}
+@keyframes hero-ad-scroll {
+  0%   { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+.hero-ad-close {
+  font-size: 15px; color: rgba(255,215,0,0.35); cursor: pointer;
+  flex-shrink: 0; padding: 2px 4px; line-height: 1; transition: color 0.2s;
+}
+.hero-ad-close:hover { color: rgba(255,215,0,0.7); }
 
 /* ============================
    HERO SECTION

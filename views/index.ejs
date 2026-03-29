@@ -13,6 +13,8 @@
   <div class="container header-inner">
     <a href="/" class="logo-area">
       <%- include('./partials/logo') %>
+      <div class="assoc-name">硅谷掼蛋协会</div>
+      <div class="header-vdivider"></div>
       <div class="site-name">
         硅谷掼蛋联赛
         <small>Silicon Valley Guandan League</small>
@@ -42,6 +44,16 @@
     <div class="lantern"></div>
   </div>
   <div class="container hero-content">
+    <!-- 广告栏（由监控系统控制） -->
+    <div class="hero-ad-wrap" id="heroAdBanner">
+      <div class="hero-ad-inner" id="heroAdLink">
+        <span class="hero-ad-label">广 告</span>
+        <div class="hero-ad-text-wrap">
+          <span class="hero-ad-text" id="heroAdText"></span>
+        </div>
+        <span class="hero-ad-close" onclick="closeHeroAd(event)" title="关闭">✕</span>
+      </div>
+    </div>
     <div class="year-badge">
       <span class="horse-char">🐎</span>
       <span>2026 · 丙午年 · Year of the Horse</span>
@@ -164,5 +176,61 @@
   </div>
 </footer>
 
+<script>
+(function(){
+  var API = 'https://silicon-guandan-system.onrender.com/scoreboard';
+  var allAds = <%- JSON.stringify(ads) %>;
+  var normalAds = allAds.filter(function(a){ return !a.frequency_minutes; });
+  var specialAds = allAds.filter(function(a){ return !!a.frequency_minutes; });
+  var normalIdx = 0, normalTimer = null, adClosed = false;
+
+  if (allAds.length > 0) {
+    if (normalAds.length > 0) {
+      showNormal(0);
+      if (normalAds.length > 1) normalTimer = setTimeout(rotateNormal, 30000);
+    } else { displayAd(specialAds[0]); }
+    specialAds.forEach(function(ad){
+      setInterval(function(){
+        if (adClosed) return;
+        if (normalTimer){ clearTimeout(normalTimer); normalTimer = null; }
+        displayAd(ad);
+        if (normalAds.length > 0) normalTimer = setTimeout(rotateNormal, 30000);
+      }, ad.frequency_minutes * 60 * 1000);
+    });
+  }
+
+  function showNormal(idx){ normalIdx = idx % normalAds.length; displayAd(normalAds[normalIdx]); }
+  function rotateNormal(){
+    if (adClosed) return;
+    normalIdx = (normalIdx + 1) % normalAds.length;
+    displayAd(normalAds[normalIdx]);
+    normalTimer = setTimeout(rotateNormal, 30000);
+  }
+  function displayAd(ad){
+    var el = document.getElementById('heroAdText');
+    el.textContent = ad.content_text || ad.title;
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+    var link = document.getElementById('heroAdLink');
+    link.onclick = null;
+    if (ad.link_url){
+      link.style.cursor = 'pointer';
+      link.onclick = function(e){
+        if (e.target.classList.contains('hero-ad-close')) return;
+        fetch(API + '/api/ads/' + ad.id + '/click', { method:'POST' }).catch(function(){});
+        window.open(ad.link_url, '_blank', 'noopener');
+      };
+    } else { link.style.cursor = 'default'; }
+    document.getElementById('heroAdBanner').style.display = 'block';
+    adClosed = false;
+    fetch(API + '/api/ads/' + ad.id + '/impression', { method:'POST' }).catch(function(){});
+  }
+  window.closeHeroAd = function(e){
+    e.stopPropagation();
+    document.getElementById('heroAdBanner').style.display = 'none';
+    adClosed = true;
+    if (normalTimer){ clearTimeout(normalTimer); normalTimer = null; }
+  };
+})();
+</script>
 </body>
 </html>

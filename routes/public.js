@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../db/init');
 const { encrypt } = require('../utils/crypto');
+const { geoLocate } = require('../utils/geo');
 
 async function getContent(page) {
   const rows = await query('SELECT key_name, value_zh, value_en FROM page_content WHERE page = $1', [page]);
@@ -13,12 +14,30 @@ async function getContent(page) {
 // Home page
 router.get('/', async (req, res) => {
   try {
-    const tournaments = await query(`
-      SELECT t.*, (SELECT COUNT(*) FROM registrations r WHERE r.tournament_id = t.id) as reg_count
-      FROM tournaments t WHERE t.status = 'active' ORDER BY t.created_at DESC
-    `);
-    const content = await getContent('home');
-    res.render('index', { tournaments, content });
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    const geo = await geoLocate(ip);
+    const now = new Date();
+    const [tournaments, content, ads] = await Promise.all([
+      query(`
+        SELECT t.*, (SELECT COUNT(*) FROM registrations r WHERE r.tournament_id = t.id) as reg_count
+        FROM tournaments t WHERE t.status = 'active' ORDER BY t.created_at DESC
+      `),
+      getContent('home'),
+      query(`
+        SELECT a.* FROM sb_ads a
+        LEFT JOIN sb_regions r ON r.id = a.region_id
+        WHERE a.is_active = 1
+          AND (a.start_time IS NULL OR a.start_time <= $1)
+          AND (a.end_time   IS NULL OR a.end_time   >= $1)
+          AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+        ORDER BY
+          CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
+          CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,
+          a.frequency_minutes ASC NULLS LAST,
+          a.created_at DESC
+      `, [now, geo.region_code]).catch(() => [])
+    ]);
+    res.render('index', { tournaments, content, ads });
   } catch (e) {
     console.error(e);
     res.status(500).send('Server Error');
