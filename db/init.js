@@ -169,6 +169,9 @@ async function initDB() {
     )
   `);
 
+  // 迁移：添加 frequency_minutes 列（如果不存在）
+  await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS frequency_minutes INTEGER DEFAULT NULL`);
+
   // 默认 sb admin
   const sbAdminExists = await queryOne('SELECT id FROM sb_users WHERE username = $1', ['sbadmin']);
   if (!sbAdminExists) {

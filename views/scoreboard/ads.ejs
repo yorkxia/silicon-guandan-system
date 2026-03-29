@@ -6,6 +6,11 @@
   <title>广告管理 | Ad Management</title>
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/scoreboard-admin.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    .flatpickr-calendar { font-size: 13px; }
+    .flatpickr-input { background: #1a1a1a !important; color: #eee !important; }
+  </style>
 </head>
 <body>
 <% const activePage = 'ads'; %>
@@ -44,7 +49,7 @@
           <div class="a-form-group" style="margin:0">
             <label>目标区域</label>
             <select name="region_id" class="a-input">
-              <option value="">全球通用</option>
+              <option value="">全球通用 (GLOBAL)</option>
               <% regions.forEach(function(r) { %>
                 <option value="<%= r.id %>"><%= r.area_code %> · <%= r.area_name_zh %></option>
               <% }) %>
@@ -61,18 +66,23 @@
             <input type="url" name="content_url" class="a-input" placeholder="https://...">
           </div>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:16px">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:16px">
           <div class="a-form-group" style="margin:0">
             <label>点击跳转链接</label>
             <input type="url" name="link_url" class="a-input" placeholder="https://...（可选）">
           </div>
           <div class="a-form-group" style="margin:0">
             <label>开始时间（可选）</label>
-            <input type="datetime-local" name="start_time" class="a-input">
+            <input type="text" name="start_time" class="a-input flatpickr-dt" placeholder="点击选择时间...">
           </div>
           <div class="a-form-group" style="margin:0">
             <label>结束时间（可选）</label>
-            <input type="datetime-local" name="end_time" class="a-input">
+            <input type="text" name="end_time" class="a-input flatpickr-dt" placeholder="点击选择时间...">
+          </div>
+          <div class="a-form-group" style="margin:0">
+            <label>高频播放（分钟/次）</label>
+            <input type="number" name="frequency_minutes" class="a-input" placeholder="留空=均分轮播" min="1" max="1440">
+            <div style="font-size:0.72rem; color:#666; margin-top:3px">设置后每隔N分钟强制播放一次</div>
           </div>
         </div>
         <button type="submit" class="abtn abtn-primary">➕ 发布广告</button>
@@ -85,7 +95,7 @@
       <% if (ads.length > 0) { %>
       <table class="a-table">
         <thead>
-          <tr><th>ID</th><th>标题</th><th>类型</th><th>区域</th><th>状态</th><th>展示</th><th>点击</th><th>有效期</th><th>操作</th></tr>
+          <tr><th>ID</th><th>标题</th><th>类型</th><th>区域</th><th>状态</th><th>展示</th><th>点击</th><th>频率</th><th>有效期</th><th>操作</th></tr>
         </thead>
         <tbody>
           <% ads.forEach(function(ad) { %>
@@ -106,6 +116,13 @@
               </td>
               <td><strong><%= ad.impressions %></strong></td>
               <td><strong><%= ad.clicks %></strong></td>
+              <td style="font-size:0.78rem">
+                <% if (ad.frequency_minutes) { %>
+                  <span style="color:#F0C820; font-weight:bold">⚡ 每<%= ad.frequency_minutes %>分钟</span>
+                <% } else { %>
+                  <span style="color:#555">均分轮播</span>
+                <% } %>
+              </td>
               <td style="font-size:0.75rem; color:#777">
                 <% if (ad.start_time || ad.end_time) { %>
                   <%= ad.start_time ? new Date(ad.start_time).toLocaleDateString('zh-CN') : '即刻' %>
@@ -136,7 +153,17 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
 <script>
+flatpickr('.flatpickr-dt', {
+  enableTime: true,
+  dateFormat: 'Y-m-d H:i:S',
+  time_24hr: true,
+  locale: 'zh',
+  allowInput: true
+});
+
 function toggleAdFields(type) {
   document.getElementById('fieldUrl').style.display = (type === 'image' || type === 'banner') ? '' : 'none';
 }

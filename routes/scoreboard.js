@@ -57,55 +57,44 @@ router.use('/api', (req, res, next) => {
   next();
 });
 
-// 广告获取 API
+// 广告获取 API — 返回当前区域所有可投放的广告（供客户端轮播）
 router.get('/api/ads', async (req, res) => {
   try {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     const geo = await geoLocate(ip);
     const now = new Date();
-    // 三级查询：1) 精确区域匹配  2) 全球广告(NULL或GLOBAL)  3) 任意活跃广告兜底
-    let ad = await queryOne(`
-      SELECT a.*, r.area_code FROM sb_ads a
-      JOIN sb_regions r ON r.id = a.region_id
+    // 返回：本区域广告 + GLOBAL广告（region_id IS NULL 或 area_code='GLOBAL'）
+    // 严格隔离：其他区域广告不返回
+    const ads = await query(`
+      SELECT a.*, r.area_code as r_code FROM sb_ads a
+      LEFT JOIN sb_regions r ON r.id = a.region_id
       WHERE a.is_active = 1
         AND (a.start_time IS NULL OR a.start_time <= $1)
         AND (a.end_time IS NULL OR a.end_time >= $1)
-        AND r.area_code = $2
-      ORDER BY a.created_at DESC LIMIT 1
+        AND (
+          a.region_id IS NULL
+          OR r.area_code = 'GLOBAL'
+          OR r.area_code = $2
+        )
+      ORDER BY
+        CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
+        CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,
+        a.frequency_minutes ASC NULLS LAST,
+        a.created_at DESC
     `, [now, geo.region_code]);
-
-    if (!ad) {
-      ad = await queryOne(`
-        SELECT a.* FROM sb_ads a
-        LEFT JOIN sb_regions r ON r.id = a.region_id
-        WHERE a.is_active = 1
-          AND (a.start_time IS NULL OR a.start_time <= $1)
-          AND (a.end_time IS NULL OR a.end_time >= $1)
-          AND (a.region_id IS NULL OR r.area_code = 'GLOBAL')
-        ORDER BY a.created_at DESC LIMIT 1
-      `, [now]);
-    }
-
-    // 兜底：仍无匹配则显示任意一条活跃广告
-    if (!ad) {
-      ad = await queryOne(`
-        SELECT a.* FROM sb_ads a
-        WHERE a.is_active = 1
-          AND (a.start_time IS NULL OR a.start_time <= $1)
-          AND (a.end_time IS NULL OR a.end_time >= $1)
-        ORDER BY a.created_at DESC LIMIT 1
-      `, [now]);
-    }
-
-    if (ad) {
-      await query('UPDATE sb_ads SET impressions = impressions + 1 WHERE id = $1', [ad.id]);
-    }
-
-    res.json({ ad: ad || null, geo });
+    res.json({ ads, geo });
   } catch (e) {
     console.error('Ads API error:', e.message);
-    res.json({ ad: null });
+    res.json({ ads: [] });
   }
+});
+
+// 广告曝光追踪（客户端每次展示时调用）
+router.post('/api/ads/:id/impression', async (req, res) => {
+  try {
+    await query('UPDATE sb_ads SET impressions = impressions + 1 WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch { res.json({ ok: false }); }
 });
 
 // 广告点击追踪
@@ -297,17 +286,18 @@ router.get('/ads', requireSbAuth, async (req, res) => {
 
 router.post('/ads/add', requireSbAuth, async (req, res) => {
   const u = req.session.sbUser;
-  const { title, content_type, content_text, content_url, link_url, region_id, start_time, end_time } = req.body;
+  const { title, content_type, content_text, content_url, link_url, region_id, start_time, end_time, frequency_minutes } = req.body;
   if (!title) { req.flash('error', '请填写广告标题'); return res.redirect('/scoreboard/ads'); }
   // 区域用户只能为自己的区域创建广告
   if (u.role !== 'admin' && region_id) {
     const allowed = await queryOne('SELECT 1 FROM sb_user_regions WHERE user_id=$1 AND region_id=$2', [u.id, region_id]);
     if (!allowed) { req.flash('error', '无权操作该区域'); return res.redirect('/scoreboard/ads'); }
   }
+  const freqMin = frequency_minutes && parseInt(frequency_minutes) > 0 ? parseInt(frequency_minutes) : null;
   await query(
-    'INSERT INTO sb_ads (title, content_type, content_text, content_url, link_url, region_id, start_time, end_time, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    'INSERT INTO sb_ads (title, content_type, content_text, content_url, link_url, region_id, start_time, end_time, frequency_minutes, created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
     [title, content_type || 'text', content_text || '', content_url || '', link_url || '',
-     region_id || null, start_time || null, end_time || null, u.id]
+     region_id || null, start_time || null, end_time || null, freqMin, u.id]
   );
   req.flash('success', '广告已创建');
   res.redirect('/scoreboard/ads');
