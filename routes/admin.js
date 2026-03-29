@@ -206,7 +206,7 @@ router.post('/registrations/:id/payment', requireAuth, async (req, res) => {
         console.error('Email skipped: RESEND_API_KEY not set');
       } else {
         req.flash('success', `📧 通知邮件正在发送至 ${email}`);
-        sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.name })
+        sendPaymentConfirmation({ toEmail: email, toName: name, tournamentName: tournament.title_zh || tournament.name, tournamentDate: tournament.date || '', tournamentLocation: tournament.location_zh || '' })
           .then(() => console.log(`Email sent to ${email}`))
           .catch(err => console.error('Email send error:', err.message));
       }

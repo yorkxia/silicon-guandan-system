@@ -136,7 +136,8 @@
             </label>
             <input type="text" id="team_name" name="team_name" class="form-control"
               placeholder="请输入参赛队名 · Enter your team name"
-              maxlength="100">
+              maxlength="100" oninput="checkTeamName()" onblur="checkTeamName()">
+            <div id="team-name-msg" style="display:none; margin-top:6px; padding:7px 12px; border-radius:6px; font-size:0.85rem;"></div>
           </div>
 
           <div class="form-group">
@@ -228,6 +229,36 @@
 </footer>
 
 <script>
+var teamNameTimer = null;
+function checkTeamName() {
+  const val = document.getElementById('team_name').value.trim();
+  const msg = document.getElementById('team-name-msg');
+  const btn = document.getElementById('submit-btn');
+  if (!val) { msg.style.display = 'none'; btn.dataset.teamOk = '1'; return; }
+  clearTimeout(teamNameTimer);
+  teamNameTimer = setTimeout(function() {
+    fetch('/api/check-team-name?tid=<%= tournament.id %>&name=' + encodeURIComponent(val))
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.taken) {
+          msg.style.display = 'block';
+          msg.style.background = '#FADBD8';
+          msg.style.color = '#922B21';
+          msg.style.border = '1px solid #E74C3C';
+          msg.innerHTML = '❌ 此队名已被使用，请更换 · This team name is already taken';
+          btn.dataset.teamOk = '0';
+        } else if (val) {
+          msg.style.display = 'block';
+          msg.style.background = '#D5F5E3';
+          msg.style.color = '#1E8449';
+          msg.style.border = '1px solid #27AE60';
+          msg.innerHTML = '✅ 队名可用 · Team name available';
+          btn.dataset.teamOk = '1';
+        }
+      }).catch(function() { msg.style.display = 'none'; btn.dataset.teamOk = '1'; });
+  }, 500);
+}
+
 function onPartnerInput() {
   const val = document.getElementById('partner_name').value.trim();
   const box = document.getElementById('random-partner-box');
@@ -258,6 +289,11 @@ function checkPayment() {
   if (!checked) {
     document.getElementById('payment-warning').style.display = 'block';
     document.getElementById('payment-confirm-box').scrollIntoView({ behavior: 'smooth' });
+    return false;
+  }
+  const btn = document.getElementById('submit-btn');
+  if (btn.dataset.teamOk === '0') {
+    document.getElementById('team_name').scrollIntoView({ behavior: 'smooth' });
     return false;
   }
   return true;

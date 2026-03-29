@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../db/init');
-const { encrypt } = require('../utils/crypto');
+const { encrypt, decrypt } = require('../utils/crypto');
 const { geoLocate } = require('../utils/geo');
 
 async function getContent(page) {
@@ -44,6 +44,23 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Team name uniqueness check API (for real-time frontend validation)
+router.get('/api/check-team-name', async (req, res) => {
+  try {
+    const { tid, name } = req.query;
+    if (!tid || !name || !name.trim()) return res.json({ taken: false });
+    const rows = await query('SELECT team_name_enc FROM registrations WHERE tournament_id = $1 AND team_name_enc IS NOT NULL', [tid]);
+    const normalized = name.trim().toLowerCase();
+    const taken = rows.some(r => {
+      try { return decrypt(r.team_name_enc).trim().toLowerCase() === normalized; } catch { return false; }
+    });
+    res.json({ taken });
+  } catch (e) {
+    console.error(e);
+    res.json({ taken: false });
+  }
+});
+
 // Registration page
 router.get('/register/:id', async (req, res) => {
   try {
@@ -69,6 +86,19 @@ router.post('/register/:id', async (req, res) => {
     const regCount = await queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]);
     if (parseInt(regCount.c) >= tournament.max_participants) {
       return res.redirect('/success?status=full');
+    }
+
+    // Check team name uniqueness
+    if (team_name && team_name.trim()) {
+      const existing = await query('SELECT team_name_enc FROM registrations WHERE tournament_id = $1 AND team_name_enc IS NOT NULL', [tournament.id]);
+      const normalized = team_name.trim().toLowerCase();
+      const taken = existing.some(r => {
+        try { return decrypt(r.team_name_enc).trim().toLowerCase() === normalized; } catch { return false; }
+      });
+      if (taken) {
+        req.flash('error', `❌ 队名"${team_name}"已被其他参赛者使用，请更换队名 | Team name "${team_name}" is already taken, please choose another.`);
+        return res.redirect(`/register/${req.params.id}`);
+      }
     }
 
     await query(
