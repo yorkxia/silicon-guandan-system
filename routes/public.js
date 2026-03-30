@@ -81,7 +81,10 @@ router.post('/register/:id', async (req, res) => {
     if (!tournament) return res.redirect('/');
 
     const { name, phone, email, team_name, partner_name, backup_partner_name, random_partner } = req.body;
-    if (!name || !phone || !email) return res.redirect(`/register/${req.params.id}`);
+    if (!name || !phone || !email || !team_name || !team_name.trim()) {
+      req.flash('error', '❌ 姓名、电话、邮箱、参赛队名均为必填项 | Name, phone, email, and team name are required.');
+      return res.redirect(`/register/${req.params.id}`);
+    }
 
     const regCount = await queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]);
     if (parseInt(regCount.c) >= tournament.max_participants) {

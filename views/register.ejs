@@ -131,12 +131,11 @@
 
           <div class="form-group">
             <label for="team_name">
-              参赛队名 · Team Name
-              <span style="font-size:0.78rem; color:#999; font-weight:400">（可选 · Optional）</span>
+              参赛队名 · Team Name <span class="req">*</span>
             </label>
             <input type="text" id="team_name" name="team_name" class="form-control"
               placeholder="请输入参赛队名 · Enter your team name"
-              maxlength="100" oninput="checkTeamName()" onblur="checkTeamName()">
+              maxlength="100" required oninput="checkTeamName()" onblur="checkTeamName()">
             <div id="team-name-msg" style="display:none; margin-top:6px; padding:7px 12px; border-radius:6px; font-size:0.85rem;"></div>
           </div>
 
