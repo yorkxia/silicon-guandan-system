@@ -242,14 +242,14 @@
       <% } %>
     </div>
 
-    <!-- Live Stats Bar -->
+    <!-- Live Stats Bar (temporarily hidden) -->
     <%
       const _pct = Math.min(100, Math.round(reg_count / tournament.max_participants * 100));
       const _full = reg_count >= tournament.max_participants;
       const _warn = !_full && _pct >= 80;
       const _barColor = _full ? '#E74C3C' : (_warn ? 'linear-gradient(90deg,#F39C12,#E74C3C)' : 'linear-gradient(90deg,#4CAF50,#F39C12)');
     %>
-    <div id="stats-wrap" style="margin-top:20px; background:linear-gradient(135deg,#641E16 0%,#922B21 50%,<%= _full ? '#7B241C' : '#C0392B' %> 100%); border-radius:14px; padding:20px 24px; box-shadow:0 4px 20px rgba(100,30,22,0.35); position:relative; overflow:hidden;">
+    <div id="stats-wrap" style="display:none; margin-top:20px; background:linear-gradient(135deg,#641E16 0%,#922B21 50%,<%= _full ? '#7B241C' : '#C0392B' %> 100%); border-radius:14px; padding:20px 24px; box-shadow:0 4px 20px rgba(100,30,22,0.35); position:relative; overflow:hidden;">
       <div style="position:absolute;top:-10px;right:-10px;font-size:5rem;opacity:0.06;pointer-events:none">🏆</div>
       <div style="font-size:0.78rem; font-weight:700; color:rgba(255,255,255,0.6); letter-spacing:2px; text-transform:uppercase; margin-bottom:14px">
         📊 实时报名状态 · Live Registration Status
