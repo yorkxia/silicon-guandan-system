@@ -80,7 +80,7 @@ router.post('/register/:id', async (req, res) => {
     const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1 AND status = $2', [req.params.id, 'active']);
     if (!tournament) return res.redirect('/');
 
-    const { name, phone, email, team_name, partner_name, random_partner } = req.body;
+    const { name, phone, email, team_name, partner_name, backup_partner_name, random_partner } = req.body;
     if (!name || !phone || !email) return res.redirect(`/register/${req.params.id}`);
 
     const regCount = await queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]);
@@ -102,8 +102,8 @@ router.post('/register/:id', async (req, res) => {
     }
 
     await query(
-      `INSERT INTO registrations (tournament_id, name_enc, phone_enc, email_enc, team_name_enc, partner_name_enc, random_partner)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `INSERT INTO registrations (tournament_id, name_enc, phone_enc, email_enc, team_name_enc, partner_name_enc, backup_partner_name_enc, random_partner)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         tournament.id,
         encrypt(name),
@@ -111,6 +111,7 @@ router.post('/register/:id', async (req, res) => {
         email ? encrypt(email) : null,
         team_name ? encrypt(team_name) : null,
         partner_name ? encrypt(partner_name) : null,
+        backup_partner_name ? encrypt(backup_partner_name) : null,
         random_partner ? 1 : 0
       ]
     );

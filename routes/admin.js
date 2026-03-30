@@ -178,6 +178,7 @@ router.get('/tournaments/:id/registrations', requireAuth, async (req, res) => {
       email: r.email_enc ? decrypt(r.email_enc) : '',
       team_name: r.team_name_enc ? decrypt(r.team_name_enc) : '',
       partner_name: r.partner_name_enc ? decrypt(r.partner_name_enc) : '',
+      backup_partner_name: r.backup_partner_name_enc ? decrypt(r.backup_partner_name_enc) : '',
     }));
     res.render('admin/registrations', { tournament, registrations: decrypted });
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
@@ -255,19 +256,20 @@ router.get('/tournaments/:id/export', requireAuth, async (req, res) => {
       { header: '邮箱 Email', key: 'email', width: 26 },
       { header: '参赛队名 Team', key: 'team_name', width: 18 },
       { header: '队友姓名 Partner', key: 'partner_name', width: 16 },
+      { header: '备选队友 Backup Partner', key: 'backup_partner_name', width: 18 },
       { header: '随机配队 Random', key: 'random_partner', width: 14 },
       { header: '报名时间 Date', key: 'date', width: 20 },
       { header: '付款状态 Payment', key: 'payment', width: 14 },
     ];
     sheet.spliceRows(1, 0, []);
     sheet.spliceRows(1, 0, []);
-    sheet.mergeCells('A1:I1');
+    sheet.mergeCells('A1:J1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = `${tournament.title_zh}  |  ${tournament.title_en}`;
     titleCell.font = { bold: true, size: 14, color: { argb: 'FF8B0000' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     sheet.getRow(1).height = 32;
-    sheet.mergeCells('A2:I2');
+    sheet.mergeCells('A2:J2');
     const subCell = sheet.getCell('A2');
     subCell.value = `导出时间: ${new Date().toLocaleString('zh-CN')}  |  总计: ${regs.length} 人`;
     subCell.font = { size: 10, color: { argb: 'FF666666' } };
@@ -289,6 +291,7 @@ router.get('/tournaments/:id/export', requireAuth, async (req, res) => {
         email: r.email_enc ? decrypt(r.email_enc) : '',
         team_name: r.team_name_enc ? decrypt(r.team_name_enc) : '',
         partner_name: partnerName,
+        backup_partner_name: r.backup_partner_name_enc ? decrypt(r.backup_partner_name_enc) : '',
         random_partner: !partnerName ? (r.random_partner ? '✅ 愿意' : '❌ 不愿意') : '—',
         date: new Date(r.created_at).toLocaleString('zh-CN'),
         payment: r.payment_confirmed ? '✅ 已确认' : '⏳ 待确认',

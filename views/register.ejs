@@ -150,6 +150,16 @@
               maxlength="100" oninput="onPartnerInput()">
           </div>
 
+          <div class="form-group">
+            <label for="backup_partner_name">
+              参赛备选队友姓名 · Backup Partner Name
+              <span style="font-size:0.78rem; color:#999; font-weight:400">（可选 · Optional）</span>
+            </label>
+            <input type="text" id="backup_partner_name" name="backup_partner_name" class="form-control"
+              placeholder="请输入备选队友姓名，如无请留空 · Enter backup partner's name, or leave blank"
+              maxlength="100">
+          </div>
+
           <!-- Random partner option — only shown when partner_name is empty -->
           <div class="form-group" id="random-partner-box" style="display:none; background:#FEF9E7; border:2px solid #D4AC0D; border-radius:10px; padding:16px 18px;">
             <label style="font-weight:700; color:#641E16; margin-bottom:10px; display:block">
@@ -187,6 +197,10 @@
             <div id="payment-warning" style="display:none; margin-top:10px; padding:8px 12px; background:#FADBD8; border-radius:6px; font-size:0.85rem; color:#922B21;">
               ⚠️ 请先完成付款再报名！支付后勾选上方确认框。<br>
               <em>Please complete payment before registering. Check the box above after paying.</em>
+            </div>
+            <div style="margin-top:12px; padding:10px 14px; background:#F9EBEA; border-left:4px solid #C0392B; border-radius:0 6px 6px 0; font-size:0.83rem; color:#7B241C; line-height:1.6;">
+              ⚠️ <strong>备注：</strong>所有参赛队员如遇任何情况不能参赛者，报名费恕赛事主办方概不退款！<br>
+              <em style="color:#999; font-size:0.79rem;">Note: Registration fees are non-refundable under any circumstances if a participant is unable to attend.</em>
             </div>
           </div>
 
