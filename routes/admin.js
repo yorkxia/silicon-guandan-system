@@ -100,16 +100,16 @@ router.get('/tournaments/new', requireAuth, (req, res) => {
 });
 
 router.post('/tournaments', requireAuth, async (req, res) => {
-  const { title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, status, wechat_qr, wechat_note } = req.body;
+  const { title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, payment_type, status, wechat_qr, wechat_note } = req.body;
   if (!title_zh || !title_en) {
     req.flash('error', '中英文标题为必填项 | Title in both languages required');
     return res.redirect('/admin/tournaments/new');
   }
   try {
     await query(
-      `INSERT INTO tournaments (title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, status, created_by, wechat_qr, wechat_note)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [title_zh, title_en, description_zh||'', description_en||'', date||'', location_zh||'', location_en||'', max_participants||100, fee||10, venmo||'@yorkxia', status||'active', req.session.user.id, wechat_qr||'', wechat_note||'']
+      `INSERT INTO tournaments (title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, payment_type, status, created_by, wechat_qr, wechat_note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [title_zh, title_en, description_zh||'', description_en||'', date||'', location_zh||'', location_en||'', max_participants||100, fee||10, venmo||'@yorkxia', payment_type||'Venmo', status||'active', req.session.user.id, wechat_qr||'', wechat_note||'']
     );
     req.flash('success', '赛事创建成功 | Tournament created successfully');
     res.redirect('/admin/dashboard');
@@ -137,10 +137,10 @@ router.post('/tournaments/:id/update', requireAuth, async (req, res) => {
       req.flash('error', '无权修改此赛事 | Access denied');
       return res.redirect('/admin/dashboard');
     }
-    const { title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, status, wechat_qr, wechat_note } = req.body;
+    const { title_zh, title_en, description_zh, description_en, date, location_zh, location_en, max_participants, fee, venmo, payment_type, status, wechat_qr, wechat_note } = req.body;
     await query(
-      `UPDATE tournaments SET title_zh=$1, title_en=$2, description_zh=$3, description_en=$4, date=$5, location_zh=$6, location_en=$7, max_participants=$8, fee=$9, venmo=$10, status=$11, wechat_qr=$12, wechat_note=$13 WHERE id=$14`,
-      [title_zh, title_en, description_zh||'', description_en||'', date||'', location_zh||'', location_en||'', max_participants, fee, venmo, status, wechat_qr||'', wechat_note||'', req.params.id]
+      `UPDATE tournaments SET title_zh=$1, title_en=$2, description_zh=$3, description_en=$4, date=$5, location_zh=$6, location_en=$7, max_participants=$8, fee=$9, venmo=$10, payment_type=$11, status=$12, wechat_qr=$13, wechat_note=$14 WHERE id=$15`,
+      [title_zh, title_en, description_zh||'', description_en||'', date||'', location_zh||'', location_en||'', max_participants, fee, venmo, payment_type||'Venmo', status, wechat_qr||'', wechat_note||'', req.params.id]
     );
     req.flash('success', '赛事更新成功 | Tournament updated');
     res.redirect('/admin/dashboard');

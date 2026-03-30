@@ -45,6 +45,7 @@ async function initDB() {
       max_participants INTEGER DEFAULT 100,
       fee INTEGER DEFAULT 10,
       venmo TEXT DEFAULT '@yorkxia',
+      payment_type TEXT DEFAULT 'Venmo',
       status TEXT DEFAULT 'active',
       created_by INTEGER,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -174,6 +175,8 @@ async function initDB() {
   await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS frequency_minutes INTEGER DEFAULT NULL`);
   // 迁移：添加 backup_partner_name_enc 列（如果不存在）
   await query(`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS backup_partner_name_enc TEXT`);
+  // 迁移：添加 payment_type 列（如果不存在）
+  await query(`ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'Venmo'`);
 
   // 默认 sb admin
   const sbAdminExists = await queryOne('SELECT id FROM sb_users WHERE username = $1', ['sbadmin']);

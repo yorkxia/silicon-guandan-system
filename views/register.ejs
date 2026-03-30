@@ -59,10 +59,19 @@
           <!-- Two payment options side by side -->
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
 
-            <!-- Venmo -->
+            <!-- 收款方式（Venmo / Zelle / PayPal） -->
+            <%
+              const pmType = tournament.payment_type || 'Venmo';
+              const pmIcons = { Venmo: '📱', Zelle: '🏦', PayPal: '🅿️' };
+              const pmColors = { Venmo: '#0074DE', Zelle: '#6D1ED4', PayPal: '#003087' };
+              const pmBg    = { Venmo: 'rgba(0,116,222,0.08)', Zelle: 'rgba(109,30,212,0.08)', PayPal: 'rgba(0,48,135,0.08)' };
+              const pmIcon  = pmIcons[pmType]  || '💳';
+              const pmColor = pmColors[pmType] || '#333';
+              const pmBgCol = pmBg[pmType]     || 'rgba(0,0,0,0.05)';
+            %>
             <div style="background:white; border-radius:9px; padding:14px; border:1.5px solid #E0D090; text-align:center;">
-              <div style="font-weight:700; color:#0074DE; margin-bottom:6px; font-size:0.92rem">📱 Venmo</div>
-              <div style="font-size:1.3rem; font-weight:900; color:#0074DE; background:rgba(0,116,222,0.08); padding:5px 12px; border-radius:6px; display:inline-block; margin-bottom:8px">
+              <div style="font-weight:700; color:<%= pmColor %>; margin-bottom:6px; font-size:0.92rem"><%= pmIcon %> <%= pmType %></div>
+              <div style="font-size:1.3rem; font-weight:900; color:<%= pmColor %>; background:<%= pmBgCol %>; padding:5px 12px; border-radius:6px; display:inline-block; margin-bottom:8px">
                 <%= tournament.venmo || '@yorkxia' %>
               </div>
               <p style="font-size:0.77rem; color:#888; line-height:1.5; margin:0">
@@ -186,10 +195,10 @@
               <input type="checkbox" id="payment-check" name="payment_check" value="yes" onchange="onPaymentCheck()"
                 style="width:20px; height:20px; margin-top:2px; accent-color:#C0392B; flex-shrink:0;">
               <span style="font-size:0.92rem; color:#641E16; line-height:1.55; font-weight:600;">
-                ✅ 我已通过 <span style="color:#0074DE">Venmo</span> 或 <span style="color:#07C160">微信支付</span> 完成 <strong>$<%= tournament.fee || 10 %></strong> 报名费支付
+                ✅ 我已通过 <span style="color:<%= pmColor %>"><%= pmIcon %> <%= pmType %></span> 或 <span style="color:#07C160">微信支付</span> 完成 <strong>$<%= tournament.fee || 10 %></strong> 报名费支付
                 <br>
                 <span style="font-weight:400; color:#888; font-size:0.82rem">
-                  I confirm I have completed the $<%= tournament.fee || 10 %> payment via Venmo or WeChat Pay
+                  I confirm I have completed the $<%= tournament.fee || 10 %> payment via <%= pmType %> or WeChat Pay
                 </span>
               </span>
             </label>

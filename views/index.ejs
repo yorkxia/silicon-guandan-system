@@ -112,7 +112,7 @@
               <div class="fee-row">
                 <span>报名费 · Fee: </span>
                 <span class="fee-amount">$<%= t.fee || 10 %></span>
-                <span class="venmo-chip">Venmo: <%= t.venmo || '@yorkxia' %></span>
+                <span class="venmo-chip"><%= t.payment_type || 'Venmo' %>: <%= t.venmo || '@yorkxia' %></span>
               </div>
             </div>
             <div class="t-card-foot">

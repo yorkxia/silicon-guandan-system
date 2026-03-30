@@ -81,9 +81,17 @@
 
         <div class="form-row">
           <div class="a-form-group">
-            <label>Venmo 账号 · Venmo Account</label>
-            <input type="text" name="venmo" class="a-input" placeholder="@yorkxia" value="<%= tournament ? tournament.venmo : '@yorkxia' %>" maxlength="100">
-            <p class="a-hint">参赛者报名后会看到此账号以完成付款 · Displayed to players for payment</p>
+            <label>收款方式 · Payment Method</label>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <select name="payment_type" class="a-input" style="flex:0 0 130px;">
+                <% const pt = tournament ? (tournament.payment_type || 'Venmo') : 'Venmo'; %>
+                <option value="Venmo"  <%= pt==='Venmo'  ? 'selected' : '' %>>📱 Venmo</option>
+                <option value="Zelle"  <%= pt==='Zelle'  ? 'selected' : '' %>>🏦 Zelle</option>
+                <option value="PayPal" <%= pt==='PayPal' ? 'selected' : '' %>>🅿️ PayPal</option>
+              </select>
+              <input type="text" name="venmo" class="a-input" placeholder="账号 / @yorkxia / email" value="<%= tournament ? tournament.venmo : '@yorkxia' %>" maxlength="100" style="flex:1;">
+            </div>
+            <p class="a-hint">参赛者报名后会看到此收款信息 · Displayed to players for payment</p>
           </div>
           <div class="a-form-group">
             <label>微信支付说明文字（可选）· WeChat Pay Note (Optional)</label>
