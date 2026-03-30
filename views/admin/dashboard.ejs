@@ -81,7 +81,7 @@
               </tr>
             </thead>
             <tbody>
-              <% tournaments.forEach(function(t) { %>
+              <% tournaments.filter(t => t.status !== 'archived').forEach(function(t) { %>
                 <tr>
                   <td>
                     <strong style="color:#641E16"><%= t.title_zh %></strong><br>
@@ -97,6 +97,8 @@
                   <td>
                     <% if (t.status === 'active') { %>
                       <span class="badge badge-active">开放报名</span>
+                    <% } else if (t.status === 'archived') { %>
+                      <span class="badge" style="background:#555;color:#ccc">📦 已存档</span>
                     <% } else { %>
                       <span class="badge badge-closed">已关闭</span>
                     <% } %>
@@ -108,7 +110,16 @@
                     <div style="display:flex; gap:6px; flex-wrap:wrap">
                       <a href="/admin/tournaments/<%= t.id %>/registrations" class="abtn abtn-blue">👥 报名列表</a>
                       <a href="/admin/tournaments/<%= t.id %>/export" class="abtn abtn-success">📥 导出Excel</a>
-                      <a href="/admin/tournaments/<%= t.id %>/edit" class="abtn abtn-warning">✏️ 编辑</a>
+                      <% if (t.status !== 'archived') { %>
+                        <a href="/admin/tournaments/<%= t.id %>/edit" class="abtn abtn-warning">✏️ 编辑</a>
+                        <form action="/admin/tournaments/<%= t.id %>/archive" method="POST" style="display:inline" onsubmit="return confirm('存档后此赛事将不再对外显示，参赛者无法报名。\n确认存档？\n\nArchive this tournament? It will be hidden from public.')">
+                          <button type="submit" class="abtn" style="background:#607D8B;color:#fff;border:none">📦 存档</button>
+                        </form>
+                      <% } else { %>
+                        <form action="/admin/tournaments/<%= t.id %>/unarchive" method="POST" style="display:inline">
+                          <button type="submit" class="abtn" style="background:#4CAF50;color:#fff;border:none">🔓 取消存档</button>
+                        </form>
+                      <% } %>
                       <form action="/admin/tournaments/<%= t.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('确认删除此赛事及所有报名记录？\nDelete this tournament and all registrations?')">
                         <button type="submit" class="abtn abtn-danger">🗑️ 删除</button>
                       </form>
@@ -119,6 +130,66 @@
             </tbody>
           </table>
         </div>
+      <% } %>
+
+      <!-- 存档赛事区 -->
+      <% const archivedTs = tournaments.filter(t => t.status === 'archived'); %>
+      <% if (archivedTs.length > 0) { %>
+      <div class="a-card" style="margin-top:24px; border:1px solid #444;">
+        <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;" onclick="toggleArchive()">
+          <h3 style="margin:0; color:#888; font-size:1rem">
+            📦 已存档赛事 · Archived Tournaments
+            <span style="background:#444; color:#aaa; font-size:0.72rem; padding:2px 8px; border-radius:10px; margin-left:8px; font-weight:400"><%= archivedTs.length %></span>
+          </h3>
+          <span id="archive-chevron" style="color:#666; font-size:0.85rem; transition:transform 0.2s">▼ 展开</span>
+        </div>
+        <div id="archive-section" style="display:none; margin-top:16px; overflow-x:auto;">
+          <table class="a-table" style="opacity:0.75">
+            <thead>
+              <tr>
+                <th>赛事名称</th><th>日期</th><th>报名人数</th><th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% archivedTs.forEach(function(t) { %>
+                <tr>
+                  <td>
+                    <strong style="color:#888"><%= t.title_zh %></strong><br>
+                    <span style="font-size:0.78rem; color:#555"><%= t.title_en %></span>
+                  </td>
+                  <td style="font-size:0.82rem; color:#666"><%= t.date || '—' %></td>
+                  <td style="color:#666"><%= t.reg_count %> / <%= t.max_participants %></td>
+                  <td>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap">
+                      <a href="/admin/tournaments/<%= t.id %>/registrations" class="abtn abtn-blue">👥 报名列表</a>
+                      <a href="/admin/tournaments/<%= t.id %>/export" class="abtn abtn-success">📥 导出</a>
+                      <form action="/admin/tournaments/<%= t.id %>/unarchive" method="POST" style="display:inline">
+                        <button type="submit" class="abtn" style="background:#4CAF50;color:#fff;border:none">🔓 取消存档</button>
+                      </form>
+                      <form action="/admin/tournaments/<%= t.id %>/delete" method="POST" style="display:inline" onsubmit="return confirm('确认删除此赛事及所有报名记录？')">
+                        <button type="submit" class="abtn abtn-danger">🗑️ 删除</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <script>
+        function toggleArchive() {
+          var sec = document.getElementById('archive-section');
+          var chev = document.getElementById('archive-chevron');
+          if (sec.style.display === 'none') {
+            sec.style.display = 'block';
+            chev.textContent = '▲ 收起';
+          } else {
+            sec.style.display = 'none';
+            chev.textContent = '▼ 展开';
+          }
+        }
+      </script>
       <% } %>
     </div>
   </main>

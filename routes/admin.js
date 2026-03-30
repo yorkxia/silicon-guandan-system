@@ -147,6 +147,33 @@ router.post('/tournaments/:id/update', requireAuth, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
+// 存档 / 取消存档
+router.post('/tournaments/:id/archive', requireAuth, async (req, res) => {
+  try {
+    const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1', [req.params.id]);
+    if (!canAccessTournament(req.session.user, tournament)) {
+      req.flash('error', '无权操作此赛事 | Access denied');
+      return res.redirect('/admin/dashboard');
+    }
+    await query('UPDATE tournaments SET status = $1 WHERE id = $2', ['archived', req.params.id]);
+    req.flash('success', `📦 "${tournament.title_zh}" 已存档，不再对外显示 | Tournament archived`);
+    res.redirect('/admin/dashboard');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+router.post('/tournaments/:id/unarchive', requireAuth, async (req, res) => {
+  try {
+    const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1', [req.params.id]);
+    if (!canAccessTournament(req.session.user, tournament)) {
+      req.flash('error', '无权操作此赛事 | Access denied');
+      return res.redirect('/admin/dashboard');
+    }
+    await query('UPDATE tournaments SET status = $1 WHERE id = $2', ['closed', req.params.id]);
+    req.flash('success', `🔓 "${tournament.title_zh}" 已取消存档 | Tournament unarchived`);
+    res.redirect('/admin/dashboard');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
 router.post('/tournaments/:id/delete', requireAuth, async (req, res) => {
   try {
     const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1', [req.params.id]);
