@@ -11,6 +11,44 @@ async function getContent(page) {
   return c;
 }
 
+// 计算一个姓名字符串中包含的人数
+// 规则：按中文逗号、英文逗号、顿号、分号分割，每段至少2个字符视为1人
+function countNamesInStr(str) {
+  if (!str || !str.trim()) return 0;
+  return str.split(/[，,、；;]+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 2)
+    .length;
+}
+
+// 计算一个赛事当前实际参赛人数（报名人 + 队友）
+async function calcPersonCount(tournamentId) {
+  const rows = await query(
+    'SELECT name_enc, partner_name_enc FROM registrations WHERE tournament_id = $1',
+    [tournamentId]
+  );
+  let total = 0;
+  for (const r of rows) {
+    total += 1; // 报名者本人
+    if (r.partner_name_enc) {
+      try {
+        const partnerStr = decrypt(r.partner_name_enc);
+        total += countNamesInStr(partnerStr);
+      } catch { /* ignore decrypt errors */ }
+    }
+  }
+  return total;
+}
+
+// 计算备选人数（填了备选队友姓名的报名数）
+async function calcBackupCount(tournamentId) {
+  const r = await queryOne(
+    'SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1 AND backup_partner_name_enc IS NOT NULL',
+    [tournamentId]
+  );
+  return parseInt(r.c);
+}
+
 // Home page
 router.get('/', async (req, res) => {
   try {
@@ -64,11 +102,11 @@ router.get('/api/check-team-name', async (req, res) => {
 // Tournament live stats API (for dynamic counter)
 router.get('/api/tournament-stats/:id', async (req, res) => {
   try {
-    const [reg, backup] = await Promise.all([
-      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [req.params.id]),
-      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1 AND backup_partner_name_enc IS NOT NULL', [req.params.id]),
+    const [person_count, backup_count] = await Promise.all([
+      calcPersonCount(req.params.id),
+      calcBackupCount(req.params.id),
     ]);
-    res.json({ reg_count: parseInt(reg.c), backup_count: parseInt(backup.c) });
+    res.json({ reg_count: person_count, backup_count });
   } catch (e) { res.json({ reg_count: 0, backup_count: 0 }); }
 });
 
@@ -77,12 +115,12 @@ router.get('/register/:id', async (req, res) => {
   try {
     const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1 AND status = $2', [req.params.id, 'active']);
     if (!tournament) return res.redirect('/');
-    const [content, regRow, backupRow] = await Promise.all([
+    const [content, person_count, backup_count] = await Promise.all([
       getContent('register'),
-      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]),
-      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1 AND backup_partner_name_enc IS NOT NULL', [tournament.id]),
+      calcPersonCount(tournament.id),
+      calcBackupCount(tournament.id),
     ]);
-    res.render('register', { tournament, content, reg_count: parseInt(regRow.c), backup_count: parseInt(backupRow.c) });
+    res.render('register', { tournament, content, reg_count: person_count, backup_count });
   } catch (e) {
     console.error(e);
     res.status(500).send('Server Error');
@@ -101,8 +139,10 @@ router.post('/register/:id', async (req, res) => {
       return res.redirect(`/register/${req.params.id}`);
     }
 
-    const regCount = await queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]);
-    if (parseInt(regCount.c) >= tournament.max_participants) {
+    // 计算当前实际参赛人数，加上本次新增人数，超限则拒绝
+    const currentPersons = await calcPersonCount(tournament.id);
+    const newPersons = 1 + countNamesInStr(partner_name || '');
+    if (currentPersons + newPersons > tournament.max_participants) {
       return res.redirect('/success?status=full');
     }
 

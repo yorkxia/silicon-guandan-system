@@ -226,7 +226,13 @@
     </div>
 
     <!-- Live Stats Bar -->
-    <div style="margin-top:20px; background:linear-gradient(135deg,#641E16 0%,#922B21 50%,#C0392B 100%); border-radius:14px; padding:20px 24px; box-shadow:0 4px 20px rgba(100,30,22,0.35); position:relative; overflow:hidden;">
+    <%
+      const _pct = Math.min(100, Math.round(reg_count / tournament.max_participants * 100));
+      const _full = reg_count >= tournament.max_participants;
+      const _warn = !_full && _pct >= 80;
+      const _barColor = _full ? '#E74C3C' : (_warn ? 'linear-gradient(90deg,#F39C12,#E74C3C)' : 'linear-gradient(90deg,#4CAF50,#F39C12)');
+    %>
+    <div id="stats-wrap" style="margin-top:20px; background:linear-gradient(135deg,#641E16 0%,#922B21 50%,<%= _full ? '#7B241C' : '#C0392B' %> 100%); border-radius:14px; padding:20px 24px; box-shadow:0 4px 20px rgba(100,30,22,0.35); position:relative; overflow:hidden;">
       <div style="position:absolute;top:-10px;right:-10px;font-size:5rem;opacity:0.06;pointer-events:none">🏆</div>
       <div style="font-size:0.78rem; font-weight:700; color:rgba(255,255,255,0.6); letter-spacing:2px; text-transform:uppercase; margin-bottom:14px">
         📊 实时报名状态 · Live Registration Status
@@ -238,7 +244,7 @@
           <div style="font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:6px; line-height:1.4">赛事计划<br>参赛者总人数</div>
         </div>
         <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:14px 12px; text-align:center; border:1px solid rgba(255,255,255,0.15);">
-          <div style="font-size:2rem; font-weight:900; color:#4CAF50; line-height:1" id="stat-reg"><%= reg_count %></div>
+          <div style="font-size:2rem; font-weight:900; color:<%= _full ? '#E74C3C' : (_warn ? '#F39C12' : '#4CAF50') %>; line-height:1" id="stat-reg"><%= reg_count %></div>
           <div style="font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:6px; line-height:1.4">目前已经<br>注册人数</div>
         </div>
         <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:14px 12px; text-align:center; border:1px solid rgba(255,255,255,0.15);">
@@ -248,18 +254,28 @@
       </div>
       <div style="margin-top:14px;">
         <div style="background:rgba(255,255,255,0.12); border-radius:6px; overflow:hidden; height:8px;">
-          <div id="stat-bar" style="height:100%; background:linear-gradient(90deg,#4CAF50,#F39C12); border-radius:6px; transition:width 0.8s ease;"
-            style="width:<%= Math.min(100, Math.round(reg_count / tournament.max_participants * 100)) %>%"></div>
+          <div id="stat-bar" style="height:100%; background:<%= _barColor %>; border-radius:6px; transition:width 0.8s ease;"></div>
         </div>
         <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:0.72rem; color:rgba(255,255,255,0.55);">
           <span>0</span>
-          <span id="stat-pct"><%= Math.min(100, Math.round(reg_count / tournament.max_participants * 100)) %>% 已报名</span>
+          <span id="stat-pct"><%= _pct %>% 已报名</span>
           <span><%= tournament.max_participants %></span>
         </div>
+      </div>
+      <!-- 满员警告 -->
+      <div id="full-warning" style="display:<%= _full ? 'block' : 'none' %>; margin-top:14px; background:#E74C3C; border-radius:8px; padding:12px 16px; text-align:center; font-weight:700; font-size:0.95rem; color:#fff; animation:flash-warning 1s ease-in-out infinite alternate;">
+        🚫 报名已满！本赛事参赛名额已达上限，无法继续报名。<br>
+        <span style="font-size:0.82rem; font-weight:400">Registration Full — This tournament has reached its participant limit.</span>
+      </div>
+      <!-- 快满警告 -->
+      <div id="warn-warning" style="display:<%= _warn ? 'block' : 'none' %>; margin-top:14px; background:rgba(243,156,18,0.25); border:1px solid rgba(243,156,18,0.6); border-radius:8px; padding:10px 16px; text-align:center; font-size:0.88rem; color:#FFD700; font-weight:600;">
+        ⚠️ 名额即将满员（已报名 <%= _pct %>%），请尽快完成报名！<br>
+        <span style="font-size:0.78rem; font-weight:400; color:rgba(255,215,0,0.75)">Spots filling up fast — register now!</span>
       </div>
     </div>
     <style>
       @keyframes pulse-live { 0%,100%{box-shadow:0 0 4px #4CAF50;opacity:1} 50%{box-shadow:0 0 10px #4CAF50;opacity:0.6} }
+      @keyframes flash-warning { from{box-shadow:0 0 0 rgba(231,76,60,0)} to{box-shadow:0 0 16px rgba(231,76,60,0.7)} }
     </style>
 
     <!-- Tournament details -->
@@ -291,21 +307,51 @@
 // Live stats refresh every 30s
 (function() {
   var maxP = <%= tournament.max_participants %>;
+
+  function applyStats(regCount, backupCount) {
+    var pct = Math.min(100, Math.round(regCount / maxP * 100));
+    var full = regCount >= maxP;
+    var warn = !full && pct >= 80;
+
+    document.getElementById('stat-reg').textContent    = regCount;
+    document.getElementById('stat-backup').textContent = backupCount;
+    document.getElementById('stat-bar').style.width    = pct + '%';
+    document.getElementById('stat-pct').textContent    = pct + '% 已报名';
+
+    // bar color
+    document.getElementById('stat-bar').style.background =
+      full ? '#E74C3C' : (warn ? 'linear-gradient(90deg,#F39C12,#E74C3C)' : 'linear-gradient(90deg,#4CAF50,#F39C12)');
+
+    // reg number color
+    document.getElementById('stat-reg').style.color =
+      full ? '#E74C3C' : (warn ? '#F39C12' : '#4CAF50');
+
+    // warnings
+    document.getElementById('full-warning').style.display = full ? 'block' : 'none';
+    document.getElementById('warn-warning').style.display = (!full && warn) ? 'block' : 'none';
+
+    // lock submit button when full
+    var btn = document.getElementById('submit-btn');
+    if (full) {
+      btn.disabled = true;
+      btn.style.opacity = '0.4';
+      btn.style.cursor  = 'not-allowed';
+      btn.textContent   = '🚫 报名已满 · Registration Full';
+      btn.dataset.fullLocked = '1';
+    } else if (btn.dataset.fullLocked) {
+      btn.dataset.fullLocked = '';
+    }
+  }
+
   function updateStats() {
     fetch('/api/tournament-stats/<%= tournament.id %>')
       .then(function(r){ return r.json(); })
-      .then(function(d) {
-        document.getElementById('stat-reg').textContent    = d.reg_count;
-        document.getElementById('stat-backup').textContent = d.backup_count;
-        var pct = Math.min(100, Math.round(d.reg_count / maxP * 100));
-        document.getElementById('stat-bar').style.width = pct + '%';
-        document.getElementById('stat-pct').textContent  = pct + '% 已报名';
-      }).catch(function(){});
+      .then(function(d){ applyStats(d.reg_count, d.backup_count); })
+      .catch(function(){});
   }
+
   setInterval(updateStats, 30000);
-  // Also set initial bar width via JS (overrides inline conflict)
-  var initPct = Math.min(100, Math.round(<%= reg_count %> / maxP * 100));
-  document.getElementById('stat-bar').style.width = initPct + '%';
+  applyStats(<%= reg_count %>, <%= backup_count %>);
 })();
 
 var teamNameTimer = null;
@@ -364,13 +410,14 @@ function onPaymentCheck() {
 }
 
 function checkPayment() {
+  const btn = document.getElementById('submit-btn');
+  if (btn.dataset.fullLocked === '1') return false;
   const checked = document.getElementById('payment-check').checked;
   if (!checked) {
     document.getElementById('payment-warning').style.display = 'block';
     document.getElementById('payment-confirm-box').scrollIntoView({ behavior: 'smooth' });
     return false;
   }
-  const btn = document.getElementById('submit-btn');
   if (btn.dataset.teamOk === '0') {
     document.getElementById('team_name').scrollIntoView({ behavior: 'smooth' });
     return false;
