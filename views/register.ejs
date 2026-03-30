@@ -225,6 +225,23 @@
       </div>
     </div>
 
+    <!-- Tournament details -->
+    <div style="margin-top:20px; background:white; border-radius:12px; padding:20px 24px; box-shadow:0 2px 12px rgba(0,0,0,0.07)">
+      <h3 style="font-size:1rem; color:#641E16; margin-bottom:12px">📋 赛事信息 · Tournament Details</h3>
+      <% if (tournament.date) { %>
+        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📅</span><span><%= tournament.date %></span></div>
+      <% } %>
+      <% if (tournament.location_zh) { %>
+        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📍</span><span><%= tournament.location_zh %> | <%= tournament.location_en %></span></div>
+      <% } %>
+      <% if (tournament.description_zh) { %>
+        <div style="font-size:0.87rem; color:#666; margin-top:10px; line-height:1.6">
+          <p><%= tournament.description_zh %></p>
+          <p style="color:#888; font-size:0.82rem; margin-top:5px"><em><%= tournament.description_en %></em></p>
+        </div>
+      <% } %>
+    </div>
+
     <!-- Live Stats Bar -->
     <%
       const _pct = Math.min(100, Math.round(reg_count / tournament.max_participants * 100));
@@ -278,22 +295,6 @@
       @keyframes flash-warning { from{box-shadow:0 0 0 rgba(231,76,60,0)} to{box-shadow:0 0 16px rgba(231,76,60,0.7)} }
     </style>
 
-    <!-- Tournament details -->
-    <div style="margin-top:20px; background:white; border-radius:12px; padding:20px 24px; box-shadow:0 2px 12px rgba(0,0,0,0.07)">
-      <h3 style="font-size:1rem; color:#641E16; margin-bottom:12px">📋 赛事信息 · Tournament Details</h3>
-      <% if (tournament.date) { %>
-        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📅</span><span><%= tournament.date %></span></div>
-      <% } %>
-      <% if (tournament.location_zh) { %>
-        <div style="display:flex; gap:8px; margin-bottom:8px; font-size:0.88rem"><span>📍</span><span><%= tournament.location_zh %> | <%= tournament.location_en %></span></div>
-      <% } %>
-      <% if (tournament.description_zh) { %>
-        <div style="font-size:0.87rem; color:#666; margin-top:10px; line-height:1.6">
-          <p><%= tournament.description_zh %></p>
-          <p style="color:#888; font-size:0.82rem; margin-top:5px"><em><%= tournament.description_en %></em></p>
-        </div>
-      <% } %>
-    </div>
   </div>
 </div>
 
