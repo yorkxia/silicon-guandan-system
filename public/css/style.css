@@ -300,7 +300,8 @@ header.pub-header {
   margin-left: 6px;
 }
 
-.t-card-foot { padding: 14px 22px 22px; }
+.t-card-foot { padding: 14px 22px 18px; }
+.t-card-info { padding: 16px 22px 20px; background: #FAFAFA; border-top: 1px solid #F0E8D0; font-size: 0.88rem; }
 
 .empty-state {
   text-align: center; padding: 64px 20px; color: var(--text-light);

@@ -99,16 +99,7 @@
               <p class="t-en"><%= t.title_en %></p>
             </div>
             <div class="t-card-body">
-              <% if (t.date) { %>
-                <div class="info-row"><span class="ico">📅</span><span><%= t.date %></span></div>
-              <% } %>
-              <% if (t.location_zh) { %>
-                <div class="info-row"><span class="ico">📍</span><span><%= t.location_zh %> | <%= t.location_en %></span></div>
-              <% } %>
               <div class="info-row"><span class="ico">👥</span><span>已报名 Registered: <strong><%= t.reg_count %></strong> / <%= t.max_participants %></span></div>
-              <% if (t.description_zh) { %>
-                <p class="t-desc"><%= t.description_zh %></p>
-              <% } %>
               <div class="fee-row">
                 <span>报名费 · Fee: </span>
                 <span class="fee-amount">$<%= t.fee || 10 %></span>
@@ -120,6 +111,22 @@
                 🏆 报名参赛 · Register Now
               </a>
             </div>
+            <% if (t.date || t.location_zh || t.description_zh) { %>
+            <div class="t-card-info">
+              <div style="font-size:0.78rem; font-weight:700; color:#922B21; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #F0D090;">
+                📋 赛事信息 · Tournament Details
+              </div>
+              <% if (t.date) { %>
+                <div class="info-row"><span class="ico">📅</span><span><%= t.date %></span></div>
+              <% } %>
+              <% if (t.location_zh) { %>
+                <div class="info-row"><span class="ico">📍</span><span><%= t.location_zh %> | <%= t.location_en %></span></div>
+              <% } %>
+              <% if (t.description_zh) { %>
+                <p class="t-desc" style="margin-top:8px"><%= t.description_zh %></p>
+              <% } %>
+            </div>
+            <% } %>
           </div>
         <% }) %>
       </div>
