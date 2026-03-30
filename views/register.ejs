@@ -225,6 +225,43 @@
       </div>
     </div>
 
+    <!-- Live Stats Bar -->
+    <div style="margin-top:20px; background:linear-gradient(135deg,#641E16 0%,#922B21 50%,#C0392B 100%); border-radius:14px; padding:20px 24px; box-shadow:0 4px 20px rgba(100,30,22,0.35); position:relative; overflow:hidden;">
+      <div style="position:absolute;top:-10px;right:-10px;font-size:5rem;opacity:0.06;pointer-events:none">🏆</div>
+      <div style="font-size:0.78rem; font-weight:700; color:rgba(255,255,255,0.6); letter-spacing:2px; text-transform:uppercase; margin-bottom:14px">
+        📊 实时报名状态 · Live Registration Status
+        <span id="stats-pulse" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4CAF50;box-shadow:0 0 6px #4CAF50;margin-left:8px;vertical-align:middle;animation:pulse-live 1.8s ease-in-out infinite"></span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+        <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:14px 12px; text-align:center; border:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:2rem; font-weight:900; color:#FFD700; line-height:1" id="stat-max"><%= tournament.max_participants %></div>
+          <div style="font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:6px; line-height:1.4">赛事计划<br>参赛者总人数</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:14px 12px; text-align:center; border:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:2rem; font-weight:900; color:#4CAF50; line-height:1" id="stat-reg"><%= reg_count %></div>
+          <div style="font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:6px; line-height:1.4">目前已经<br>注册人数</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); border-radius:10px; padding:14px 12px; text-align:center; border:1px solid rgba(255,255,255,0.15);">
+          <div style="font-size:2rem; font-weight:900; color:#F39C12; line-height:1" id="stat-backup"><%= backup_count %></div>
+          <div style="font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:6px; line-height:1.4">目前<br>备选人数</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="background:rgba(255,255,255,0.12); border-radius:6px; overflow:hidden; height:8px;">
+          <div id="stat-bar" style="height:100%; background:linear-gradient(90deg,#4CAF50,#F39C12); border-radius:6px; transition:width 0.8s ease;"
+            style="width:<%= Math.min(100, Math.round(reg_count / tournament.max_participants * 100)) %>%"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:5px; font-size:0.72rem; color:rgba(255,255,255,0.55);">
+          <span>0</span>
+          <span id="stat-pct"><%= Math.min(100, Math.round(reg_count / tournament.max_participants * 100)) %>% 已报名</span>
+          <span><%= tournament.max_participants %></span>
+        </div>
+      </div>
+    </div>
+    <style>
+      @keyframes pulse-live { 0%,100%{box-shadow:0 0 4px #4CAF50;opacity:1} 50%{box-shadow:0 0 10px #4CAF50;opacity:0.6} }
+    </style>
+
     <!-- Tournament details -->
     <div style="margin-top:20px; background:white; border-radius:12px; padding:20px 24px; box-shadow:0 2px 12px rgba(0,0,0,0.07)">
       <h3 style="font-size:1rem; color:#641E16; margin-bottom:12px">📋 赛事信息 · Tournament Details</h3>
@@ -251,6 +288,26 @@
 </footer>
 
 <script>
+// Live stats refresh every 30s
+(function() {
+  var maxP = <%= tournament.max_participants %>;
+  function updateStats() {
+    fetch('/api/tournament-stats/<%= tournament.id %>')
+      .then(function(r){ return r.json(); })
+      .then(function(d) {
+        document.getElementById('stat-reg').textContent    = d.reg_count;
+        document.getElementById('stat-backup').textContent = d.backup_count;
+        var pct = Math.min(100, Math.round(d.reg_count / maxP * 100));
+        document.getElementById('stat-bar').style.width = pct + '%';
+        document.getElementById('stat-pct').textContent  = pct + '% 已报名';
+      }).catch(function(){});
+  }
+  setInterval(updateStats, 30000);
+  // Also set initial bar width via JS (overrides inline conflict)
+  var initPct = Math.min(100, Math.round(<%= reg_count %> / maxP * 100));
+  document.getElementById('stat-bar').style.width = initPct + '%';
+})();
+
 var teamNameTimer = null;
 function checkTeamName() {
   const val = document.getElementById('team_name').value.trim();

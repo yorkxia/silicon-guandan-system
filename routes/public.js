@@ -61,13 +61,28 @@ router.get('/api/check-team-name', async (req, res) => {
   }
 });
 
+// Tournament live stats API (for dynamic counter)
+router.get('/api/tournament-stats/:id', async (req, res) => {
+  try {
+    const [reg, backup] = await Promise.all([
+      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [req.params.id]),
+      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1 AND backup_partner_name_enc IS NOT NULL', [req.params.id]),
+    ]);
+    res.json({ reg_count: parseInt(reg.c), backup_count: parseInt(backup.c) });
+  } catch (e) { res.json({ reg_count: 0, backup_count: 0 }); }
+});
+
 // Registration page
 router.get('/register/:id', async (req, res) => {
   try {
     const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1 AND status = $2', [req.params.id, 'active']);
     if (!tournament) return res.redirect('/');
-    const content = await getContent('register');
-    res.render('register', { tournament, content });
+    const [content, regRow, backupRow] = await Promise.all([
+      getContent('register'),
+      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1', [tournament.id]),
+      queryOne('SELECT COUNT(*) as c FROM registrations WHERE tournament_id = $1 AND backup_partner_name_enc IS NOT NULL', [tournament.id]),
+    ]);
+    res.render('register', { tournament, content, reg_count: parseInt(regRow.c), backup_count: parseInt(backupRow.c) });
   } catch (e) {
     console.error(e);
     res.status(500).send('Server Error');
