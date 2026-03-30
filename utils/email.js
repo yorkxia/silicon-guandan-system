@@ -75,4 +75,34 @@ async function sendPaymentConfirmation({ toEmail, toName, tournamentName, tourna
   });
 }
 
-module.exports = { sendPaymentConfirmation };
+async function sendTournamentNotification({ toEmail, toName, tournamentName, tournamentDate, subject, bodyText, senderName }) {
+  const resend = getClient();
+  if (!resend || !toEmail) return;
+  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const bodyHtml = bodyText.replace(/\n/g, '<br>');
+  await resend.emails.send({
+    from,
+    to: toEmail,
+    subject: subject || `【赛事通知】${tournamentName}`,
+    html: `
+      <div style="font-family:sans-serif; max-width:580px; margin:0 auto; padding:32px 24px; background:#fff;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <div style="font-size:2rem;">🏆📢</div>
+          <h2 style="color:#641E16; margin:8px 0;">硅谷掼蛋联赛</h2>
+          <p style="color:#888; font-size:0.9rem;">Silicon Valley Guandan League</p>
+        </div>
+        <div style="background:#FEF9E7; border-left:5px solid #D4AC0D; border-radius:0 10px 10px 0; padding:18px 22px; margin-bottom:24px;">
+          <p style="margin:0; font-size:1rem; font-weight:700; color:#641E16;">📋 ${tournamentName}${tournamentDate ? '　· 　' + tournamentDate : ''}</p>
+        </div>
+        <p style="color:#333; font-size:0.97rem;">亲爱的 <strong>${toName}</strong>，您好！</p>
+        <div style="background:#f9f9f9; border:1px solid #eee; border-radius:8px; padding:18px 22px; margin:18px 0; font-size:0.95rem; color:#333; line-height:1.8;">${bodyHtml}</div>
+        <p style="font-size:0.82rem; color:#aaa; margin-top:8px;">— ${senderName || '赛事主办方'} · 硅谷掼蛋联赛</p>
+        <p style="text-align:center; font-size:0.75rem; color:#ccc; margin-top:28px;">
+          🔒 此邮件由系统自动发送 | Automated email from Silicon Valley Guandan League
+        </p>
+      </div>
+    `,
+  });
+}
+
+module.exports = { sendPaymentConfirmation, sendTournamentNotification };

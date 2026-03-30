@@ -5,7 +5,7 @@ const ExcelJS = require('exceljs');
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
-const { sendPaymentConfirmation } = require('../utils/email');
+const { sendPaymentConfirmation, sendTournamentNotification } = require('../utils/email');
 
 function canAccessTournament(user, tournament) {
   if (!tournament) return false;
@@ -184,6 +184,60 @@ router.post('/tournaments/:id/delete', requireAuth, async (req, res) => {
     await query('DELETE FROM registrations WHERE tournament_id = $1', [req.params.id]);
     await query('DELETE FROM tournaments WHERE id = $1', [req.params.id]);
     req.flash('success', '赛事已删除 | Tournament deleted');
+    res.redirect('/admin/dashboard');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+// ============ NOTIFY ALL ============
+
+// GET — 获取参赛者邮箱列表（供弹窗展示）
+router.get('/tournaments/:id/notify-list', requireAuth, async (req, res) => {
+  try {
+    const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1', [req.params.id]);
+    if (!canAccessTournament(req.session.user, tournament)) return res.json({ error: 'Access denied' });
+    const regs = await query('SELECT name_enc, email_enc FROM registrations WHERE tournament_id = $1', [req.params.id]);
+    const recipients = regs
+      .filter(r => r.email_enc)
+      .map(r => {
+        try { return { name: decrypt(r.name_enc), email: decrypt(r.email_enc) }; }
+        catch { return null; }
+      })
+      .filter(Boolean);
+    res.json({ recipients, tournamentName: tournament.title_zh, tournamentDate: tournament.date || '' });
+  } catch (e) { console.error(e); res.json({ error: 'Server error' }); }
+});
+
+// POST — 群发通知
+router.post('/tournaments/:id/notify', requireAuth, async (req, res) => {
+  try {
+    const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1', [req.params.id]);
+    if (!canAccessTournament(req.session.user, tournament)) {
+      req.flash('error', '无权操作 | Access denied');
+      return res.redirect('/admin/dashboard');
+    }
+    const { subject, body } = req.body;
+    if (!subject || !body) {
+      req.flash('error', '主题和内容不能为空 | Subject and body are required');
+      return res.redirect('/admin/dashboard');
+    }
+    const regs = await query('SELECT name_enc, email_enc FROM registrations WHERE tournament_id = $1', [req.params.id]);
+    const senderName = req.session.user.display_name || req.session.user.username;
+    let sent = 0, skipped = 0;
+    for (const r of regs) {
+      if (!r.email_enc) { skipped++; continue; }
+      try {
+        const name  = decrypt(r.name_enc);
+        const email = decrypt(r.email_enc);
+        await sendTournamentNotification({
+          toEmail: email, toName: name,
+          tournamentName: tournament.title_zh,
+          tournamentDate: tournament.date || '',
+          subject, bodyText: body, senderName,
+        });
+        sent++;
+      } catch { skipped++; }
+    }
+    req.flash('success', `📧 通知已发送！成功 ${sent} 封${skipped ? `，${skipped} 人无邮箱跳过` : ''} | Sent ${sent} emails`);
     res.redirect('/admin/dashboard');
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
