@@ -1,6 +1,6 @@
 {
   "name": "silicon-guandan-system",
-  "version": "1.0.0",
+  "version": "18.0.0",
   "description": "硅谷掼蛋联赛管理系统 | Silicon Valley Guandan League System",
   "main": "server.js",
   "scripts": {
