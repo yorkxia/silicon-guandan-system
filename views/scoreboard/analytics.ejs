@@ -15,7 +15,13 @@
   <main class="sb-main">
     <div class="sb-page-head">
       <h1>📈 流量统计 · Analytics</h1>
-      <form action="/scoreboard/analytics" method="GET" style="display:flex; align-items:center; gap:8px">
+      <form action="/scoreboard/analytics" method="GET" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+        <label style="color:#ccc; font-size:0.85rem">来源：</label>
+        <select name="source" class="a-input" style="width:auto; padding:6px 12px" onchange="this.form.submit()">
+          <option value="all"     <%= source === 'all'     ? 'selected' : '' %>>全部来源</option>
+          <option value="guandan" <%= source === 'guandan' ? 'selected' : '' %>>掼蛋计分器</option>
+          <option value="gs"      <%= source === 'gs'      ? 'selected' : '' %>>赛事系统</option>
+        </select>
         <label style="color:#ccc; font-size:0.85rem">时间范围：</label>
         <select name="days" class="a-input" style="width:auto; padding:6px 12px" onchange="this.form.submit()">
           <option value="7" <%= days === 7 ? 'selected' : '' %>>近7天</option>
@@ -88,6 +94,27 @@
         <% } %>
       </div>
     </div>
+
+    <!-- GuandanSystem Page Breakdown (shown when source=gs or all) -->
+    <% if ((source === 'gs' || source === 'all') && gsPageBreakdown && gsPageBreakdown.length > 0) { %>
+    <div class="a-card" style="margin-top:20px; border-color:rgba(59,130,246,0.3)">
+      <h3 style="margin:0 0 16px; color:#60a5fa">🏆 赛事系统 — 按页面统计</h3>
+      <%
+        const maxGsPage = Math.max(...gsPageBreakdown.map(p => parseInt(p.cnt)));
+      %>
+      <% gsPageBreakdown.forEach(function(p) { %>
+        <div style="margin-bottom:10px">
+          <div style="display:flex; justify-content:space-between; margin-bottom:3px">
+            <span style="color:#93c5fd; font-size:0.85rem"><%= p.page.replace('gs-','') || p.page %></span>
+            <strong style="color:#60a5fa"><%= p.cnt %></strong>
+          </div>
+          <div style="background:#222; border-radius:4px; height:8px; overflow:hidden">
+            <div style="background:linear-gradient(90deg,#3b82f6,#60a5fa); height:100%; width:<%= Math.round(parseInt(p.cnt)/maxGsPage*100) %>%; border-radius:4px; transition:width 0.3s"></div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <% } %>
 
     <!-- By Day -->
     <div class="a-card" style="margin-top:20px">

@@ -88,9 +88,10 @@ router.post('/api/visit', async (req, res) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     const geo = await geoLocate(ip);
     const ua = req.headers['user-agent'] || '';
+    const page = (req.body?.page || 'scoreboard').toString().slice(0, 50);
     await query(
       'INSERT INTO sb_visits (ip_hash, country, region_code, city, page, user_agent) VALUES ($1,$2,$3,$4,$5,$6)',
-      [ipHash(ip), geo.country, geo.region_code, geo.city, 'scoreboard', ua.slice(0, 200)]
+      [ipHash(ip), geo.country, geo.region_code, geo.city, page, ua.slice(0, 200)]
     );
     res.json({ ok: true });
   } catch (e) {
@@ -133,6 +134,8 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
     const u = req.session.sbUser;
     let visitStats, adStats, recentVisits, regions;
 
+    let gsVisitStats, gsTotalVisits30d, gsOnlineTotal;
+
     if (u.role === 'admin') {
       visitStats = await query(`
         SELECT region_code, COUNT(*) as cnt,
@@ -149,6 +152,14 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
         ORDER BY is_active DESC, v.visited_at DESC LIMIT 30
       `);
       regions = await query('SELECT * FROM sb_regions ORDER BY country, area_code');
+      gsVisitStats = await query(`
+        SELECT region_code, COUNT(*) as cnt,
+          COUNT(DISTINCT CASE WHEN visited_at >= NOW() - INTERVAL '5 minutes' THEN ip_hash END) as online_cnt
+        FROM sb_visits WHERE page LIKE 'gs-%' AND visited_at >= NOW() - INTERVAL '30 days'
+        GROUP BY region_code ORDER BY cnt DESC
+      `);
+      gsTotalVisits30d = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND visited_at >= NOW() - INTERVAL '30 days'`);
+      gsOnlineTotal = await queryOne(`SELECT COUNT(DISTINCT ip_hash) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND visited_at >= NOW() - INTERVAL '5 minutes'`);
     } else {
       // 区域用户：只看自己管辖的区域
       const userRegions = await query(
@@ -177,8 +188,17 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
           'SELECT COUNT(*) as total, SUM(impressions) as imp, SUM(clicks) as clk FROM sb_ads WHERE is_active = 1 AND region_id IN (SELECT id FROM sb_regions WHERE area_code = ANY($1))',
           [codes]
         );
+        gsVisitStats = await query(`
+          SELECT region_code, COUNT(*) as cnt,
+            COUNT(DISTINCT CASE WHEN visited_at >= NOW() - INTERVAL '5 minutes' THEN ip_hash END) as online_cnt
+          FROM sb_visits WHERE page LIKE 'gs-%' AND region_code = ANY($1) AND visited_at >= NOW() - INTERVAL '30 days'
+          GROUP BY region_code ORDER BY cnt DESC
+        `, [codes]);
+        gsTotalVisits30d = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND region_code = ANY($1) AND visited_at >= NOW() - INTERVAL '30 days'`, [codes]);
+        gsOnlineTotal = await queryOne(`SELECT COUNT(DISTINCT ip_hash) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND region_code = ANY($1) AND visited_at >= NOW() - INTERVAL '5 minutes'`, [codes]);
       } else {
         visitStats = []; recentVisits = []; adStats = { total: 0, imp: 0, clk: 0 };
+        gsVisitStats = []; gsTotalVisits30d = { cnt: 0 }; gsOnlineTotal = { cnt: 0 };
       }
     }
     const totalVisits30d = await queryOne(
@@ -193,7 +213,7 @@ router.get('/dashboard', requireSbAuth, async (req, res) => {
         : `SELECT COUNT(DISTINCT ip_hash) as cnt FROM sb_visits WHERE visited_at >= NOW() - INTERVAL '5 minutes' AND region_code = ANY($1)`,
       u.role === 'admin' ? [] : [(await query('SELECT area_code FROM sb_regions r JOIN sb_user_regions ur ON ur.region_id=r.id WHERE ur.user_id=$1',[u.id])).map(r=>r.area_code)]
     );
-    res.render('scoreboard/dashboard', { sbUser: u, visitStats, adStats, recentVisits, regions, totalVisits30d, onlineTotal });
+    res.render('scoreboard/dashboard', { sbUser: u, visitStats, adStats, recentVisits, regions, totalVisits30d, onlineTotal, gsVisitStats, gsTotalVisits30d, gsOnlineTotal });
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
@@ -339,26 +359,38 @@ router.post('/ads/:id/delete', requireSbAuth, async (req, res) => {
 router.get('/analytics', requireSbAuth, async (req, res) => {
   const u = req.session.sbUser;
   const days = parseInt(req.query.days) || 30;
+  const source = req.query.source || 'all'; // all | guandan | gs
   let byRegion, byCountry, byDay, total;
 
+  // 来源过滤条件
+  const sourceFilter = source === 'guandan' ? `AND page = 'guandan'`
+                     : source === 'gs'       ? `AND page LIKE 'gs-%'`
+                     : '';
+
   if (u.role === 'admin') {
-    byRegion = await query(`SELECT region_code, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL GROUP BY region_code ORDER BY cnt DESC`, [days]);
-    byCountry = await query(`SELECT country, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL GROUP BY country ORDER BY cnt DESC`, [days]);
-    byDay = await query(`SELECT DATE(visited_at) as day, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL GROUP BY day ORDER BY day`, [days]);
-    total = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL`, [days]);
+    byRegion = await query(`SELECT region_code, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL ${sourceFilter} GROUP BY region_code ORDER BY cnt DESC`, [days]);
+    byCountry = await query(`SELECT country, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL ${sourceFilter} GROUP BY country ORDER BY cnt DESC`, [days]);
+    byDay = await query(`SELECT DATE(visited_at) as day, COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL ${sourceFilter} GROUP BY day ORDER BY day`, [days]);
+    total = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE visited_at >= NOW() - ($1 || ' days')::INTERVAL ${sourceFilter}`, [days]);
+    if (source === 'gs' || source === 'all') {
+      var gsPageBreakdown = await query(`SELECT page, COUNT(*) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND visited_at >= NOW() - ($1 || ' days')::INTERVAL GROUP BY page ORDER BY cnt DESC`, [days]);
+    }
   } else {
     const userRegions = await query('SELECT area_code FROM sb_regions r JOIN sb_user_regions ur ON ur.region_id=r.id WHERE ur.user_id=$1', [u.id]);
     const codes = userRegions.map(r => r.area_code);
     if (codes.length > 0) {
-      byRegion = await query(`SELECT region_code, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL GROUP BY region_code ORDER BY cnt DESC`, [codes, days]);
-      byCountry = await query(`SELECT country, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL GROUP BY country ORDER BY cnt DESC`, [codes, days]);
-      byDay = await query(`SELECT DATE(visited_at) as day, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL GROUP BY day ORDER BY day`, [codes, days]);
-      total = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL`, [codes, days]);
+      byRegion = await query(`SELECT region_code, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL ${sourceFilter} GROUP BY region_code ORDER BY cnt DESC`, [codes, days]);
+      byCountry = await query(`SELECT country, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL ${sourceFilter} GROUP BY country ORDER BY cnt DESC`, [codes, days]);
+      byDay = await query(`SELECT DATE(visited_at) as day, COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL ${sourceFilter} GROUP BY day ORDER BY day`, [codes, days]);
+      total = await queryOne(`SELECT COUNT(*) as cnt FROM sb_visits WHERE region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL ${sourceFilter}`, [codes, days]);
+      if (source === 'gs' || source === 'all') {
+        var gsPageBreakdown = await query(`SELECT page, COUNT(*) as cnt FROM sb_visits WHERE page LIKE 'gs-%' AND region_code = ANY($1) AND visited_at >= NOW() - ($2 || ' days')::INTERVAL GROUP BY page ORDER BY cnt DESC`, [codes, days]);
+      }
     } else {
       byRegion = []; byCountry = []; byDay = []; total = { cnt: 0 };
     }
   }
-  res.render('scoreboard/analytics', { sbUser: u, byRegion, byCountry, byDay, total, days });
+  res.render('scoreboard/analytics', { sbUser: u, byRegion, byCountry, byDay, total, days, source, gsPageBreakdown: gsPageBreakdown || [] });
 });
 
 module.exports = router;

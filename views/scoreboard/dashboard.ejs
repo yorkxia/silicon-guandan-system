@@ -148,6 +148,50 @@
       </div>
     </div>
 
+    <!-- GuandanSystem Stats -->
+    <div class="a-card" style="margin-top:20px; border-color:rgba(59,130,246,0.4)">
+      <h3 style="margin:0 0 16px; color:#60a5fa">🏆 赛事系统（GuandanSystem）访问统计</h3>
+      <div class="stats-row" style="margin-bottom:16px">
+        <div class="stat-box" style="border-color:rgba(96,165,250,0.4)">
+          <div class="stat-num" style="color:#60a5fa">
+            <span class="online-dot active" style="width:10px;height:10px;background:#60a5fa;box-shadow:0 0 6px #60a5fa;margin-right:6px"></span><%= gsOnlineTotal ? gsOnlineTotal.cnt : 0 %>
+          </div>
+          <div class="stat-lbl">当前在线 · Online Now</div>
+        </div>
+        <div class="stat-box" style="border-color:rgba(96,165,250,0.3)">
+          <div class="stat-num" style="color:#93c5fd"><%= gsTotalVisits30d ? gsTotalVisits30d.cnt : 0 %></div>
+          <div class="stat-lbl">近30天访问 · Visits (30d)</div>
+        </div>
+      </div>
+      <% if (gsVisitStats && gsVisitStats.length > 0) { %>
+        <table class="a-table" style="font-size:0.85rem">
+          <thead>
+            <tr><th>区域代码</th><th>访问次数</th><th>在线用户数</th></tr>
+          </thead>
+          <tbody>
+            <% gsVisitStats.forEach(function(v) { %>
+              <tr>
+                <td><%= v.region_code %></td>
+                <td><strong><%= v.cnt %></strong></td>
+                <td>
+                  <% if (parseInt(v.online_cnt) > 0) { %>
+                    <span class="online-cnt-badge" style="border-color:rgba(96,165,250,0.35);color:#60a5fa;background:rgba(96,165,250,0.1)">
+                      <span class="online-dot active" style="width:7px;height:7px;margin:0;background:#60a5fa;box-shadow:0 0 5px #60a5fa"></span>
+                      <%= v.online_cnt %>
+                    </span>
+                  <% } else { %>
+                    <span style="color:#444; font-size:0.78rem">—</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p style="color:#555; font-size:0.85rem">暂无数据 — 请确认已在 GuandanSystem 配置 MONITOR_API_URL 环境变量</p>
+      <% } %>
+    </div>
+
     <!-- Regions Overview -->
     <% if (regions && regions.length > 0) { %>
     <div class="a-card" style="margin-top:20px">
