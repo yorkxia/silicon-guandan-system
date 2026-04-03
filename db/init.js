@@ -171,6 +171,55 @@ async function initDB() {
     )
   `);
 
+  // ============ 时事与股票形势模块 sb_intel_* 表 ============
+  await query(`
+    CREATE TABLE IF NOT EXISTS sb_intel_config (
+      id           INTEGER PRIMARY KEY DEFAULT 1,
+      news_times   TEXT DEFAULT '07:30,11:30,17:00',
+      news_sources TEXT DEFAULT 'bbc,reuters,cnn,foxnews,ap,abc,nbc,guardian,france24,cgtn,rt,wsj',
+      news_email   TEXT DEFAULT 'York.xia@gmail.com',
+      flight_origin       TEXT DEFAULT 'SFO',
+      flight_destinations TEXT DEFAULT '欧洲,日本,台湾,韩国,香港,上海,南京',
+      flight_cabin        TEXT DEFAULT 'business',
+      flight_months       INTEGER DEFAULT 1,
+      flight_email        TEXT DEFAULT 'York.xia@gmail.com',
+      stock_watchlist     TEXT DEFAULT 'AAPL,NVDA,MSFT,GOOG,META,AMZN,TSLA,AMD,NFLX,AVGO',
+      anthropic_api_key   TEXT DEFAULT '',
+      seats_aero_key      TEXT DEFAULT '',
+      updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`INSERT INTO sb_intel_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS sb_intel_news (
+      id           SERIAL PRIMARY KEY,
+      session_type TEXT NOT NULL,
+      summary      TEXT NOT NULL,
+      sources_used TEXT DEFAULT '',
+      fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS sb_intel_flights (
+      id           SERIAL PRIMARY KEY,
+      session_type TEXT NOT NULL,
+      results_json TEXT NOT NULL,
+      origin       TEXT DEFAULT 'SFO',
+      cabin        TEXT DEFAULT 'business',
+      fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS sb_intel_stocks (
+      id           SERIAL PRIMARY KEY,
+      session_type TEXT NOT NULL,
+      analysis     TEXT NOT NULL,
+      watchlist_json TEXT DEFAULT '{}',
+      fetched_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // 迁移：添加 frequency_minutes 列（如果不存在）
   await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS frequency_minutes INTEGER DEFAULT NULL`);
   // 迁移：添加 backup_partner_name_enc 列（如果不存在）

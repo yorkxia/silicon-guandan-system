@@ -9,6 +9,7 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const scoreboardRoutes = require('./routes/scoreboard');
 const guandanRoutes = require('./routes/guandan');
+const intelligenceRoutes = require('./routes/intelligence');
 
 const app = express();
 
@@ -38,10 +39,13 @@ app.use((req, res, next) => {
 app.use('/', publicRoutes);
 app.use('/admin', adminRoutes);
 app.use('/scoreboard', scoreboardRoutes);
+app.use('/scoreboard/intelligence', intelligenceRoutes);
 app.use('/guandan', guandanRoutes);
 
 const PORT = process.env.PORT || 3000;
-initDB().then(() => {
+initDB().then(async () => {
+  const { startScheduler } = require('./utils/scheduler');
+  await startScheduler().catch(e => console.error('Scheduler init error:', e.message));
   app.listen(PORT, () => {
     console.log(`\n✅ 掼蛋比赛系统已启动 | Guandan Tournament System running`);
     console.log(`   访问地址 URL: http://localhost:${PORT}`);

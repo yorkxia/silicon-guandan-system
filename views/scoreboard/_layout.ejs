@@ -14,6 +14,9 @@
     <li class="<%= locals.activePage ==='analytics' ? 'active' : '' %>">
       <a href="/scoreboard/analytics">📈 流量统计</a>
     </li>
+    <li class="<%= locals.activePage ==='intelligence' ? 'active' : '' %>">
+      <a href="/scoreboard/intelligence">🌐 时事与股票</a>
+    </li>
     <% if (sbUser.role === 'admin') { %>
     <li class="<%= locals.activePage ==='regions' ? 'active' : '' %>">
       <a href="/scoreboard/regions">🗺️ 区域管理</a>

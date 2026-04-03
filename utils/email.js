@@ -105,4 +105,11 @@ async function sendTournamentNotification({ toEmail, toName, tournamentName, tou
   });
 }
 
-module.exports = { sendPaymentConfirmation, sendTournamentNotification };
+async function sendIntelEmail({ to, subject, html }) {
+  const resend = getClient();
+  if (!resend || !to) { console.warn('[Email] sendIntelEmail skipped: no client or recipient'); return; }
+  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  await resend.emails.send({ from, to, subject, html });
+}
+
+module.exports = { sendPaymentConfirmation, sendTournamentNotification, sendIntelEmail };
