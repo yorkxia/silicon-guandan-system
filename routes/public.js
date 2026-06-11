@@ -256,9 +256,9 @@ router.post('/api/gd/activate', async (req, res) => {
     const act = await queryOne('SELECT * FROM gd_activations WHERE code = $1', [code]);
     if (!act) return res.json({ ok: false, error: '激活码无效' });
     if (act.valid_until && new Date(act.valid_until) < new Date()) return res.json({ ok: false, error: '激活码已过期' });
-    if (act.is_used && act.device_id && act.device_id !== device_id) return res.json({ ok: false, error: '激活码已绑定其他设备' });
+    if (act.is_used) return res.json({ ok: false, error: '激活码已使用，每个激活码仅限一台设备，请联系管理员重新生成' });
 
-    // Mark as used, bind device
+    // 首次使用：绑定设备，立即标记失效（一码一机）
     await query('UPDATE gd_activations SET is_used=1, used_at=NOW(), used_device_id=$1 WHERE id=$2',
       [device_id || '', act.id]);
 
