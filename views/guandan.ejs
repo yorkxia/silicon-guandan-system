@@ -1591,6 +1591,18 @@ render();
   };
 })();
 
+// ── 设备指纹 ──────────────────────────────────────────
+function getDeviceId() {
+  var cached = localStorage.getItem('gd_device_id');
+  if (cached) return cached;
+  var raw = [navigator.userAgent, navigator.language, screen.width+'x'+screen.height, new Date().getTimezoneOffset(), navigator.platform].join('|');
+  var h = 0;
+  for (var i = 0; i < raw.length; i++) { h = Math.imul(31, h) + raw.charCodeAt(i) | 0; }
+  var id = Math.abs(h).toString(36) + Date.now().toString(36);
+  localStorage.setItem('gd_device_id', id);
+  return id;
+}
+
 // ── 试用期 & 付费弹窗 ─────────────────────────────────
 (function(){
   var INSTALL_KEY = 'gd_install_ts';
@@ -1599,6 +1611,28 @@ render();
 
   if (!localStorage.getItem(INSTALL_KEY)) {
     localStorage.setItem(INSTALL_KEY, Date.now().toString());
+  }
+
+  // Check for activation code in URL
+  var urlParams = new URLSearchParams(window.location.search);
+  var actCode = urlParams.get('act');
+  if (actCode) {
+    fetch('/api/gd/activate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ code: actCode, device_id: getDeviceId() })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if (data.ok && data.valid_until) {
+        var expiry = new Date(data.valid_until).getTime();
+        localStorage.setItem('gd_paid_until', expiry.toString());
+        localStorage.removeItem('gd_pending_ts');
+        alert('✅ 激活成功！使用期至 ' + new Date(data.valid_until).toLocaleDateString());
+        // Remove act param from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        alert('❌ 激活失败：' + (data.error || '激活码无效'));
+      }
+    }).catch(function(){});
   }
 
   var installTs  = parseInt(localStorage.getItem(INSTALL_KEY));
@@ -1681,16 +1715,31 @@ render();
     var name    = document.getElementById('gd-pw-name').value.trim();
     var contact = document.getElementById('gd-pw-contact').value.trim();
     if (!name) { alert('请填写您的姓名'); return; }
+
+    // Get selected price and payment method
+    var activePanel = document.querySelector('.gd-pw-panel.active');
+    var selectedPrice = activePanel ? ((activePanel.querySelector('.gd-pw-price-item.selected .amt') || {textContent:''}).textContent) : '';
+    var currency = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'CNY' : 'USD';
+    var payMethod = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'wechat' : 'venmo';
+
+    // Register device + payment with server
+    var deviceId = getDeviceId();
+    var deviceInfo = navigator.userAgent + ' | ' + screen.width + 'x' + screen.height + ' | ' + navigator.platform;
+    fetch('/api/gd/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: name, contact: contact,
+        device_id: deviceId, device_info: deviceInfo,
+        install_ts: parseInt(localStorage.getItem('gd_install_ts') || '0'),
+        amount: selectedPrice, currency: currency, payment_method: payMethod
+      })
+    }).catch(function(){});
+
     // 记录待核实时间戳，延长14天宽限期
     localStorage.setItem(PENDING_KEY, Date.now().toString());
-    // 自动发邮件
     var subject = encodeURIComponent('掼蛋计分器付款确认 - ' + name);
-    var body = encodeURIComponent(
-      '姓名：' + name +
-      '\n联系方式：' + contact +
-      '\n付款时间：' + new Date().toLocaleString() +
-      '\n\n（请附上付款截图，我们将在14天内确认）'
-    );
+    var body = encodeURIComponent('姓名：' + name + '\n联系方式：' + contact + '\n付款时间：' + new Date().toLocaleString() + '\n\n（请附上付款截图，我们将在14天内确认）');
     window.open('mailto:siliconguandan@gmail.com?subject=' + subject + '&body=' + body);
     alert('✅ 已记录！系统自动延长14天待确认使用期。\n\n请务必发邮件附上付款截图，\n14天内若未收到确认，系统将暂停使用。');
     pw.style.display = 'none';

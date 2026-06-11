@@ -201,4 +201,86 @@ router.get('/success', async (req, res) => {
   }
 });
 
+// ── 掼蛋计分器 API ────────────────────────────────────
+
+// CORS for API
+router.use('/api/gd', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
+// Register device + payment submission
+router.post('/api/gd/register', async (req, res) => {
+  try {
+    const { name, contact, device_id, device_info, install_ts } = req.body;
+    if (!name || !device_id) return res.json({ ok: false, error: 'missing fields' });
+
+    // Upsert user by device_id
+    const existing = await queryOne('SELECT id FROM gd_users WHERE device_id = $1', [device_id]);
+    let userId;
+    if (existing) {
+      await query('UPDATE gd_users SET name=$1, contact=$2, device_info=$3, last_seen=NOW() WHERE id=$4',
+        [name, contact || '', device_info || '', existing.id]);
+      userId = existing.id;
+    } else {
+      const newUser = await queryOne(
+        'INSERT INTO gd_users (name, contact, device_id, device_info, install_ts) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+        [name, contact || '', device_id, device_info || '', install_ts || 0]
+      );
+      userId = newUser.id;
+    }
+
+    // Create payment record
+    const { amount, currency, payment_method } = req.body;
+    const payment = await queryOne(
+      'INSERT INTO gd_payments (user_id, amount, currency, payment_method, status) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+      [userId, amount || '', currency || 'CNY', payment_method || 'wechat', 'pending']
+    );
+
+    res.json({ ok: true, user_id: userId, payment_id: payment.id });
+  } catch (e) {
+    console.error('GD register error:', e.message);
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// Activate with QR code
+router.post('/api/gd/activate', async (req, res) => {
+  try {
+    const { code, device_id } = req.body;
+    if (!code) return res.json({ ok: false, error: 'missing code' });
+
+    const act = await queryOne('SELECT * FROM gd_activations WHERE code = $1', [code]);
+    if (!act) return res.json({ ok: false, error: '激活码无效' });
+    if (act.valid_until && new Date(act.valid_until) < new Date()) return res.json({ ok: false, error: '激活码已过期' });
+    if (act.is_used && act.device_id && act.device_id !== device_id) return res.json({ ok: false, error: '激活码已绑定其他设备' });
+
+    // Mark as used, bind device
+    await query('UPDATE gd_activations SET is_used=1, used_at=NOW(), used_device_id=$1 WHERE id=$2',
+      [device_id || '', act.id]);
+
+    res.json({ ok: true, valid_until: act.valid_until, user_id: act.user_id });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// Check device activation status
+router.get('/api/gd/status', async (req, res) => {
+  try {
+    const { device_id } = req.query;
+    if (!device_id) return res.json({ ok: false });
+    const act = await queryOne(
+      'SELECT valid_until FROM gd_activations WHERE used_device_id=$1 AND valid_until > NOW() ORDER BY valid_until DESC LIMIT 1',
+      [device_id]
+    );
+    res.json({ ok: true, active: !!act, valid_until: act ? act.valid_until : null });
+  } catch (e) {
+    res.json({ ok: false });
+  }
+});
+
 module.exports = router;
