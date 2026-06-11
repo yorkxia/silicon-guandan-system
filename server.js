@@ -34,6 +34,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/promo.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'promo.html')));
 app.use('/', publicRoutes);
 app.use('/admin', adminRoutes);
 app.use('/guandan', guandanRoutes);
