@@ -1059,7 +1059,7 @@ header{
           <div class="gd-pw-qr-tip">扫码付款，备注：掼蛋+您的姓名</div>
         </div>
         <button class="gd-pw-paid-btn" onclick="gdShowConfirm()">✅ 我已付款，点此确认</button>
-        <div class="gd-pw-note">付款后发邮件至 siliconguandan@gmail.com<br>附上付款截图，我们将在24小时内为您开通</div>
+        <div class="gd-pw-note">付款后点击上方按钮填写姓名，<br>系统自动通知管理员，确认后立即激活</div>
       </div>
 
       <!-- Venmo面板 -->
@@ -1085,7 +1085,7 @@ header{
           <div class="venmo-tip">Add note: "掼蛋" + your name</div>
         </div>
         <button class="gd-pw-paid-btn" onclick="gdShowConfirm()">✅ Payment Sent · Confirm</button>
-        <div class="gd-pw-note">After payment, email siliconguandan@gmail.com<br>with screenshot. Access granted within 24 hours.</div>
+        <div class="gd-pw-note">After payment, click above and fill in your name.<br>Admin will be notified automatically and activate you promptly.</div>
       </div>
 
       <button class="gd-pw-warning-close" id="gd-pw-skip" onclick="gdClosePaywall()" style="display:none;margin:0 20px 16px;width:calc(100% - 40px);">暂时跳过，继续免费使用剩余天数</button>
@@ -1097,8 +1097,8 @@ header{
       <p>请填写您的姓名或微信昵称，<br>我们将尽快为您开通使用权限</p>
       <input type="text" id="gd-pw-name" placeholder="您的姓名 / Your Name" maxlength="30">
       <input type="text" id="gd-pw-contact" placeholder="微信号或邮箱 / WeChat or Email" maxlength="50">
-      <button class="gd-pw-submit-btn" onclick="gdSubmitPaid()">📧 提交并发送确认邮件</button>
-      <div class="gd-pw-note" style="margin-top:10px;">提交后立即延长14天使用期，14天内未收到确认将暂停使用</div>
+      <button class="gd-pw-submit-btn" onclick="gdSubmitPaid()">✅ 提交 · 通知管理员激活</button>
+      <div class="gd-pw-note" style="margin-top:10px;">提交后系统自动通知管理员，管理员确认后立即激活，重新打开计分器即可使用</div>
     </div>
   </div>
 </div>
@@ -1106,7 +1106,7 @@ header{
 <div class="footer-bar">
   <div class="footer-line"></div>
   <div class="footer-contact">技术及广告支持联系：siliconguandan@gmail.com</div>
-  <div class="footer-copy">&#169; 硅谷掼蛋协会 &#183; &#30721;&#�8183;&#25481;&#34903;&#174; &#183; AI GUANDAN</div>
+  <div class="footer-copy" id="gd-footer-copy">&#169; 硅谷掼蛋协会 &#183; Activation Day: No &#183; AI GUANDAN</div>
 </div>
 
 <script>
@@ -1605,12 +1605,55 @@ function getDeviceId() {
 
 // ── 试用期 & 付费弹窗 ─────────────────────────────────
 (function(){
-  var INSTALL_KEY = 'gd_install_ts';
-  var PAID_KEY    = 'gd_paid_until';   // 已正式确认的到期时间
-  var PENDING_KEY = 'gd_pending_ts';  // 提交付款待核实的时间戳
+  var INSTALL_KEY   = 'gd_install_ts';
+  var PAID_KEY      = 'gd_paid_until';     // 已正式确认的到期时间戳
+  var PENDING_KEY   = 'gd_pending_ts';    // 提交付款待核实的时间戳
+  var ACT_DATE_KEY  = 'gd_activation_date'; // 激活日期字符串 YYYY-MM-DD
+  var ACT_DAYS_KEY  = 'gd_activation_days'; // 激活天数 31/365/9999
 
   if (!localStorage.getItem(INSTALL_KEY)) {
     localStorage.setItem(INSTALL_KEY, Date.now().toString());
+  }
+
+  // 服务端状态同步（检查管理员是否已通过邮件链接确认付款）
+  function syncServerStatus(callback) {
+    var deviceId = getDeviceId();
+    fetch('/api/gd/status?device_id=' + encodeURIComponent(deviceId))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok && data.active && data.valid_until) {
+          var expiry = new Date(data.valid_until).getTime();
+          localStorage.setItem(PAID_KEY, expiry.toString());
+          localStorage.removeItem(PENDING_KEY);
+          // 保存激活日期和天数
+          if (data.valid_from) {
+            var d = new Date(data.valid_from);
+            var dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            localStorage.setItem(ACT_DATE_KEY, dateStr);
+          }
+          if (data.activation_days) {
+            localStorage.setItem(ACT_DAYS_KEY, String(data.activation_days));
+          }
+        }
+        if (callback) callback(data.active);
+      }).catch(function(){ if (callback) callback(false); });
+  }
+
+  // 渲染底部版权行
+  function renderFooter() {
+    var el = document.getElementById('gd-footer-copy');
+    if (!el) return;
+    var paidUntil = parseInt(localStorage.getItem(PAID_KEY) || '0');
+    var actDate   = localStorage.getItem(ACT_DATE_KEY) || '';
+    var actDays   = parseInt(localStorage.getItem(ACT_DAYS_KEY) || '0');
+    var isPaid    = paidUntil > Date.now();
+    var daysLabel = '';
+    if (isPaid && actDate) {
+      daysLabel = actDays === 9999 ? '永久' : actDays + '天';
+      el.innerHTML = '&#169; 硅谷掼蛋协会 &#183; Activation Day: ' + actDate + ' &#183; ' + daysLabel + ' &#183; AI GUANDAN';
+    } else {
+      el.innerHTML = '&#169; 硅谷掼蛋协会 &#183; Activation Day: No &#183; AI GUANDAN';
+    }
   }
 
   // Check for activation code in URL
@@ -1624,17 +1667,26 @@ function getDeviceId() {
     }).then(function(r){ return r.json(); }).then(function(data){
       if (data.ok && data.valid_until) {
         var expiry = new Date(data.valid_until).getTime();
-        localStorage.setItem('gd_paid_until', expiry.toString());
-        localStorage.removeItem('gd_pending_ts');
+        localStorage.setItem(PAID_KEY, expiry.toString());
+        localStorage.removeItem(PENDING_KEY);
+        // 获取激活详情
+        syncServerStatus(null);
         alert('✅ 激活成功！使用期至 ' + new Date(data.valid_until).toLocaleDateString());
-        // Remove act param from URL
         window.history.replaceState({}, document.title, window.location.pathname);
+        renderFooter();
       } else {
         alert('❌ 激活失败：' + (data.error || '激活码无效'));
       }
     }).catch(function(){});
   }
 
+  // 页面加载时同步服务端状态
+  syncServerStatus(function(isActive){
+    renderFooter();
+    init();
+  });
+
+  function init() {
   var installTs  = parseInt(localStorage.getItem(INSTALL_KEY));
   var paidUntil  = parseInt(localStorage.getItem(PAID_KEY) || '0');
   var pendingTs  = parseInt(localStorage.getItem(PENDING_KEY) || '0');
@@ -1722,7 +1774,7 @@ function getDeviceId() {
     var currency = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'CNY' : 'USD';
     var payMethod = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'wechat' : 'venmo';
 
-    // Register device + payment with server
+    // Register device + payment with server (server auto-sends confirmation email)
     var deviceId = getDeviceId();
     var deviceInfo = navigator.userAgent + ' | ' + screen.width + 'x' + screen.height + ' | ' + navigator.platform;
     fetch('/api/gd/register', {
@@ -1731,19 +1783,23 @@ function getDeviceId() {
       body: JSON.stringify({
         name: name, contact: contact,
         device_id: deviceId, device_info: deviceInfo,
-        install_ts: parseInt(localStorage.getItem('gd_install_ts') || '0'),
+        install_ts: parseInt(localStorage.getItem(INSTALL_KEY) || '0'),
         amount: selectedPrice, currency: currency, payment_method: payMethod
       })
-    }).catch(function(){});
-
-    // 记录待核实时间戳，延长14天宽限期
-    localStorage.setItem(PENDING_KEY, Date.now().toString());
-    var subject = encodeURIComponent('掼蛋计分器付款确认 - ' + name);
-    var body = encodeURIComponent('姓名：' + name + '\n联系方式：' + contact + '\n付款时间：' + new Date().toLocaleString() + '\n\n（请附上付款截图，我们将在14天内确认）');
-    window.open('mailto:siliconguandan@gmail.com?subject=' + subject + '&body=' + body);
-    alert('✅ 已记录！系统自动延长14天待确认使用期。\n\n请务必发邮件附上付款截图，\n14天内若未收到确认，系统将暂停使用。');
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if (data.ok) {
+        localStorage.setItem(PENDING_KEY, Date.now().toString());
+        alert('✅ 已提交！系统已自动发送确认邮件给管理员。\n\n管理员确认付款后将立即为您激活，\n请稍后重新打开计分器即可使用。\n\n（14天内若未收到确认将暂停使用）');
+      } else {
+        alert('⚠️ 提交时出现错误，请稍后重试');
+      }
+    }).catch(function(){
+      localStorage.setItem(PENDING_KEY, Date.now().toString());
+      alert('✅ 已记录！请确保网络正常，稍后管理员将为您确认激活。');
+    });
     pw.style.display = 'none';
   };
+  } // end init()
 })();
 </script>
 </body>

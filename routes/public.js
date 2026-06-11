@@ -3,6 +3,56 @@ const router = express.Router();
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { geoLocate } = require('../utils/geo');
+const crypto = require('crypto');
+
+function amountToDays(amount) {
+  if (!amount) return 31;
+  if (/永久|lifetime|42\.99/i.test(amount)) return 9999;
+  if (/年|year|128|18\.99/i.test(amount)) return 365;
+  return 31;
+}
+
+async function sendConfirmEmail(user, payment, token) {
+  const confirmUrl = `${process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com'}/api/gd/confirm/${token}`;
+  const amountDisplay = payment.amount || '(未知)';
+  const days = amountToDays(amountDisplay);
+  const daysLabel = days === 9999 ? '永久' : days + '天';
+
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#fff;">
+  <h2 style="color:#C0392B;">🃏 掼蛋计分器 · 付款通知</h2>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    <tr><td style="padding:6px;color:#555;width:120px;">用户姓名</td><td style="padding:6px;font-weight:bold;">${user.name}</td></tr>
+    <tr style="background:#f9f9f9"><td style="padding:6px;color:#555;">联系方式</td><td style="padding:6px;">${user.contact || '(未填)'}</td></tr>
+    <tr><td style="padding:6px;color:#555;">付款金额</td><td style="padding:6px;font-weight:bold;color:#C0392B;">${amountDisplay}</td></tr>
+    <tr style="background:#f9f9f9"><td style="padding:6px;color:#555;">付款方式</td><td style="padding:6px;">${payment.payment_method}</td></tr>
+    <tr><td style="padding:6px;color:#555;">激活天数</td><td style="padding:6px;">${daysLabel}</td></tr>
+    <tr style="background:#f9f9f9"><td style="padding:6px;color:#555;">设备ID</td><td style="padding:6px;font-size:0.85em;color:#888;">${user.device_id || '(未知)'}</td></tr>
+  </table>
+  <div style="text-align:center;margin:28px 0;">
+    <a href="${confirmUrl}" style="display:inline-block;background:#27AE60;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:1.1em;font-weight:bold;">
+      ✅ 确认收到付款 · 立即激活
+    </a>
+  </div>
+  <p style="color:#888;font-size:0.85em;text-align:center;">点击后将自动为该设备开通 ${daysLabel} 使用权限</p>
+  <p style="color:#aaa;font-size:0.8em;text-align:center;">此链接仅可使用一次 · 硅谷掼蛋协会</p>
+</div>`;
+
+  try {
+    if (process.env.RESEND_API_KEY) {
+      const { Resend } = require('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: process.env.EMAIL_FROM || 'noreply@siliconguandan.com',
+        to: 'siliconguandan@gmail.com',
+        subject: `💰 掼蛋付款：${user.name} · ${amountDisplay}`,
+        html,
+      });
+    }
+  } catch (e) {
+    console.error('GD email send error:', e.message);
+  }
+}
 
 async function getContent(page) {
   const rows = await query('SELECT key_name, value_zh, value_en FROM page_content WHERE page = $1', [page]);
@@ -233,12 +283,19 @@ router.post('/api/gd/register', async (req, res) => {
       userId = newUser.id;
     }
 
-    // Create payment record
+    // Create payment record with confirm token
     const { amount, currency, payment_method } = req.body;
+    const confirmToken = crypto.randomBytes(24).toString('hex');
     const payment = await queryOne(
-      'INSERT INTO gd_payments (user_id, amount, currency, payment_method, status) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-      [userId, amount || '', currency || 'CNY', payment_method || 'wechat', 'pending']
+      'INSERT INTO gd_payments (user_id, amount, currency, payment_method, status, confirm_token) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, amount, currency, payment_method, confirm_token',
+      [userId, amount || '', currency || 'CNY', payment_method || 'wechat', 'pending', confirmToken]
     );
+
+    // Get user info for email
+    const userRec = await queryOne('SELECT * FROM gd_users WHERE id=$1', [userId]);
+    if (userRec) {
+      await sendConfirmEmail(userRec, payment, confirmToken);
+    }
 
     res.json({ ok: true, user_id: userId, payment_id: payment.id });
   } catch (e) {
@@ -274,12 +331,66 @@ router.get('/api/gd/status', async (req, res) => {
     const { device_id } = req.query;
     if (!device_id) return res.json({ ok: false });
     const act = await queryOne(
-      'SELECT valid_until FROM gd_activations WHERE used_device_id=$1 AND valid_until > NOW() ORDER BY valid_until DESC LIMIT 1',
+      'SELECT valid_from, valid_until, activation_days FROM gd_activations WHERE used_device_id=$1 AND valid_until > NOW() ORDER BY valid_until DESC LIMIT 1',
       [device_id]
     );
-    res.json({ ok: true, active: !!act, valid_until: act ? act.valid_until : null });
+    res.json({
+      ok: true,
+      active: !!act,
+      valid_until: act ? act.valid_until : null,
+      valid_from: act ? act.valid_from : null,
+      activation_days: act ? (act.activation_days || 31) : null
+    });
   } catch (e) {
     res.json({ ok: false });
+  }
+});
+
+// Admin email confirm link → auto-activate device
+router.get('/api/gd/confirm/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const payment = await queryOne('SELECT * FROM gd_payments WHERE confirm_token=$1', [token]);
+    if (!payment) return res.send('<h2>❌ 链接无效或已过期</h2>');
+    if (payment.status === 'confirmed') return res.send('<h2>✅ 已激活（此链接已使用）</h2>');
+
+    const user = await queryOne('SELECT * FROM gd_users WHERE id=$1', [payment.user_id]);
+    if (!user) return res.send('<h2>❌ 用户不存在</h2>');
+
+    const days = amountToDays(payment.amount);
+    const validUntil = days === 9999
+      ? new Date('2099-12-31T23:59:59Z')
+      : new Date(Date.now() + days * 86400000);
+
+    // Mark payment confirmed
+    await query('UPDATE gd_payments SET status=$1, confirmed_by=$2, confirmed_at=NOW() WHERE id=$3',
+      ['confirmed', 'email-link', payment.id]);
+
+    // Create activation record (bind to user's device_id)
+    const actCode = crypto.randomBytes(12).toString('hex');
+    await query(
+      `INSERT INTO gd_activations (user_id, payment_id, code, valid_until, device_id, is_used, used_at, used_device_id, created_by, activation_days)
+       VALUES ($1,$2,$3,$4,$5,1,NOW(),$5,'email-confirm',$6)`,
+      [user.id, payment.id, actCode, validUntil, user.device_id || '', days]
+    );
+
+    const daysLabel = days === 9999 ? '永久' : days + ' 天';
+    const untilStr = days === 9999 ? '永久' : validUntil.toLocaleDateString('zh-CN');
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>body{font-family:Arial,sans-serif;max-width:500px;margin:60px auto;text-align:center;padding:20px;}
+.box{background:#f0fff4;border:2px solid #27AE60;border-radius:12px;padding:32px;}
+h2{color:#27AE60;}p{color:#555;}small{color:#aaa;}</style></head><body>
+<div class="box">
+  <h2>✅ 已确认付款，激活成功！</h2>
+  <p>用户：<strong>${user.name}</strong></p>
+  <p>付款：<strong>${payment.amount}</strong></p>
+  <p>有效期：<strong>${daysLabel}</strong>（至 ${untilStr}）</p>
+  <p>设备将在下次打开计分器时自动更新状态。</p>
+  <small>硅谷掼蛋协会 · Silicon Valley Guandan Association</small>
+</div></body></html>`);
+  } catch (e) {
+    console.error('GD confirm error:', e.message);
+    res.send('<h2>❌ 服务器错误：' + e.message + '</h2>');
   }
 });
 
