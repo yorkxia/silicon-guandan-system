@@ -1098,7 +1098,7 @@ header{
       <input type="text" id="gd-pw-name" placeholder="您的姓名 / Your Name" maxlength="30">
       <input type="text" id="gd-pw-contact" placeholder="微信号或邮箱 / WeChat or Email" maxlength="50">
       <button class="gd-pw-submit-btn" onclick="gdSubmitPaid()">📧 提交并发送确认邮件</button>
-      <div class="gd-pw-note" style="margin-top:10px;">提交后将延长30天使用期，等待我们核实付款</div>
+      <div class="gd-pw-note" style="margin-top:10px;">提交后立即延长14天使用期，14天内未收到确认将暂停使用</div>
     </div>
   </div>
 </div>
@@ -1594,41 +1594,67 @@ render();
 // ── 试用期 & 付费弹窗 ─────────────────────────────────
 (function(){
   var INSTALL_KEY = 'gd_install_ts';
-  var PAID_KEY    = 'gd_paid_until';
-  var WARNED_KEY  = 'gd_warned_today';
+  var PAID_KEY    = 'gd_paid_until';   // 已正式确认的到期时间
+  var PENDING_KEY = 'gd_pending_ts';  // 提交付款待核实的时间戳
 
-  // 首次安装记录日期
   if (!localStorage.getItem(INSTALL_KEY)) {
     localStorage.setItem(INSTALL_KEY, Date.now().toString());
   }
 
-  var installTs    = parseInt(localStorage.getItem(INSTALL_KEY));
-  var paidUntil    = parseInt(localStorage.getItem(PAID_KEY) || '0');
-  var isPaid       = paidUntil > Date.now();
-  var daysUsed     = Math.floor((Date.now() - installTs) / 86400000);
-  var daysLeft     = Math.max(0, 60 - daysUsed);
+  var installTs  = parseInt(localStorage.getItem(INSTALL_KEY));
+  var paidUntil  = parseInt(localStorage.getItem(PAID_KEY) || '0');
+  var pendingTs  = parseInt(localStorage.getItem(PENDING_KEY) || '0');
+  var isPaid     = paidUntil > Date.now();
+  var daysUsed   = Math.floor((Date.now() - installTs) / 86400000);
+  var daysLeft   = Math.max(0, 60 - daysUsed);
 
-  if (isPaid) return; // 已付费，直接返回
+  if (isPaid) return; // 已正式付费，正常使用
 
-  var pw = document.getElementById('gd-paywall');
+  var pw       = document.getElementById('gd-paywall');
   var trialMsg = document.getElementById('gd-pw-trial-msg');
   var skipBtn  = document.getElementById('gd-pw-skip');
 
+  // ── 待核实付款状态处理 ──
+  if (pendingTs > 0) {
+    var pendingDays = Math.floor((Date.now() - pendingTs) / 86400000);
+    if (pendingDays < 14) {
+      // 14天内：正常使用，不显示弹窗
+      return;
+    } else if (pendingDays < 16) {
+      // 第14-16天：警告，仍可跳过继续用
+      var graceLeft = 16 - pendingDays;
+      trialMsg.textContent = '⚠️ 付款核实已超过14天！请尽快联系确认，还有 ' + graceLeft + ' 天宽限期';
+      trialMsg.style.background = '#FFF3E0';
+      trialMsg.style.color = '#E65100';
+      skipBtn.style.display = 'block';
+      skipBtn.textContent = '继续使用（宽限期剩余 ' + graceLeft + ' 天）';
+      pw.style.display = 'flex';
+      return;
+    } else {
+      // 超过16天未确认：清除待核实状态，立即锁定
+      localStorage.removeItem(PENDING_KEY);
+      trialMsg.textContent = '🔒 付款未获确认，已暂停使用，请重新付款';
+      trialMsg.style.background = '#FFEBEE';
+      trialMsg.style.color = '#C0000F';
+      pw.style.display = 'flex';
+      return;
+    }
+  }
+
+  // ── 正常免费试用期逻辑 ──
   if (daysUsed > 60) {
-    // 试用期到期，强制显示付费弹窗
     trialMsg.textContent = '⏰ 免费试用期已结束，请订阅以继续使用';
     trialMsg.style.background = '#FFEBEE';
     trialMsg.style.color = '#C0000F';
     pw.style.display = 'flex';
   } else if (daysUsed >= 54) {
-    // 最后6天，每次打开提醒
     trialMsg.textContent = '⚠️ 免费试用期还剩 ' + daysLeft + ' 天，请提前订阅';
     skipBtn.style.display = 'block';
     skipBtn.textContent = '继续免费使用（剩余 ' + daysLeft + ' 天）';
     pw.style.display = 'flex';
   }
 
-  // 全局函数
+  // ── 全局函数 ──
   window.gdPwTab = function(tab) {
     document.querySelectorAll('.gd-pw-tab').forEach(function(t){ t.classList.remove('active'); });
     document.querySelectorAll('.gd-pw-panel').forEach(function(p){ p.classList.remove('active'); });
@@ -1637,7 +1663,7 @@ render();
     document.getElementById('gd-pw-' + tab).classList.add('active');
   };
 
-  window.gdSelectPrice = function(el, label) {
+  window.gdSelectPrice = function(el) {
     el.closest('.gd-pw-price').querySelectorAll('.gd-pw-price-item').forEach(function(i){ i.classList.remove('selected'); });
     el.classList.add('selected');
   };
@@ -1655,14 +1681,18 @@ render();
     var name    = document.getElementById('gd-pw-name').value.trim();
     var contact = document.getElementById('gd-pw-contact').value.trim();
     if (!name) { alert('请填写您的姓名'); return; }
-    // 延长30天待核实
-    var extend30 = Date.now() + 30 * 86400000;
-    localStorage.setItem(PAID_KEY, extend30.toString());
-    // 打开邮件
+    // 记录待核实时间戳，延长14天宽限期
+    localStorage.setItem(PENDING_KEY, Date.now().toString());
+    // 自动发邮件
     var subject = encodeURIComponent('掼蛋计分器付款确认 - ' + name);
-    var body = encodeURIComponent('姓名：' + name + '\n联系方式：' + contact + '\n\n（请附上付款截图）');
+    var body = encodeURIComponent(
+      '姓名：' + name +
+      '\n联系方式：' + contact +
+      '\n付款时间：' + new Date().toLocaleString() +
+      '\n\n（请附上付款截图，我们将在14天内确认）'
+    );
     window.open('mailto:siliconguandan@gmail.com?subject=' + subject + '&body=' + body);
-    alert('✅ 已延长30天使用期！\n请发邮件附上付款截图，我们将尽快正式开通。');
+    alert('✅ 已记录！系统自动延长14天待确认使用期。\n\n请务必发邮件附上付款截图，\n14天内若未收到确认，系统将暂停使用。');
     pw.style.display = 'none';
   };
 })();
