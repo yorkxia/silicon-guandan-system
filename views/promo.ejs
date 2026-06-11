@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=750px, initial-scale=1">
+<title>硅谷掼蛋协会-智能电子掼蛋计分器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:#111;
+  display:flex;flex-direction:column;align-items:center;
+  padding:20px 10px 40px;
+  font-family:'PingFang SC','Microsoft YaHei','SimHei','Hiragino Sans GB',sans-serif;
+}
+.ctrl-bar{
+  width:750px;max-width:100%;
+  background:#1e1e1e;border:1px solid #333;border-radius:12px;
+  padding:16px 20px;margin-bottom:20px;text-align:center;
+}
+.ctrl-bar p{color:#888;font-size:14px;margin-bottom:12px;}
+.dl-btn{
+  background:linear-gradient(135deg,#D4AC0D,#F1C40F);
+  color:#1a0500;border:none;padding:14px 44px;
+  font-size:18px;font-weight:900;border-radius:30px;cursor:pointer;
+  letter-spacing:2px;box-shadow:0 4px 16px rgba(212,172,13,.4);
+}
+.dl-btn:hover{transform:scale(1.03);}
+.dl-btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.ctrl-bar .hint{color:#555;font-size:12px;margin-top:10px;}
+#poster{
+  width:750px;
+  background:linear-gradient(160deg,#1a0500 0%,#5c0000 28%,#2d0000 60%,#0d0000 100%);
+  position:relative;overflow:hidden;
+  padding:50px 44px 56px;
+}
+.bg-suit{
+  position:absolute;font-size:240px;
+  color:rgba(212,172,13,.06);font-family:Georgia,serif;
+  line-height:1;pointer-events:none;user-select:none;
+}
+.frame1{position:absolute;top:14px;left:14px;right:14px;bottom:14px;border:3px solid rgba(212,172,13,.65);pointer-events:none;}
+.frame2{position:absolute;top:22px;left:22px;right:22px;bottom:22px;border:1px solid rgba(212,172,13,.28);pointer-events:none;}
+.header{text-align:center;position:relative;z-index:1;padding-top:10px;}
+.logo-circle{
+  width:110px;height:110px;
+  background:radial-gradient(circle,#FFD700 40%,#D4AC0D);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 18px;font-size:58px;
+  box-shadow:0 0 36px rgba(212,172,13,.5);
+}
+.title-main{font-size:56px;font-weight:900;color:#D4AC0D;letter-spacing:5px;text-shadow:0 2px 12px rgba(0,0,0,.6);margin-bottom:8px;}
+.title-sub{font-size:38px;font-weight:700;color:#fff;letter-spacing:2px;margin-bottom:14px;}
+.ai-badge{display:inline-block;background:linear-gradient(135deg,#D4AC0D,#F39C12);color:#1a0500;font-size:22px;font-weight:900;padding:8px 32px;border-radius:30px;letter-spacing:2px;}
+.divider{width:100%;height:2px;background:linear-gradient(90deg,transparent,#D4AC0D 30%,#F1C40F 50%,#D4AC0D 70%,transparent);margin:22px 0;position:relative;z-index:1;}
+.phone-wrap{display:flex;justify-content:center;padding:8px 0;position:relative;z-index:1;}
+.phone{width:272px;height:520px;background:#0d0d0d;border-radius:38px;border:5px solid #2a2a2a;box-shadow:0 0 0 2px #1a1a1a,0 24px 64px rgba(0,0,0,.9),inset 0 1px 3px rgba(255,255,255,.08);overflow:hidden;position:relative;}
+.phone-notch{width:90px;height:20px;background:#0d0d0d;border-radius:0 0 14px 14px;position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:3;}
+.phone-screen{width:100%;height:100%;background:linear-gradient(160deg,#0a0a0a 0%,#111 100%);display:flex;flex-direction:column;align-items:center;padding:28px 10px 10px;}
+.ph-app-title{font-size:11px;color:#D4AC0D;letter-spacing:2px;font-weight:700;margin-bottom:10px;}
+.ph-teams{display:flex;gap:8px;width:100%;}
+.ph-card{flex:1;border-radius:11px;padding:10px 6px;text-align:center;}
+.ph-card.red{background:linear-gradient(145deg,#922B21,#641E16);}
+.ph-card.blue{background:linear-gradient(145deg,#1A5276,#0d3a5e);}
+.ph-val{font-size:48px;font-weight:900;color:#FFD700;font-family:Georgia,serif;line-height:1;}
+.ph-name{font-size:10px;color:rgba(255,255,255,.75);letter-spacing:1px;margin-top:3px;}
+.ph-wins{font-size:24px;font-weight:900;color:#FFD700;margin-top:6px;}
+.ph-wlabel{font-size:9px;color:rgba(255,255,255,.4);}
+.ph-btns{display:flex;gap:3px;margin-top:12px;width:100%;}
+.ph-btn{flex:1;padding:7px 2px;border-radius:7px;font-size:9px;font-weight:700;text-align:center;color:#fff;}
+.ph-btn.r{background:rgba(192,57,43,.85);}
+.ph-btn.b{background:rgba(26,82,118,.85);}
+.ph-btn.g{background:rgba(80,80,80,.85);}
+.ph-newround{margin-top:7px;width:100%;padding:8px;background:linear-gradient(135deg,#D4AC0D,#F39C12);border-radius:7px;font-size:10px;font-weight:900;color:#1a0500;text-align:center;letter-spacing:2px;}
+.ph-hint{font-size:9px;color:rgba(255,255,255,.3);margin-top:6px;letter-spacing:1px;}
+.features{display:flex;justify-content:space-around;padding:14px 0;position:relative;z-index:1;}
+.feat{text-align:center;}
+.feat-icon{font-size:38px;margin-bottom:6px;}
+.feat-title{font-size:22px;color:#D4AC0D;font-weight:800;letter-spacing:1px;}
+.feat-sub{font-size:16px;color:rgba(255,255,255,.45);margin-top:2px;}
+.inst-box{background:rgba(0,0,0,.35);border:1px solid rgba(212,172,13,.35);border-radius:16px;padding:26px 28px;margin:6px 0;position:relative;z-index:1;}
+.inst-title{font-size:34px;font-weight:900;color:#D4AC0D;text-align:center;letter-spacing:3px;margin-bottom:18px;}
+.inst-body{font-size:26px;color:#FFE082;line-height:1.85;text-align:justify;margin-bottom:22px;}
+.steps{display:flex;flex-direction:column;gap:12px;}
+.step{display:flex;align-items:center;gap:14px;}
+.step-num{width:42px;height:42px;flex-shrink:0;background:linear-gradient(135deg,#D4AC0D,#F39C12);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#1a0500;}
+.step-text{font-size:25px;color:#fff;font-weight:500;}
+.qr-section{display:flex;align-items:center;gap:28px;padding:16px 0;position:relative;z-index:1;}
+.qr-frame{width:160px;height:160px;flex-shrink:0;background:#fff;border-radius:12px;padding:8px;}
+.qr-frame canvas{width:144px;height:144px;display:block;}
+.qr-info{flex:1;}
+.qr-label{font-size:20px;color:rgba(255,255,255,.45);margin-bottom:8px;}
+.qr-url{font-size:20px;color:#D4AC0D;font-weight:700;line-height:1.5;word-break:break-all;}
+.qr-hint{margin-top:10px;font-size:17px;color:rgba(255,255,255,.35);}
+.poster-footer{text-align:center;font-size:20px;color:rgba(212,172,13,.38);letter-spacing:2px;padding-top:8px;position:relative;z-index:1;}
+</style>
+</head>
+<body>
+
+<div class="ctrl-bar">
+  <p>点击下方按钮生成并下载宣传图片（PNG格式）</p>
+  <button class="dl-btn" id="dlBtn" onclick="downloadPoster()">📥 下载宣传图片</button>
+  <p class="hint">手机用户：截图或长按图片保存到相册后分享至微信群</p>
+</div>
+
+<div id="poster">
+  <div class="bg-suit" style="top:-50px;left:-40px">♠</div>
+  <div class="bg-suit" style="top:380px;right:-55px">♥</div>
+  <div class="bg-suit" style="top:900px;left:-50px">♦</div>
+  <div class="bg-suit" style="bottom:180px;right:-45px">♣</div>
+  <div class="frame1"></div>
+  <div class="frame2"></div>
+
+  <div class="header">
+    <div class="logo-circle">🃏</div>
+    <div class="title-main">硅谷掼蛋协会</div>
+    <div class="title-sub">智能电子掼蛋计分器</div>
+    <div class="ai-badge">✨ AI 人工智能驱动</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="phone-screen">
+        <div class="ph-app-title">🃏 掼蛋计分器 · AI GUANDAN</div>
+        <div class="ph-teams">
+          <div class="ph-card red">
+            <div class="ph-val">K</div>
+            <div class="ph-name">红队 RED</div>
+            <div class="ph-wins">3</div>
+            <div class="ph-wlabel">赢局 WINS</div>
+          </div>
+          <div class="ph-card blue">
+            <div class="ph-val">Q</div>
+            <div class="ph-name">蓝队 BLUE</div>
+            <div class="ph-wins">2</div>
+            <div class="ph-wlabel">赢局 WINS</div>
+          </div>
+        </div>
+        <div class="ph-btns">
+          <div class="ph-btn r">红−1</div>
+          <div class="ph-btn r">红+1</div>
+          <div class="ph-btn g">重置</div>
+          <div class="ph-btn b">蓝+1</div>
+          <div class="ph-btn b">蓝−1</div>
+        </div>
+        <div class="ph-newround">新 局 开 始 · NEW ROUND</div>
+        <div class="ph-hint">点击牌面升级 · A关判定过不过</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">📱</div>
+      <div class="feat-title">全平台</div>
+      <div class="feat-sub">手机·平板·电脑</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">✨</div>
+      <div class="feat-title">AI智能</div>
+      <div class="feat-sub">人工智能驱动</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🆓</div>
+      <div class="feat-title">免费试用</div>
+      <div class="feat-sub">下载免费使用</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="inst-box">
+    <div class="inst-title">📲 安装使用说明</div>
+    <div class="inst-body">
+      硅谷掼蛋协会用人工智能AI制作的掼蛋计分器，点击计分器后即可下载安装在您的手机、平板电脑或者笔记本电脑的屏幕上。点击屏幕上的计分器图片即可开始使用。
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">①</div>
+        <div class="step-text">用浏览器打开下方链接或扫描二维码</div>
+      </div>
+      <div class="step">
+        <div class="step-num">②</div>
+        <div class="step-text">点击"添加到主屏幕"下载安装图标</div>
+      </div>
+      <div class="step">
+        <div class="step-num">③</div>
+        <div class="step-text">点击屏幕上的计分器图片即可开始使用</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qr-section">
+    <div class="qr-frame">
+      <canvas id="qrCanvas" width="144" height="144"></canvas>
+    </div>
+    <div class="qr-info">
+      <div class="qr-label">扫码或浏览器打开：</div>
+      <div class="qr-url">silicon-guandan-system<br>.onrender.com/guandan</div>
+      <div class="qr-hint">微信内置浏览器可直接打开</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="poster-footer">© 硅谷掼蛋协会 2026 · Silicon Valley Guandan Association</div>
+</div>
+
+<script>
+(function(){
+  const url = 'https://silicon-guandan-system.onrender.com/guandan';
+  const canvas = document.getElementById('qrCanvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => ctx.drawImage(img, 0, 0, 144, 144);
+  img.onerror = () => {
+    ctx.fillStyle = '#fff'; ctx.fillRect(0,0,144,144);
+    ctx.fillStyle = '#111'; ctx.font = 'bold 11px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('silicon-guandan-system', 72, 58);
+    ctx.fillText('.onrender.com/guandan', 72, 76);
+  };
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=144x144&data=' + encodeURIComponent(url);
+})();
+
+async function downloadPoster() {
+  const btn = document.getElementById('dlBtn');
+  btn.textContent = '⏳ 生成中，请稍候…'; btn.disabled = true;
+  try {
+    const canvas = await html2canvas(document.getElementById('poster'), {
+      scale:2, useCORS:true, allowTaint:true, backgroundColor:'#1a0500', logging:false
+    });
+    const a = document.createElement('a');
+    a.download = '硅谷掼蛋协会-智能电子掼蛋计分器.png';
+    a.href = canvas.toDataURL('image/png', 1.0);
+    a.click();
+  } catch(e) {
+    alert('请截图保存图片后发至微信群\n' + e.message);
+  }
+  btn.textContent = '📥 下载宣传图片'; btn.disabled = false;
+}
+</script>
+</body>
+</html>

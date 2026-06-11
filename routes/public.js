@@ -99,6 +99,9 @@ async function calcBackupCount(tournamentId) {
   return parseInt(r.c);
 }
 
+// Promo poster page
+router.get('/promo', (req, res) => res.render('promo'));
+
 // Home page
 router.get('/', async (req, res) => {
   try {
