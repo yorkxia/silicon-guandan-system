@@ -440,6 +440,71 @@ header{
 .win-btn-next{background:-webkit-linear-gradient(135deg,var(--gold-light),var(--gold));background:linear-gradient(135deg,var(--gold-light),var(--gold));color:#FFF;-webkit-box-shadow:0 5px 18px rgba(168,104,0,0.38);box-shadow:0 5px 18px rgba(168,104,0,0.38);}
 .win-btn-reset{background:rgba(0,0,0,0.06);border:2px solid var(--divider);color:#666;}
 
+/* PAYWALL */
+#gd-paywall{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;
+  background:rgba(0,0,0,0.88);
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  padding:16px;
+}
+.gd-pw-box{
+  background:#fff;border-radius:18px;width:100%;max-width:380px;
+  overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.gd-pw-header{
+  background:linear-gradient(135deg,#8B0000,#C0000F);
+  padding:20px 20px 16px;text-align:center;color:#fff;
+}
+.gd-pw-header h2{font-size:1.15rem;font-weight:900;letter-spacing:1px;margin-bottom:4px;}
+.gd-pw-header p{font-size:0.75rem;opacity:0.85;}
+.gd-pw-trial{background:#FFF8E1;padding:10px 20px;text-align:center;font-size:0.78rem;color:#A86800;font-weight:700;border-bottom:1px solid #FFE082;}
+.gd-pw-tabs{display:flex;border-bottom:2px solid #eee;}
+.gd-pw-tab{flex:1;padding:12px 0;text-align:center;font-size:0.82rem;font-weight:700;cursor:pointer;color:#999;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all 0.2s;}
+.gd-pw-tab.active{color:#C0000F;border-bottom-color:#C0000F;}
+.gd-pw-panel{display:none;padding:16px 20px 20px;}
+.gd-pw-panel.active{display:block;}
+.gd-pw-price{display:flex;gap:10px;margin-bottom:14px;}
+.gd-pw-price-item{flex:1;border:2px solid #eee;border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.2s;}
+.gd-pw-price-item.selected{border-color:#C0000F;background:#FFF5F5;}
+.gd-pw-price-item .amt{font-size:1.1rem;font-weight:900;color:#C0000F;}
+.gd-pw-price-item .period{font-size:0.68rem;color:#999;margin-top:2px;}
+.gd-pw-price-item .badge{font-size:0.6rem;background:#C0000F;color:#fff;border-radius:4px;padding:1px 5px;margin-top:4px;display:inline-block;}
+.gd-pw-qr{text-align:center;margin:10px 0;}
+.gd-pw-qr img{width:160px;height:160px;border-radius:8px;border:2px solid #eee;}
+.gd-pw-qr-tip{font-size:0.72rem;color:#666;margin-top:6px;}
+.gd-pw-venmo{text-align:center;padding:10px 0;}
+.gd-pw-venmo .venmo-id{font-size:1.4rem;font-weight:900;color:#008CFF;letter-spacing:1px;margin:10px 0;}
+.gd-pw-venmo .venmo-tip{font-size:0.72rem;color:#666;}
+.gd-pw-paid-btn{
+  width:100%;padding:13px;margin-top:12px;
+  background:linear-gradient(135deg,#2E7D32,#43A047);
+  color:#fff;border:none;border-radius:10px;
+  font-size:0.9rem;font-weight:700;cursor:pointer;
+  letter-spacing:1px;
+}
+.gd-pw-note{font-size:0.68rem;color:#aaa;text-align:center;margin-top:8px;line-height:1.5;}
+.gd-pw-warning-close{
+  width:100%;padding:10px;margin-top:8px;
+  background:none;border:1px solid #ddd;border-radius:10px;
+  font-size:0.8rem;color:#999;cursor:pointer;
+}
+.gd-pw-confirm{display:none;padding:16px 20px 20px;text-align:center;}
+.gd-pw-confirm h3{color:#2E7D32;font-size:1rem;margin-bottom:8px;}
+.gd-pw-confirm p{font-size:0.78rem;color:#555;line-height:1.6;margin-bottom:12px;}
+.gd-pw-confirm input{
+  width:100%;padding:10px 12px;border:2px solid #ddd;border-radius:8px;
+  font-size:0.85rem;margin-bottom:8px;outline:none;
+}
+.gd-pw-confirm input:focus{border-color:#C0000F;}
+.gd-pw-submit-btn{
+  width:100%;padding:12px;
+  background:linear-gradient(135deg,#C0000F,#8B0000);
+  color:#fff;border:none;border-radius:10px;
+  font-size:0.9rem;font-weight:700;cursor:pointer;
+}
+
 /* FOOTER */
 .footer-bar{
   position:relative;z-index:1;width:100%;max-width:540px;
@@ -956,6 +1021,88 @@ header{
   </div>
 </div>
 
+<!-- 付费弹窗 -->
+<div id="gd-paywall" style="display:none;">
+  <div class="gd-pw-box">
+    <div class="gd-pw-header">
+      <h2>🃏 硅谷掼蛋协会 · 智能计分器</h2>
+      <p>Silicon Valley Guandan Association · AI Scorekeeper</p>
+    </div>
+    <div class="gd-pw-trial" id="gd-pw-trial-msg"></div>
+
+    <!-- 主付款面板 -->
+    <div id="gd-pw-main">
+      <div class="gd-pw-tabs">
+        <div class="gd-pw-tab active" onclick="gdPwTab('wechat')">💚 微信支付（人民币）</div>
+        <div class="gd-pw-tab" onclick="gdPwTab('venmo')">💙 Venmo（美元）</div>
+      </div>
+
+      <!-- 微信支付面板 -->
+      <div class="gd-pw-panel active" id="gd-pw-wechat">
+        <div class="gd-pw-price">
+          <div class="gd-pw-price-item selected" onclick="gdSelectPrice(this,'¥18/月')">
+            <div class="amt">¥18</div>
+            <div class="period">每月</div>
+          </div>
+          <div class="gd-pw-price-item" onclick="gdSelectPrice(this,'¥128/年')">
+            <div class="amt">¥128</div>
+            <div class="period">每年</div>
+            <div class="badge">最划算</div>
+          </div>
+          <div class="gd-pw-price-item" onclick="gdSelectPrice(this,'¥298永久')">
+            <div class="amt">¥298</div>
+            <div class="period">永久</div>
+          </div>
+        </div>
+        <div class="gd-pw-qr">
+          <img src="/img/wechat-pay-qr.jpg" alt="微信收款码">
+          <div class="gd-pw-qr-tip">扫码付款，备注：掼蛋+您的姓名</div>
+        </div>
+        <button class="gd-pw-paid-btn" onclick="gdShowConfirm()">✅ 我已付款，点此确认</button>
+        <div class="gd-pw-note">付款后发邮件至 siliconguandan@gmail.com<br>附上付款截图，我们将在24小时内为您开通</div>
+      </div>
+
+      <!-- Venmo面板 -->
+      <div class="gd-pw-panel" id="gd-pw-venmo">
+        <div class="gd-pw-price">
+          <div class="gd-pw-price-item selected" onclick="gdSelectPrice(this,'$2.99/月')">
+            <div class="amt">$2.99</div>
+            <div class="period">per month</div>
+          </div>
+          <div class="gd-pw-price-item" onclick="gdSelectPrice(this,'$18.99/年')">
+            <div class="amt">$18.99</div>
+            <div class="period">per year</div>
+            <div class="badge">Best Value</div>
+          </div>
+          <div class="gd-pw-price-item" onclick="gdSelectPrice(this,'$42.99永久')">
+            <div class="amt">$42.99</div>
+            <div class="period">lifetime</div>
+          </div>
+        </div>
+        <div class="gd-pw-venmo">
+          <div style="font-size:0.8rem;color:#555;">Send payment to Venmo:</div>
+          <div class="venmo-id">@yorkxia</div>
+          <div class="venmo-tip">Add note: "掼蛋" + your name</div>
+        </div>
+        <button class="gd-pw-paid-btn" onclick="gdShowConfirm()">✅ Payment Sent · Confirm</button>
+        <div class="gd-pw-note">After payment, email siliconguandan@gmail.com<br>with screenshot. Access granted within 24 hours.</div>
+      </div>
+
+      <button class="gd-pw-warning-close" id="gd-pw-skip" onclick="gdClosePaywall()" style="display:none;margin:0 20px 16px;width:calc(100% - 40px);">暂时跳过，继续免费使用剩余天数</button>
+    </div>
+
+    <!-- 付款确认面板 -->
+    <div class="gd-pw-confirm" id="gd-pw-confirm">
+      <h3>✅ 感谢您的支持！</h3>
+      <p>请填写您的姓名或微信昵称，<br>我们将尽快为您开通使用权限</p>
+      <input type="text" id="gd-pw-name" placeholder="您的姓名 / Your Name" maxlength="30">
+      <input type="text" id="gd-pw-contact" placeholder="微信号或邮箱 / WeChat or Email" maxlength="50">
+      <button class="gd-pw-submit-btn" onclick="gdSubmitPaid()">📧 提交并发送确认邮件</button>
+      <div class="gd-pw-note" style="margin-top:10px;">提交后将延长30天使用期，等待我们核实付款</div>
+    </div>
+  </div>
+</div>
+
 <div class="footer-bar">
   <div class="footer-line"></div>
   <div class="footer-contact">技术及广告支持联系：siliconguandan@gmail.com</div>
@@ -1441,6 +1588,82 @@ render();
     document.getElementById('adBanner').style.display = 'none';
     adClosed = true;
     if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
+  };
+})();
+
+// ── 试用期 & 付费弹窗 ─────────────────────────────────
+(function(){
+  var INSTALL_KEY = 'gd_install_ts';
+  var PAID_KEY    = 'gd_paid_until';
+  var WARNED_KEY  = 'gd_warned_today';
+
+  // 首次安装记录日期
+  if (!localStorage.getItem(INSTALL_KEY)) {
+    localStorage.setItem(INSTALL_KEY, Date.now().toString());
+  }
+
+  var installTs    = parseInt(localStorage.getItem(INSTALL_KEY));
+  var paidUntil    = parseInt(localStorage.getItem(PAID_KEY) || '0');
+  var isPaid       = paidUntil > Date.now();
+  var daysUsed     = Math.floor((Date.now() - installTs) / 86400000);
+  var daysLeft     = Math.max(0, 60 - daysUsed);
+
+  if (isPaid) return; // 已付费，直接返回
+
+  var pw = document.getElementById('gd-paywall');
+  var trialMsg = document.getElementById('gd-pw-trial-msg');
+  var skipBtn  = document.getElementById('gd-pw-skip');
+
+  if (daysUsed > 60) {
+    // 试用期到期，强制显示付费弹窗
+    trialMsg.textContent = '⏰ 免费试用期已结束，请订阅以继续使用';
+    trialMsg.style.background = '#FFEBEE';
+    trialMsg.style.color = '#C0000F';
+    pw.style.display = 'flex';
+  } else if (daysUsed >= 54) {
+    // 最后6天，每次打开提醒
+    trialMsg.textContent = '⚠️ 免费试用期还剩 ' + daysLeft + ' 天，请提前订阅';
+    skipBtn.style.display = 'block';
+    skipBtn.textContent = '继续免费使用（剩余 ' + daysLeft + ' 天）';
+    pw.style.display = 'flex';
+  }
+
+  // 全局函数
+  window.gdPwTab = function(tab) {
+    document.querySelectorAll('.gd-pw-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.gd-pw-panel').forEach(function(p){ p.classList.remove('active'); });
+    var idx = tab === 'wechat' ? 0 : 1;
+    document.querySelectorAll('.gd-pw-tab')[idx].classList.add('active');
+    document.getElementById('gd-pw-' + tab).classList.add('active');
+  };
+
+  window.gdSelectPrice = function(el, label) {
+    el.closest('.gd-pw-price').querySelectorAll('.gd-pw-price-item').forEach(function(i){ i.classList.remove('selected'); });
+    el.classList.add('selected');
+  };
+
+  window.gdClosePaywall = function() {
+    pw.style.display = 'none';
+  };
+
+  window.gdShowConfirm = function() {
+    document.getElementById('gd-pw-main').style.display = 'none';
+    document.getElementById('gd-pw-confirm').style.display = 'block';
+  };
+
+  window.gdSubmitPaid = function() {
+    var name    = document.getElementById('gd-pw-name').value.trim();
+    var contact = document.getElementById('gd-pw-contact').value.trim();
+    if (!name) { alert('请填写您的姓名'); return; }
+    // 延长30天待核实
+    var extend30 = Date.now() + 30 * 86400000;
+    localStorage.setItem(PAID_KEY, extend30.toString());
+    // 打开邮件
+    var subject = encodeURIComponent('掼蛋计分器付款确认 - ' + name);
+    var body = encodeURIComponent('姓名：' + name + '\n联系方式：' + contact + '\n\n（请附上付款截图）');
+    window.open('mailto:siliconguandan@gmail.com?subject=' + subject + '&body=' + body);
+    alert('✅ 已延长30天使用期！\n请发邮件附上付款截图，我们将尽快正式开通。');
+    pw.style.display = 'none';
   };
 })();
 </script>
