@@ -998,6 +998,71 @@ header{
   font-size:16px;opacity:0.7;cursor:pointer;
   padding:2px 4px;flex-shrink:0;
 }
+/* iOS VISUAL STEP GUIDE */
+.ios-vg{
+  position:fixed;inset:0;
+  z-index:3500;
+  display:none;
+  /* 底部渐变透明，让 Safari 工具栏隐约可见 */
+  background:linear-gradient(to bottom,
+    rgba(0,0,0,0.86) 0%,
+    rgba(0,0,0,0.86) 74%,
+    rgba(0,0,0,0.45) 88%,
+    transparent 100%);
+  -webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  cursor:pointer;
+}
+.ios-vg.show{display:-webkit-flex;display:flex;}
+.ios-vg-card{
+  background:linear-gradient(135deg,rgba(212,160,23,0.97),rgba(168,104,0,0.97));
+  border-radius:22px;
+  padding:24px 28px 20px;
+  max-width:300px;width:85%;
+  text-align:center;
+  box-shadow:0 12px 40px rgba(0,0,0,0.5);
+  pointer-events:none;
+}
+.ios-vg-progress{
+  font-family:'Oswald',sans-serif;font-size:11px;
+  color:rgba(26,5,5,0.6);letter-spacing:2px;
+  margin-bottom:8px;
+}
+.ios-vg-step{
+  font-family:'Noto Serif SC',serif;font-size:22px;font-weight:900;
+  color:#1a0505;line-height:1.4;
+}
+.ios-vg-sub{
+  font-family:'Noto Serif SC',serif;font-size:13px;
+  color:rgba(26,5,5,0.65);margin-top:8px;line-height:1.5;
+}
+.ios-vg-tap{
+  margin-top:14px;
+  font-family:'Oswald',sans-serif;font-size:11px;
+  color:rgba(26,5,5,0.5);letter-spacing:1px;
+}
+/* 指向 Safari 分享按钮的动态箭头 */
+.ios-vg-arrow{
+  position:absolute;
+  bottom:68px; /* Safari工具栏上方 */
+  font-size:44px;color:#FFD700;
+  text-shadow:0 0 20px rgba(255,215,0,0.7);
+  -webkit-animation:vg-bounce 0.65s ease-in-out infinite alternate;
+  animation:vg-bounce 0.65s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+.ios-vg-arrow-label{
+  position:absolute;
+  bottom:120px;
+  font-family:'Noto Serif SC',serif;font-size:14px;font-weight:900;
+  color:#FFD700;
+  text-shadow:0 2px 8px rgba(0,0,0,0.8);
+  letter-spacing:1px;
+  pointer-events:none;
+}
+@-webkit-keyframes vg-bounce{from{-webkit-transform:translateY(0);}to{-webkit-transform:translateY(-10px);}}
+@keyframes vg-bounce{from{transform:translateY(0);}to{transform:translateY(-10px);}}
 /* WAKE LOCK DOT */
 .wl-dot{
   display:inline-block;width:6px;height:6px;
@@ -1453,6 +1518,18 @@ header{
       <div class="gd-pw-note" style="margin-top:10px;">提交后系统自动通知管理员，管理员确认后立即激活，重新打开计分器即可使用</div>
     </div>
   </div>
+</div>
+
+<!-- iOS 视觉步骤引导遮罩（点击屏幕推进步骤） -->
+<div class="ios-vg" id="iosVg" onclick="iosVgNext()">
+  <div class="ios-vg-card">
+    <div class="ios-vg-progress" id="iosVgProg"></div>
+    <div class="ios-vg-step" id="iosVgStep"></div>
+    <div class="ios-vg-sub" id="iosVgSub"></div>
+    <div class="ios-vg-tap" id="iosVgTap">点击屏幕继续 →</div>
+  </div>
+  <div class="ios-vg-arrow" id="iosVgArrow">↓</div>
+  <div class="ios-vg-arrow-label" id="iosVgArrowLabel">分享按钮在这里</div>
 </div>
 
 <!-- 安装到桌面 Banner -->
@@ -2115,55 +2192,83 @@ ghStartRound(state.round);
     localStorage.setItem(INST_KEY, '1');
   };
 
-  /* ⑦ 显示安装说明弹窗 */
+  /* ⑦ iOS Safari 视觉步骤引导 */
+  var iosVgData = [
+    { prog:'第 1 步 / 共 3 步', step:'点击底部中间\n的分享按钮 ⎙', sub:'Safari 工具栏正中间那个\n方框加向上箭头的图标', arrow:true },
+    { prog:'第 2 步 / 共 3 步', step:'向下滑\n找到「添加到主屏幕」', sub:'在分享菜单里向下滚动，\n找到这一项并点击', arrow:false },
+    { prog:'第 3 步 / 共 3 步', step:'点右上角\n「添加」', sub:'完成！掼蛋计分器图标\n将出现在手机桌面 ✅', arrow:false }
+  ];
+  var iosVgIdx = 0;
+
+  function iosVgRender() {
+    var d = iosVgData[iosVgIdx];
+    document.getElementById('iosVgProg').textContent  = d.prog;
+    document.getElementById('iosVgStep').textContent  = d.step;
+    document.getElementById('iosVgSub').textContent   = d.sub;
+    var arrow = document.getElementById('iosVgArrow');
+    var label = document.getElementById('iosVgArrowLabel');
+    var tap   = document.getElementById('iosVgTap');
+    arrow.style.display = d.arrow ? 'block' : 'none';
+    label.style.display = d.arrow ? 'block' : 'none';
+    tap.textContent = (iosVgIdx < iosVgData.length - 1) ? '点击屏幕继续 →' : '点击屏幕关闭';
+  }
+
+  window.iosVgNext = function() {
+    iosVgIdx++;
+    if (iosVgIdx >= iosVgData.length) {
+      document.getElementById('iosVg').classList.remove('show');
+      iosVgIdx = 0;
+      return;
+    }
+    iosVgRender();
+  };
+
+  /* ⑧ 显示安装说明（iOS Safari 走视觉引导，其余走文字弹窗） */
   window.showInstallModal = function() {
+    hideInstallBar();
+
+    /* iOS Safari：全屏视觉引导 */
+    if (isIOS && !isWeChat) {
+      iosVgIdx = 0;
+      iosVgRender();
+      document.getElementById('iosVg').classList.add('show');
+      return;
+    }
+
+    /* 微信 / 安卓 / 桌面：文字弹窗 */
     var steps = document.getElementById('instSteps');
     if (!steps) return;
     var items = [];
 
     if (isWeChat && isIOS) {
       items = [
-        '点击屏幕<strong>右上角 ···</strong> 按钮',
-        '选择「<strong>在Safari中打开</strong>」',
-        'Safari底部点 <strong>&#9633;&#8593; 分享</strong> 按钮',
-        '向下滑动菜单，点「<strong>添加到主屏幕</strong>」',
-        '右上角点「<strong>添加</strong>」完成安装 ✅'
+        '点右上角 <strong>···</strong> 按钮',
+        '选「<strong>在 Safari 中打开</strong>」',
+        '再次打开后点击 ⎙ 分享按钮，选「添加到主屏幕」'
       ];
     } else if (isWeChat && isAndroid) {
       items = [
-        '点击屏幕<strong>右上角 ···</strong> 按钮',
-        '选择「<strong>在浏览器中打开</strong>」',
-        '浏览器右上角点 <strong>⋮</strong> 菜单',
-        '选择「<strong>添加到主屏幕</strong>」或「安装应用」',
-        '按提示点「<strong>安装</strong>」完成 ✅'
-      ];
-    } else if (isIOS) {
-      items = [
-        '确认已在 <strong>Safari</strong> 浏览器中打开（非微信/Chrome）',
-        '点击底部中间的 <strong>&#9633;&#8593; 分享</strong> 按钮',
-        '向下滑动弹出菜单',
-        '点击「<strong>添加到主屏幕</strong>」',
-        '右上角点「<strong>添加</strong>」完成安装 ✅'
+        '点右上角 <strong>···</strong> 按钮',
+        '选「<strong>在浏览器中打开</strong>」',
+        '浏览器菜单选「<strong>添加到主屏幕</strong>」'
       ];
     } else if (isAndroid) {
       items = [
-        '点击浏览器右上角 <strong>⋮</strong> 菜单',
-        '选择「<strong>添加到主屏幕</strong>」或「安装应用」',
+        '点浏览器右上角 <strong>⋮</strong> 菜单',
+        '选「<strong>添加到主屏幕</strong>」或「安装应用」',
         '按提示点「<strong>安装</strong>」完成 ✅'
       ];
     } else {
       items = [
-        '浏览器地址栏右侧点击 <strong>⊕ 安装</strong> 图标',
-        '在弹窗点「<strong>安装</strong>」即可'
+        '地址栏右侧点 <strong>⊕ 安装</strong> 图标',
+        '弹窗中点「<strong>安装</strong>」即可 ✅'
       ];
     }
 
     steps.innerHTML = items.map(function(txt, i) {
       return '<li><span class="inst-step-num">'+(i+1)+'</span><span>'+txt+'</span></li>';
     }).join('');
-
     document.getElementById('instOverlay').classList.add('show');
-    hideInstallBar();
   };
 
   /* ⑧ 隐藏弹窗 */
