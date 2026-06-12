@@ -970,6 +970,34 @@ header{
   color:rgba(245,200,66,0.4);cursor:pointer;
 }
 .inst-cancel:hover{color:rgba(245,200,66,0.7);}
+/* WECHAT TOP GUIDE BAR */
+.wc-guide{
+  position:fixed;top:0;left:0;right:0;
+  z-index:3000;
+  background:linear-gradient(90deg,#E67E00,#C0520A);
+  color:#fff;
+  font-family:'Noto Serif SC',serif;
+  font-size:13px;font-weight:700;
+  padding:10px 16px 10px 14px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  gap:10px;
+  box-shadow:0 3px 16px rgba(0,0,0,0.4);
+  -webkit-transform:translateY(-110%);transform:translateY(-110%);
+  -webkit-transition:-webkit-transform 0.4s ease;transition:transform 0.4s ease;
+}
+.wc-guide.show{-webkit-transform:translateY(0);transform:translateY(0);}
+.wc-guide-text{flex:1;line-height:1.5;}
+.wc-guide-text span{display:block;font-size:11px;font-weight:400;opacity:0.88;margin-top:2px;}
+.wc-guide-arrow{
+  font-size:26px;animation:wc-bounce 1s infinite alternate;
+  flex-shrink:0;
+}
+@keyframes wc-bounce{0%{transform:translateY(0);}100%{transform:translateY(-5px);}}
+.wc-guide-close{
+  font-size:16px;opacity:0.7;cursor:pointer;
+  padding:2px 4px;flex-shrink:0;
+}
 /* WAKE LOCK DOT */
 .wl-dot{
   display:inline-block;width:6px;height:6px;
@@ -995,6 +1023,16 @@ header{
 </style>
 </head>
 <body>
+<!-- 微信专用引导条：提示用户在 Safari 中打开 -->
+<div class="wc-guide" id="wcGuide">
+  <div class="wc-guide-text">
+    请点右上角 <strong>···</strong> → <strong>在Safari中打开</strong>
+    <span>在微信内无法安装到桌面，需先跳转到Safari</span>
+  </div>
+  <div class="wc-guide-arrow">↗</div>
+  <span class="wc-guide-close" onclick="document.getElementById('wcGuide').classList.remove('show')">✕</span>
+</div>
+
 <canvas id="particles"></canvas>
 
 <header>
@@ -2028,6 +2066,12 @@ ghStartRound(state.round);
 (function(){
   var INST_KEY = 'gd_inst_bar_hidden';
   var deferredPrompt = null;
+  var ua = navigator.userAgent;
+  var isWeChat  = ua.indexOf('MicroMessenger') > -1;
+  var isIOS     = /iPad|iPhone|iPod/.test(ua);
+  var isAndroid = ua.indexOf('Android') > -1;
+  var isStandalone = (window.navigator.standalone === true) ||
+                     (window.matchMedia('(display-mode: standalone)').matches);
 
   /* ① 注册 Service Worker */
   if ('serviceWorker' in navigator) {
@@ -2038,7 +2082,6 @@ ghStartRound(state.round);
   window.addEventListener('beforeinstallprompt', function(e) {
     e.preventDefault();
     deferredPrompt = e;
-    /* 有原生安装支持时，让安装按钮直接触发 */
     var nb = document.getElementById('instNativeBtn');
     if (nb) nb.style.display = 'block';
   });
@@ -2049,60 +2092,69 @@ ghStartRound(state.round);
     deferredPrompt = null;
   });
 
-  /* ④ 首次访问显示安装 banner（3 秒后滑入，已隐藏则不再显示） */
-  if (!localStorage.getItem(INST_KEY)) {
+  /* ④ 微信内：顶部自动弹出引导条 */
+  if (isWeChat) {
+    setTimeout(function() {
+      var g = document.getElementById('wcGuide');
+      if (g) g.classList.add('show');
+    }, 800);
+  }
+
+  /* ⑤ 已安装为桌面 App 则不显示安装 banner */
+  if (!isStandalone && !isWeChat && !localStorage.getItem(INST_KEY)) {
     setTimeout(function() {
       var bar = document.getElementById('installBar');
       if (bar) bar.classList.add('show');
     }, 3000);
   }
 
-  /* ⑤ 关闭 banner */
+  /* ⑥ 关闭 banner */
   window.hideInstallBar = function() {
     var bar = document.getElementById('installBar');
     if (bar) bar.classList.remove('show');
     localStorage.setItem(INST_KEY, '1');
   };
 
-  /* ⑥ 平台检测 */
-  function getPlatform() {
-    var ua = navigator.userAgent;
-    if (ua.indexOf('MicroMessenger') > -1) return 'wechat';
-    if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
-    if (ua.indexOf('Android') > -1) return 'android';
-    return 'desktop';
-  }
-
   /* ⑦ 显示安装说明弹窗 */
   window.showInstallModal = function() {
     var steps = document.getElementById('instSteps');
     if (!steps) return;
-    var platform = getPlatform();
     var items = [];
 
-    if (platform === 'wechat') {
+    if (isWeChat && isIOS) {
       items = [
-        '点击右上角 <strong>···</strong> 菜单按钮',
-        '选择「<strong>在浏览器中打开</strong>」或「在Safari中打开」',
-        '在浏览器中按下方 iOS / Android 步骤操作'
+        '点击屏幕<strong>右上角 ···</strong> 按钮',
+        '选择「<strong>在Safari中打开</strong>」',
+        'Safari底部点 <strong>&#9633;&#8593; 分享</strong> 按钮',
+        '向下滑动菜单，点「<strong>添加到主屏幕</strong>」',
+        '右上角点「<strong>添加</strong>」完成安装 ✅'
       ];
-    } else if (platform === 'ios') {
+    } else if (isWeChat && isAndroid) {
       items = [
-        '点击底部导航栏中间的 <strong>&#128279; 分享</strong> 按钮',
-        '在弹出菜单中向下滑动，点击「<strong>添加到主屏幕</strong>」',
-        '右上角点击「<strong>添加</strong>」确认'
+        '点击屏幕<strong>右上角 ···</strong> 按钮',
+        '选择「<strong>在浏览器中打开</strong>」',
+        '浏览器右上角点 <strong>⋮</strong> 菜单',
+        '选择「<strong>添加到主屏幕</strong>」或「安装应用」',
+        '按提示点「<strong>安装</strong>」完成 ✅'
       ];
-    } else if (platform === 'android') {
+    } else if (isIOS) {
+      items = [
+        '确认已在 <strong>Safari</strong> 浏览器中打开（非微信/Chrome）',
+        '点击底部中间的 <strong>&#9633;&#8593; 分享</strong> 按钮',
+        '向下滑动弹出菜单',
+        '点击「<strong>添加到主屏幕</strong>」',
+        '右上角点「<strong>添加</strong>」完成安装 ✅'
+      ];
+    } else if (isAndroid) {
       items = [
         '点击浏览器右上角 <strong>⋮</strong> 菜单',
         '选择「<strong>添加到主屏幕</strong>」或「安装应用」',
-        '按提示点击「<strong>安装</strong>」或「添加」确认'
+        '按提示点「<strong>安装</strong>」完成 ✅'
       ];
     } else {
       items = [
-        '点击浏览器地址栏右侧的 <strong>⊕ 安装</strong> 图标',
-        '在弹窗中点击「<strong>安装</strong>」',
-        '桌面上将出现掼蛋计分器图标'
+        '浏览器地址栏右侧点击 <strong>⊕ 安装</strong> 图标',
+        '在弹窗点「<strong>安装</strong>」即可'
       ];
     }
 
