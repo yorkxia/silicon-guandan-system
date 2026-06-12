@@ -681,6 +681,160 @@ header{
   flex-shrink:0;padding:4px 6px;cursor:pointer;line-height:1;
 }
 .ad-close:hover{color:rgba(168,104,0,0.7);}
+
+/* REPORT BUTTON */
+.report-btn-wrap{
+  width:100%;max-width:540px;
+  display:-webkit-flex;display:flex;
+  -webkit-justify-content:flex-end;justify-content:flex-end;
+  padding:0 12px;
+  box-sizing:border-box;
+  margin:4px 0 0;
+}
+.btn-report{
+  font-family:'Noto Serif SC',serif;
+  font-size:12px;font-weight:700;
+  color:rgba(168,104,0,0.85);
+  background:rgba(200,134,10,0.1);
+  border:1.5px solid rgba(200,134,10,0.35);
+  border-radius:20px;
+  padding:5px 16px;
+  cursor:pointer;
+  letter-spacing:0.5px;
+  transition:all 0.2s;
+  outline:none;
+  -webkit-appearance:none;
+}
+.btn-report:hover{
+  background:rgba(200,134,10,0.22);
+  border-color:rgba(200,134,10,0.6);
+  transform:translateY(-1px);
+}
+/* REPORT MODAL */
+.report-overlay{
+  display:none;
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.74);
+  z-index:1100;
+  -webkit-align-items:flex-start;align-items:flex-start;
+  -webkit-justify-content:center;justify-content:center;
+  padding:20px 12px;
+  box-sizing:border-box;
+  overflow-y:auto;
+}
+.report-overlay.show{display:-webkit-flex;display:flex;}
+.report-box{
+  background:linear-gradient(160deg,#2a0a0a 0%,#1a0505 100%);
+  border:2px solid rgba(212,160,23,0.4);
+  border-radius:18px;
+  width:100%;max-width:480px;
+  display:-webkit-flex;display:flex;
+  -webkit-flex-direction:column;flex-direction:column;
+  max-height:calc(100vh - 40px);
+  overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6);
+}
+.report-header{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:space-between;justify-content:space-between;
+  padding:16px 18px 10px;
+  border-bottom:1px solid rgba(212,160,23,0.2);
+  flex-shrink:0;
+}
+.report-title{
+  font-family:'Noto Serif SC',serif;
+  font-size:17px;font-weight:900;
+  color:#F5C842;letter-spacing:1px;
+}
+.report-close-btn{
+  font-size:18px;color:rgba(245,200,66,0.4);
+  cursor:pointer;padding:4px 6px;line-height:1;
+}
+.report-close-btn:hover{color:rgba(245,200,66,0.85);}
+.report-subtext{
+  font-size:11px;color:rgba(245,200,66,0.45);
+  padding:4px 18px 8px;
+  font-family:'Oswald',sans-serif;letter-spacing:0.5px;
+  flex-shrink:0;
+}
+.report-body{
+  overflow-y:auto;
+  padding:0 10px 16px;
+  flex:1;
+}
+.report-empty{
+  text-align:center;
+  padding:44px 0;
+  color:rgba(245,200,66,0.45);
+  font-family:'Noto Serif SC',serif;
+  font-size:15px;
+  line-height:2.2;
+}
+.report-session{
+  margin:10px 0;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(212,160,23,0.15);
+  border-radius:12px;
+  overflow:hidden;
+}
+.report-session-hdr{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-flex-wrap:wrap;flex-wrap:wrap;
+  gap:6px;
+  padding:10px 14px 8px;
+  background:rgba(212,160,23,0.08);
+  border-bottom:1px solid rgba(212,160,23,0.1);
+}
+.report-round-label{
+  font-family:'Noto Serif SC',serif;
+  font-size:14px;font-weight:900;
+  color:#F5C842;white-space:nowrap;
+}
+.report-round-time{
+  font-size:11px;color:rgba(245,200,66,0.55);
+  font-family:'Oswald',sans-serif;
+  flex:1;min-width:0;
+}
+.report-ongoing-tag{
+  font-size:10px;
+  background:#D4AC0D;color:#1a0505;
+  border-radius:8px;padding:2px 8px;
+  font-weight:700;letter-spacing:0.5px;white-space:nowrap;
+}
+.report-no-ev{
+  padding:10px 14px;
+  font-size:12px;color:rgba(245,200,66,0.35);
+  font-family:'Noto Serif SC',serif;
+}
+.report-ev-list{padding:6px 8px 8px;}
+.report-ev{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  gap:8px;padding:5px 6px;
+  border-radius:6px;margin:2px 0;
+}
+.report-ev:hover{background:rgba(255,255,255,0.04);}
+.ev-ts{
+  font-family:'Oswald',sans-serif;
+  font-size:11px;color:rgba(245,200,66,0.45);
+  white-space:nowrap;flex-shrink:0;width:56px;
+}
+.ev-tm{
+  font-family:'Noto Serif SC',serif;
+  font-size:12px;font-weight:700;
+  white-space:nowrap;flex-shrink:0;width:32px;
+}
+.ev-tm.red{color:#FF7070;}
+.ev-tm.blue{color:#70AAFF;}
+.ev-desc{
+  font-family:'Noto Serif SC',serif;
+  font-size:12px;color:rgba(255,255,255,0.72);
+  flex:1;
+}
+.ev-win{color:#FFD700;font-weight:700;}
+.ev-fail{color:#FF9090;}
 </style>
 </head>
 <body>
@@ -900,6 +1054,10 @@ header{
   </div>
 </div>
 
+<div class="report-btn-wrap">
+  <button class="btn-report" onclick="showReport()">📊 比赛记录</button>
+</div>
+
 <div class="round-bar">
   <span class="round-zh">&#31532;</span>
   <span class="round-num" id="roundNum">1</span>
@@ -1103,6 +1261,18 @@ header{
   </div>
 </div>
 
+<!-- 比赛记录报告弹窗 -->
+<div class="report-overlay" id="reportOverlay" onclick="if(event.target===this)closeReport()">
+  <div class="report-box">
+    <div class="report-header">
+      <span class="report-title">📊 比赛记录报告</span>
+      <span class="report-close-btn" onclick="closeReport()">✕</span>
+    </div>
+    <div class="report-subtext">保留最近 7 天的比赛记录 · 本地存储</div>
+    <div class="report-body" id="reportBody"></div>
+  </div>
+</div>
+
 <div class="footer-bar">
   <div class="footer-line"></div>
   <div class="footer-contact">技术及广告支持联系：siliconguandan@gmail.com</div>
@@ -1221,6 +1391,7 @@ function onCardClick(t){
   if(lv < MAX){
     /* 正常升级 */
     state[t]++;
+    ghRec(t, lv, state[t], 'up');
     if(state[t]===MAX){
       /* 刚升到A：显示A，标记下次点击才判定 */
       state.aReady[t]=true;
@@ -1251,6 +1422,7 @@ function adjustLevel(t, delta){
   } else {
     if(lv>=16) return;
     state[t]++;
+    ghRec(t, lv, state[t], 'up');
     if(state[t]>=MAX){
       /* +1按钮升到A：aReady=false，需点卡牌一次才触发判定 */
       state.aReady[t]=false;
@@ -1300,21 +1472,25 @@ function aResult(passed){
 
   if(passed){
     /* 过了 → 点击方胜 */
+    ghRec(t, lv, 2, 'win');
     recordWin(t);
   } else {
     /* 不过 */
     if(lv===14){
       /* A → A² */
+      ghRec(t, 14, 15, 'a_fail');
       state[t]=15;
       state.aReady[t]=true;
       flashCard(t); render();
     } else if(lv===15){
       /* A² → A³ */
+      ghRec(t, 15, 16, 'a_fail');
       state[t]=16;
       state.aReady[t]=true;
       flashCard(t); render();
     } else {
       /* A³ 不过 → 己方回到2，继续比赛，不算胜负 */
+      ghRec(t, 16, 2, 'a_reset');
       state[t]=INIT;
       state.aReady[t]=false;
       flashCard(t); render();
@@ -1347,6 +1523,7 @@ function recordWin(winner){
 
 /* ── 下一局（胜利弹窗里的按钮） ── */
 function startNextRound(){
+  ghEndRound();
   document.getElementById('winOverlay').classList.remove('show');
   stopParticles();
   state.round++;
@@ -1354,10 +1531,12 @@ function startNextRound(){
   state.aReady={red:false,blue:false};
   render();
   timerReset(true);
+  ghStartRound(state.round);
 }
 
 /* ── 新局开始（底部按钮） ── */
 function newRound(){
+  ghEndRound();
   state.round++;
   state.red=INIT; state.blue=INIT;
   state.aReady={red:false,blue:false};
@@ -1367,10 +1546,12 @@ function newRound(){
     c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
   });
   timerReset(true);
+  ghStartRound(state.round);
 }
 
 /* ── 全部重置 ── */
 function fullReset(){
+  ghEndRound();
   document.getElementById('winOverlay').classList.remove('show');
   stopParticles();
   state={
@@ -1385,6 +1566,7 @@ function fullReset(){
     c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
   });
   timerReset(false);
+  ghStartRound(1);
 }
 
 /* ── 计时器 ── */
@@ -1494,7 +1676,120 @@ function stopParticles(){
   c.getContext('2d').clearRect(0,0,c.width,c.height);
 }
 
+/* ── 比赛历史记录模块 ── */
+var GH_KEY='gd_game_history';
+var ghStart=null, ghEvents=[], ghRoundNum=1;
+
+function ghCleanOld(){
+  try{
+    var d=JSON.parse(localStorage.getItem(GH_KEY)||'[]');
+    var cut=Date.now()-7*86400000;
+    d=d.filter(function(r){return r.endTime&&r.endTime>cut;});
+    localStorage.setItem(GH_KEY,JSON.stringify(d));
+  }catch(e){}
+}
+
+function ghStartRound(n){
+  ghStart=Date.now(); ghEvents=[]; ghRoundNum=n;
+}
+
+function ghEndRound(){
+  if(!ghStart) return;
+  try{
+    if(ghEvents.length>0){
+      var d=JSON.parse(localStorage.getItem(GH_KEY)||'[]');
+      d.push({roundNum:ghRoundNum,startTime:ghStart,endTime:Date.now(),events:ghEvents.slice()});
+      localStorage.setItem(GH_KEY,JSON.stringify(d));
+    }
+  }catch(e){}
+  ghStart=null; ghEvents=[];
+}
+
+function ghRec(team,from,to,type){
+  if(!ghStart) return;
+  ghEvents.push({team:team,from:from,to:to,ts:Date.now(),type:type||'up'});
+}
+
+function ghLvName(lv){
+  if(lv>=16) return 'A³';
+  if(lv===15) return 'A²';
+  if(lv>=14) return 'A';
+  if(lv<=10) return String(lv);
+  return {11:'J',12:'Q',13:'K'}[lv];
+}
+
+function ghFmtT(ts){
+  var d=new Date(ts);
+  var h=d.getHours(),m=d.getMinutes(),s=d.getSeconds();
+  return (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+}
+
+function ghFmtDate(ts){
+  var d=new Date(ts);
+  return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日';
+}
+
+function showReport(){
+  ghCleanOld();
+  var data=[];
+  try{data=JSON.parse(localStorage.getItem(GH_KEY)||'[]');}catch(e){}
+  var all=data.slice();
+  if(ghStart&&ghEvents.length>0){
+    all.push({roundNum:ghRoundNum,startTime:ghStart,endTime:null,events:ghEvents.slice()});
+  }
+  var body=document.getElementById('reportBody');
+  if(all.length===0){
+    body.innerHTML='<div class="report-empty">暂无比赛记录<br><span style="font-size:12px;opacity:0.6">比赛升级操作后将自动记录</span></div>';
+  } else {
+    var html='';
+    for(var i=all.length-1;i>=0;i--){
+      var r=all[i];
+      var endStr=r.endTime?ghFmtT(r.endTime):'—';
+      html+='<div class="report-session">';
+      html+='<div class="report-session-hdr">';
+      html+='<span class="report-round-label">第 '+r.roundNum+' 局</span>';
+      html+='<span class="report-round-time">'+ghFmtDate(r.startTime)+'&nbsp;&nbsp;'+ghFmtT(r.startTime)+' — '+endStr+'</span>';
+      if(!r.endTime) html+='<span class="report-ongoing-tag">进行中</span>';
+      html+='</div>';
+      if(r.events.length===0){
+        html+='<div class="report-no-ev">本局暂无升级记录</div>';
+      } else {
+        html+='<div class="report-ev-list">';
+        r.events.forEach(function(ev){
+          var tZH=ev.team==='red'?'红队':'蓝队';
+          var tCls=ev.team==='red'?'red':'blue';
+          var desc='';
+          if(ev.type==='win'){
+            desc=ghLvName(ev.from)+' 过关 <span class="ev-win">&#127942; 赢局</span>';
+          } else if(ev.type==='a_fail'){
+            desc=ghLvName(ev.from)+' &#8594; '+ghLvName(ev.to)+' <span class="ev-fail">未过</span>';
+          } else if(ev.type==='a_reset'){
+            desc='A&#179; 未过 &#8594; 回 2 <span class="ev-fail">未过</span>';
+          } else {
+            desc=ghLvName(ev.from)+' &#8594; '+ghLvName(ev.to);
+          }
+          html+='<div class="report-ev">';
+          html+='<span class="ev-ts">'+ghFmtT(ev.ts)+'</span>';
+          html+='<span class="ev-tm '+tCls+'">'+tZH+'</span>';
+          html+='<span class="ev-desc">'+desc+'</span>';
+          html+='</div>';
+        });
+        html+='</div>';
+      }
+      html+='</div>';
+    }
+    body.innerHTML=html;
+  }
+  document.getElementById('reportOverlay').classList.add('show');
+}
+
+function closeReport(){
+  document.getElementById('reportOverlay').classList.remove('show');
+}
+
 render();
+ghCleanOld();
+ghStartRound(state.round);
 
 // ── 广告模块（服务端渲染版：访问已在服务端记录，广告数据直接注入）───────────────────────
 (function(){
