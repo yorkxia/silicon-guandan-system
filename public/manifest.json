@@ -1,0 +1,26 @@
+{
+  "name": "硅谷掼蛋协会-智能电子掼蛋计分器",
+  "short_name": "掼蛋计分器",
+  "description": "硅谷掼蛋协会专业智能电子计分器 · 升级追踪 · 赛事记录 · 屏幕常亮",
+  "start_url": "/guandan",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1a0505",
+  "theme_color": "#D4AC0D",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/img/guandan-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/img/guandan-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

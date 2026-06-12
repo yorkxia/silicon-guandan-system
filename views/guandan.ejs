@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="format-detection" content="telephone=no,email=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="掼蛋计分器">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#D4AC0D">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/img/guandan-icon.png">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <title>掼蛋计分器 · 硅谷掼蛋协会</title>
 <meta name="description" content="硅谷掼蛋协会专用计分器，支持升级计分、胜局记录、每局计时">
@@ -852,6 +857,119 @@ header{
 .ev-win{color:#FFD700;font-weight:700;}
 .ev-fail{color:#FF9090;}
 
+/* INSTALL BANNER */
+.install-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  z-index:2100;
+  background:linear-gradient(135deg,#1f0808 0%,#2a1200 100%);
+  border-top:2px solid rgba(212,160,23,0.55);
+  padding:10px 16px 12px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  gap:12px;
+  box-shadow:0 -6px 28px rgba(0,0,0,0.5);
+  -webkit-transform:translateY(110%);transform:translateY(110%);
+  -webkit-transition:-webkit-transform 0.45s cubic-bezier(0.34,1.3,0.64,1);
+  transition:transform 0.45s cubic-bezier(0.34,1.3,0.64,1);
+}
+.install-bar.show{-webkit-transform:translateY(0);transform:translateY(0);}
+.install-bar-icon{
+  width:44px;height:44px;border-radius:10px;
+  object-fit:cover;flex-shrink:0;
+  box-shadow:0 2px 10px rgba(0,0,0,0.4);
+}
+.install-bar-text{flex:1;min-width:0;}
+.install-bar-title{
+  font-family:'Noto Serif SC',serif;font-size:13px;font-weight:900;
+  color:#F5C842;letter-spacing:0.5px;
+}
+.install-bar-sub{
+  font-family:'Oswald',sans-serif;font-size:10px;
+  color:rgba(245,200,66,0.5);letter-spacing:0.5px;margin-top:2px;
+}
+.install-bar-btn{
+  font-family:'Noto Serif SC',serif;font-size:13px;font-weight:900;
+  color:#1a0505;
+  background:linear-gradient(135deg,#F5C842,#D4AC0D);
+  border:none;border-radius:20px;
+  padding:8px 18px;cursor:pointer;
+  white-space:nowrap;flex-shrink:0;
+  box-shadow:0 3px 12px rgba(212,160,23,0.4);
+  -webkit-appearance:none;
+}
+.install-bar-close{
+  font-size:16px;color:rgba(245,200,66,0.35);
+  cursor:pointer;padding:4px 2px;flex-shrink:0;line-height:1;
+}
+.install-bar-close:hover{color:rgba(245,200,66,0.7);}
+/* INSTALL MODAL */
+.inst-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.78);z-index:2200;
+  -webkit-align-items:flex-end;align-items:flex-end;
+  -webkit-justify-content:center;justify-content:center;
+}
+.inst-overlay.show{display:-webkit-flex;display:flex;}
+.inst-box{
+  background:linear-gradient(160deg,#2a0a0a,#1a0505);
+  border:2px solid rgba(212,160,23,0.4);
+  border-radius:22px 22px 0 0;
+  width:100%;max-width:480px;
+  padding:22px 22px 32px;
+  box-sizing:border-box;
+}
+.inst-hdr{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  gap:12px;margin-bottom:18px;
+}
+.inst-hdr-icon{
+  width:52px;height:52px;border-radius:12px;
+  object-fit:cover;flex-shrink:0;
+  box-shadow:0 3px 14px rgba(0,0,0,0.5);
+}
+.inst-hdr-title{
+  font-family:'Noto Serif SC',serif;font-size:15px;font-weight:900;
+  color:#F5C842;line-height:1.4;
+}
+.inst-hdr-sub{
+  font-family:'Oswald',sans-serif;font-size:11px;
+  color:rgba(245,200,66,0.5);margin-top:3px;
+}
+.inst-steps{margin:0;padding:0;list-style:none;}
+.inst-steps li{
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:flex-start;align-items:flex-start;
+  gap:12px;padding:10px 0;
+  border-bottom:1px solid rgba(212,160,23,0.1);
+  font-family:'Noto Serif SC',serif;font-size:13px;
+  color:rgba(255,255,255,0.82);line-height:1.6;
+}
+.inst-steps li:last-child{border-bottom:none;}
+.inst-step-num{
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(212,160,23,0.2);border:1px solid rgba(212,160,23,0.4);
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
+  color:#D4AC0D;flex-shrink:0;margin-top:2px;
+}
+.inst-native-btn{
+  width:100%;margin-top:16px;padding:13px;
+  font-family:'Noto Serif SC',serif;font-size:15px;font-weight:900;
+  color:#1a0505;letter-spacing:1px;
+  background:linear-gradient(135deg,#F5C842,#D4AC0D);
+  border:none;border-radius:14px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(212,160,23,0.4);
+  -webkit-appearance:none;
+}
+.inst-cancel{
+  display:block;text-align:center;margin-top:12px;
+  font-family:'Noto Serif SC',serif;font-size:12px;
+  color:rgba(245,200,66,0.4);cursor:pointer;
+}
+.inst-cancel:hover{color:rgba(245,200,66,0.7);}
 /* WAKE LOCK DOT */
 .wl-dot{
   display:inline-block;width:6px;height:6px;
@@ -1296,6 +1414,33 @@ header{
       <button class="gd-pw-submit-btn" onclick="gdSubmitPaid()">✅ 提交 · 通知管理员激活</button>
       <div class="gd-pw-note" style="margin-top:10px;">提交后系统自动通知管理员，管理员确认后立即激活，重新打开计分器即可使用</div>
     </div>
+  </div>
+</div>
+
+<!-- 安装到桌面 Banner -->
+<div class="install-bar" id="installBar">
+  <img src="/img/guandan-icon.png" class="install-bar-icon" alt="掼蛋计分器">
+  <div class="install-bar-text">
+    <div class="install-bar-title">硅谷掼蛋协会·智能计分器</div>
+    <div class="install-bar-sub">添加到手机桌面，随时一键打开</div>
+  </div>
+  <button class="install-bar-btn" id="installBarBtn" onclick="showInstallModal()">添加桌面</button>
+  <span class="install-bar-close" onclick="hideInstallBar()">✕</span>
+</div>
+
+<!-- 安装说明弹窗 -->
+<div class="inst-overlay" id="instOverlay" onclick="if(event.target===this)hideInstModal()">
+  <div class="inst-box">
+    <div class="inst-hdr">
+      <img src="/img/guandan-icon.png" class="inst-hdr-icon" alt="掼蛋计分器">
+      <div>
+        <div class="inst-hdr-title">硅谷掼蛋协会<br>智能电子掼蛋计分器</div>
+        <div class="inst-hdr-sub">silicon-guandan-system.onrender.com</div>
+      </div>
+    </div>
+    <ul class="inst-steps" id="instSteps"></ul>
+    <button class="inst-native-btn" id="instNativeBtn" style="display:none" onclick="triggerInstall()">&#128247; 立即安装到桌面</button>
+    <span class="inst-cancel" onclick="hideInstModal()">关闭</span>
   </div>
 </div>
 
@@ -1877,6 +2022,112 @@ ghStartRound(state.round);
       }, 1800);
     }
   }
+})();
+
+// ── PWA：Service Worker 注册 + 安装引导 ────────────────────────────────────────
+(function(){
+  var INST_KEY = 'gd_inst_bar_hidden';
+  var deferredPrompt = null;
+
+  /* ① 注册 Service Worker */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  }
+
+  /* ② 捕获 Android Chrome 原生安装事件 */
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    /* 有原生安装支持时，让安装按钮直接触发 */
+    var nb = document.getElementById('instNativeBtn');
+    if (nb) nb.style.display = 'block';
+  });
+
+  /* ③ 安装成功后隐藏 banner */
+  window.addEventListener('appinstalled', function() {
+    hideInstallBar();
+    deferredPrompt = null;
+  });
+
+  /* ④ 首次访问显示安装 banner（3 秒后滑入，已隐藏则不再显示） */
+  if (!localStorage.getItem(INST_KEY)) {
+    setTimeout(function() {
+      var bar = document.getElementById('installBar');
+      if (bar) bar.classList.add('show');
+    }, 3000);
+  }
+
+  /* ⑤ 关闭 banner */
+  window.hideInstallBar = function() {
+    var bar = document.getElementById('installBar');
+    if (bar) bar.classList.remove('show');
+    localStorage.setItem(INST_KEY, '1');
+  };
+
+  /* ⑥ 平台检测 */
+  function getPlatform() {
+    var ua = navigator.userAgent;
+    if (ua.indexOf('MicroMessenger') > -1) return 'wechat';
+    if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
+    if (ua.indexOf('Android') > -1) return 'android';
+    return 'desktop';
+  }
+
+  /* ⑦ 显示安装说明弹窗 */
+  window.showInstallModal = function() {
+    var steps = document.getElementById('instSteps');
+    if (!steps) return;
+    var platform = getPlatform();
+    var items = [];
+
+    if (platform === 'wechat') {
+      items = [
+        '点击右上角 <strong>···</strong> 菜单按钮',
+        '选择「<strong>在浏览器中打开</strong>」或「在Safari中打开」',
+        '在浏览器中按下方 iOS / Android 步骤操作'
+      ];
+    } else if (platform === 'ios') {
+      items = [
+        '点击底部导航栏中间的 <strong>&#128279; 分享</strong> 按钮',
+        '在弹出菜单中向下滑动，点击「<strong>添加到主屏幕</strong>」',
+        '右上角点击「<strong>添加</strong>」确认'
+      ];
+    } else if (platform === 'android') {
+      items = [
+        '点击浏览器右上角 <strong>⋮</strong> 菜单',
+        '选择「<strong>添加到主屏幕</strong>」或「安装应用」',
+        '按提示点击「<strong>安装</strong>」或「添加」确认'
+      ];
+    } else {
+      items = [
+        '点击浏览器地址栏右侧的 <strong>⊕ 安装</strong> 图标',
+        '在弹窗中点击「<strong>安装</strong>」',
+        '桌面上将出现掼蛋计分器图标'
+      ];
+    }
+
+    steps.innerHTML = items.map(function(txt, i) {
+      return '<li><span class="inst-step-num">'+(i+1)+'</span><span>'+txt+'</span></li>';
+    }).join('');
+
+    document.getElementById('instOverlay').classList.add('show');
+    hideInstallBar();
+  };
+
+  /* ⑧ 隐藏弹窗 */
+  window.hideInstModal = function() {
+    document.getElementById('instOverlay').classList.remove('show');
+  };
+
+  /* ⑨ Android Chrome 原生安装触发 */
+  window.triggerInstall = function() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function() {
+      deferredPrompt = null;
+      hideInstModal();
+    });
+  };
 })();
 
 // ── 广告模块（服务端渲染版：访问已在服务端记录，广告数据直接注入）───────────────────────
