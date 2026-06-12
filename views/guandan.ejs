@@ -835,6 +835,29 @@ header{
 }
 .ev-win{color:#FFD700;font-weight:700;}
 .ev-fail{color:#FF9090;}
+
+/* WAKE LOCK DOT */
+.wl-dot{
+  display:inline-block;width:6px;height:6px;
+  border-radius:50%;
+  background:transparent;
+  margin-left:5px;vertical-align:middle;
+  transition:background 0.6s;
+}
+.wl-dot.on{background:rgba(46,204,113,0.8);box-shadow:0 0 5px rgba(46,204,113,0.5);}
+.wl-toast{
+  position:fixed;bottom:90px;left:50%;
+  -webkit-transform:translateX(-50%);transform:translateX(-50%);
+  background:rgba(15,5,0,0.93);
+  color:rgba(245,200,66,0.92);
+  font-family:'Noto Serif SC',serif;font-size:13px;
+  padding:12px 20px;border-radius:14px;
+  border:1px solid rgba(212,160,23,0.3);
+  z-index:9999;text-align:center;
+  max-width:290px;line-height:1.7;
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  -webkit-transition:opacity 0.8s;transition:opacity 0.8s;
+}
 </style>
 </head>
 <body>
@@ -847,7 +870,7 @@ header{
     <div class="title-en">SILICON VALLEY GUANDAN ASSOCIATION</div>
   </div>
   <div class="timer-widget">
-    <div class="timer-label">每局计时 · ROUND TIMER</div>
+    <div class="timer-label">每局计时 · ROUND TIMER <span id="wlDot" class="wl-dot" title="屏幕常亮已启用"></span></div>
     <div class="timer-display" id="timerDisplay">60:00</div>
     <div class="timer-btn-row">
       <button class="timer-toggle-btn" id="timerToggleBtn" onclick="timerToggle()">▶ 开始</button>
@@ -1790,6 +1813,56 @@ function closeReport(){
 render();
 ghCleanOld();
 ghStartRound(state.round);
+
+/* ── 屏幕常亮（Wake Lock + 降级提示）── */
+(function(){
+  var wl = null;
+  var supported = ('wakeLock' in navigator);
+
+  function setDot(on){
+    var d = document.getElementById('wlDot');
+    if(d){ on ? d.classList.add('on') : d.classList.remove('on'); }
+  }
+
+  function acquire(){
+    if(!supported) return;
+    navigator.wakeLock.request('screen').then(function(lock){
+      wl = lock;
+      setDot(true);
+      lock.addEventListener('release', function(){ wl = null; setDot(false); });
+    }).catch(function(){ setDot(false); });
+  }
+
+  /* 标签页切回前台时重新申请（后台会自动释放） */
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible') acquire();
+  });
+
+  /* 页面加载完毕立即申请 */
+  if(document.readyState === 'complete'){
+    acquire();
+  } else {
+    window.addEventListener('load', acquire);
+  }
+
+  /* 不支持 Wake Lock API 的旧设备：首次使用时显示提示（仅一次） */
+  if(!supported){
+    var HINT_KEY = 'gd_wl_hint';
+    if(!localStorage.getItem(HINT_KEY)){
+      setTimeout(function(){
+        var t = document.createElement('div');
+        t.className = 'wl-toast';
+        t.innerHTML = '💡 建议将设备「自动锁屏」设为「永不」<br><span style="font-size:11px;opacity:0.65">可防止计分器使用中黑屏</span>';
+        document.body.appendChild(t);
+        setTimeout(function(){
+          t.style.opacity = '0';
+          setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 850);
+        }, 6000);
+        localStorage.setItem(HINT_KEY, '1');
+      }, 1800);
+    }
+  }
+})();
 
 // ── 广告模块（服务端渲染版：访问已在服务端记录，广告数据直接注入）───────────────────────
 (function(){
