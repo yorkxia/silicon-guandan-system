@@ -102,11 +102,21 @@ header{
 }
 
 /* ROUND BAR */
-.round-bar{
+.round-row{
   position:relative;z-index:1;
+  width:100%;max-width:540px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:stretch;align-items:stretch;
+  -webkit-justify-content:center;justify-content:center;
+  margin:8px 0 6px;
+  padding:0 12px;
+  box-sizing:border-box;
+  gap:10px;
+}
+.round-bar{
   display:-webkit-flex;display:flex;
   -webkit-align-items:center;align-items:center;
-  margin:8px 0 6px;
+  flex:0 0 auto;
   background:rgba(255,255,255,0.85);border:2px solid var(--divider);border-radius:24px;
   padding:5px 22px;
   -webkit-box-shadow:0 3px 12px rgba(0,0,0,0.07);box-shadow:0 3px 12px rgba(0,0,0,0.07);
@@ -710,6 +720,12 @@ header{
   border-color:rgba(200,134,10,0.6);
   transform:translateY(-1px);
 }
+.round-row .btn-report{
+  padding-top:0;padding-bottom:0;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:center;justify-content:center;
+}
 /* REPORT MODAL */
 .report-overlay{
   display:none;
@@ -1077,15 +1093,14 @@ header{
   </div>
 </div>
 
-<div class="report-btn-wrap">
-  <button class="btn-report" onclick="showReport()">📊 比赛记录</button>
-</div>
-
-<div class="round-bar">
-  <span class="round-zh">&#31532;</span>
-  <span class="round-num" id="roundNum">1</span>
-  <span class="round-zh">&#23616;</span>
-  <span class="round-en">ROUND</span>
+<div class="round-row">
+  <div class="round-bar">
+    <span class="round-zh">&#31532;</span>
+    <span class="round-num" id="roundNum">1</span>
+    <span class="round-zh">&#23616;</span>
+    <span class="round-en">ROUND</span>
+  </div>
+  <button class="btn-report" onclick="showReport()">&#128202; 比赛记录</button>
 </div>
 
 <div class="board">
