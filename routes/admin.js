@@ -501,4 +501,15 @@ router.post('/settings/password', requireAuth, async (req, res) => {
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
+// ── 网上掼蛋赛事管理 ─────────────────────────────────────────
+
+router.get('/tournaments-online', requireAuth, (req, res) => {
+  res.render('admin/tournaments-online', {
+    user: req.session.user,
+    activePage: 'tournaments',
+    success: req.flash('success'),
+    error: req.flash('error')
+  });
+});
+
 module.exports = router;
