@@ -28,6 +28,9 @@
     <li class="<%= locals.activePage ==='settings' ? 'active' : '' %>">
       <a href="/scoreboard/settings">🔒 密码设置</a>
     </li>
+    <li class="<%= locals.activePage ==='tournaments' ? 'active' : '' %>">
+      <a href="/scoreboard/tournaments">🎴 网上掼蛋赛事</a>
+    </li>
   </ul>
   <div class="sb-sidebar-footer">
     <div style="font-size:0.78rem; color:#888; margin-bottom:8px"><%= sbUser.display_name || sbUser.username %></div>

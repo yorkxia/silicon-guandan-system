@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>网上掼蛋赛事管理</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/scoreboard-admin.css">
+  <style>
+    .gd-tournament-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 12px;
+    }
+
+    /* ── 赛事卡片基础 ── */
+    .gd-card {
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      min-height: 440px;
+      display: flex;
+      flex-direction: column;
+    }
+    .gd-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    }
+
+    /* ── 四人卡 · 红金中国风 ── */
+    .gd-card-4p {
+      background: linear-gradient(160deg, #5C0000 0%, #8B0000 30%, #C0392B 65%, #7B1C1C 100%);
+      box-shadow: 0 12px 40px rgba(192,57,43,0.4);
+      border: 1px solid rgba(212,172,13,0.35);
+    }
+
+    /* ── 六人卡 · 蓝金竞技风 ── */
+    .gd-card-6p {
+      background: linear-gradient(160deg, #050530 0%, #0D1B6E 30%, #1565C0 65%, #0A2A6E 100%);
+      box-shadow: 0 12px 40px rgba(21,101,192,0.4);
+      border: 1px solid rgba(212,172,13,0.35);
+    }
+
+    /* ── 顶部装饰带 ── */
+    .gd-card-banner {
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 1.1rem;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.25);
+    }
+    .gd-card-4p .gd-card-banner {
+      background: rgba(0,0,0,0.25);
+      border-bottom: 1px solid rgba(212,172,13,0.3);
+    }
+    .gd-card-6p .gd-card-banner {
+      background: rgba(0,0,0,0.3);
+      border-bottom: 1px solid rgba(212,172,13,0.3);
+    }
+    .gd-banner-suits {
+      display: flex;
+      gap: 8px;
+      animation: floatSuits 4s ease-in-out infinite;
+    }
+    .gd-banner-suits span { color: #D4AC0D; opacity: 0.7; font-size: 1rem; }
+    .gd-banner-suits span:nth-child(2) { animation-delay: 0.5s; }
+    .gd-banner-suits span:nth-child(3) { animation-delay: 1s; }
+    .gd-banner-suits span:nth-child(4) { animation-delay: 1.5s; }
+    @keyframes floatSuits {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-4px); }
+    }
+
+    /* ── 卡片主体 ── */
+    .gd-card-body {
+      flex: 1;
+      padding: 24px 28px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+    }
+
+    /* 大背景花色水印 */
+    .gd-watermark {
+      position: absolute;
+      font-size: 11rem;
+      opacity: 0.05;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* 标签 */
+    .gd-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    .gd-card-4p .gd-badge {
+      background: rgba(212,172,13,0.15);
+      border: 1px solid rgba(212,172,13,0.5);
+      color: #F0C820;
+    }
+    .gd-card-6p .gd-badge {
+      background: rgba(212,172,13,0.15);
+      border: 1px solid rgba(212,172,13,0.5);
+      color: #F0C820;
+    }
+
+    /* 主标题 */
+    .gd-title {
+      font-size: 2.4rem;
+      font-weight: 900;
+      letter-spacing: 6px;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(212,172,13,0.6), 0 2px 8px rgba(0,0,0,0.8);
+      background: linear-gradient(180deg, #FFE55C 0%, #D4AC0D 50%, #A07B00 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* 副标题 */
+    .gd-subtitle {
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+    }
+
+    /* 分隔线 */
+    .gd-divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #D4AC0D, transparent);
+      margin: 0 auto 20px;
+    }
+
+    /* 特色标签组 */
+    .gd-features {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    .gd-feature-tag {
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    .gd-card-4p .gd-feature-tag {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #ffcdd2;
+    }
+    .gd-card-6p .gd-feature-tag {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #bbdefb;
+    }
+
+    /* 人数图标行 */
+    .gd-players {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 24px;
+      font-size: 1.3rem;
+    }
+    .gd-players span {
+      opacity: 0.85;
+    }
+
+    /* 按钮 */
+    .gd-btn {
+      display: block;
+      width: 100%;
+      padding: 14px 0;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-align: center;
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      text-decoration: none;
+      background: linear-gradient(135deg, #D4AC0D 0%, #F0C820 50%, #D4AC0D 100%);
+      color: #1a0a00;
+      box-shadow: 0 4px 20px rgba(212,172,13,0.4);
+    }
+    .gd-btn:hover {
+      background: linear-gradient(135deg, #F0C820 0%, #FFE55C 50%, #F0C820 100%);
+      box-shadow: 0 6px 28px rgba(212,172,13,0.6);
+      transform: translateY(-2px);
+      color: #1a0a00;
+      text-decoration: none;
+    }
+
+    /* ── 底部装饰 ── */
+    .gd-card-footer {
+      padding: 10px 28px 16px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+    .gd-card-4p .gd-card-footer { border-top: 1px solid rgba(212,172,13,0.15); }
+    .gd-card-6p .gd-card-footer { border-top: 1px solid rgba(212,172,13,0.15); }
+    .gd-footer-suit {
+      font-size: 1.1rem;
+      color: rgba(212,172,13,0.4);
+      animation: floatSuits 3s ease-in-out infinite;
+    }
+    .gd-footer-suit:nth-child(2) { animation-delay: 0.7s; }
+    .gd-footer-suit:nth-child(3) { animation-delay: 1.4s; }
+    .gd-footer-suit:nth-child(4) { animation-delay: 2.1s; }
+
+    /* ── 响应式 ── */
+    @media (max-width: 900px) {
+      .gd-tournament-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<% const activePage = 'tournaments'; %>
+<div class="sb-wrap">
+  <%- include('_layout', { activePage }) %>
+
+  <main class="sb-main">
+    <div class="sb-page-head">
+      <h1>🎴 网上掼蛋赛事管理</h1>
+    </div>
+
+    <div class="gd-tournament-grid">
+
+      <!-- ── 四人掼蛋赛事 ── -->
+      <div class="gd-card gd-card-4p">
+        <div class="gd-card-banner">
+          <div class="gd-banner-suits">
+            <span>♠</span><span>♥</span><span>♦</span><span>♣</span>
+          </div>
+          <span style="color:rgba(212,172,13,0.5); font-size:0.72rem; letter-spacing:3px">GUANDAN · 掼蛋</span>
+          <div class="gd-banner-suits">
+            <span>♣</span><span>♦</span><span>♥</span><span>♠</span>
+          </div>
+        </div>
+
+        <div class="gd-card-body">
+          <div class="gd-watermark">♥</div>
+          <div class="gd-badge">经典对决</div>
+          <div class="gd-title">四人掼蛋赛事</div>
+          <div class="gd-subtitle">2 对 2 · 经典传统玩法</div>
+          <div class="gd-divider"></div>
+          <div class="gd-players">
+            <span>🧑</span><span>🧑</span>
+            <span style="opacity:0.3; font-size:1rem; align-self:center">vs</span>
+            <span>🧑</span><span>🧑</span>
+          </div>
+          <div class="gd-features">
+            <span class="gd-feature-tag">🏆 双人合作</span>
+            <span class="gd-feature-tag">🎯 经典规则</span>
+            <span class="gd-feature-tag">⚡ 快节奏</span>
+          </div>
+          <a href="#" class="gd-btn" onclick="return false;">🚀 立即创建赛事</a>
+        </div>
+
+        <div class="gd-card-footer">
+          <span class="gd-footer-suit">♠</span>
+          <span class="gd-footer-suit">♥</span>
+          <span class="gd-footer-suit">♦</span>
+          <span class="gd-footer-suit">♣</span>
+        </div>
+      </div>
+
+      <!-- ── 六人掼蛋赛事 ── -->
+      <div class="gd-card gd-card-6p">
+        <div class="gd-card-banner">
+          <div class="gd-banner-suits">
+            <span>♣</span><span>♦</span><span>♥</span><span>♠</span>
+          </div>
+          <span style="color:rgba(212,172,13,0.5); font-size:0.72rem; letter-spacing:3px">GUANDAN · 掼蛋</span>
+          <div class="gd-banner-suits">
+            <span>♠</span><span>♥</span><span>♦</span><span>♣</span>
+          </div>
+        </div>
+
+        <div class="gd-card-body">
+          <div class="gd-watermark">♠</div>
+          <div class="gd-badge">豪华擂台</div>
+          <div class="gd-title">六人掼蛋赛事</div>
+          <div class="gd-subtitle">3 对 3 · 豪华升级玩法</div>
+          <div class="gd-divider"></div>
+          <div class="gd-players">
+            <span>🧑</span><span>🧑</span><span>🧑</span>
+            <span style="opacity:0.3; font-size:1rem; align-self:center">vs</span>
+            <span>🧑</span><span>🧑</span><span>🧑</span>
+          </div>
+          <div class="gd-features">
+            <span class="gd-feature-tag">👑 三人合作</span>
+            <span class="gd-feature-tag">🌟 豪华阵容</span>
+            <span class="gd-feature-tag">🔥 高强度</span>
+          </div>
+          <a href="#" class="gd-btn" onclick="return false;">🚀 立即创建赛事</a>
+        </div>
+
+        <div class="gd-card-footer">
+          <span class="gd-footer-suit">♣</span>
+          <span class="gd-footer-suit">♦</span>
+          <span class="gd-footer-suit">♥</span>
+          <span class="gd-footer-suit">♠</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -433,4 +433,14 @@ router.post('/settings/password', requireSbAuth, async (req, res) => {
   res.redirect('/scoreboard/login');
 });
 
+// ── 网上掼蛋赛事管理 ─────────────────────────────────────────
+
+router.get('/tournaments', requireSbAuth, (req, res) => {
+  res.render('scoreboard/tournaments', {
+    sbUser: req.session.sbUser,
+    success: req.flash('success'),
+    error: req.flash('error')
+  });
+});
+
 module.exports = router;
