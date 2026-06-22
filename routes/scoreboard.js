@@ -393,4 +393,44 @@ router.get('/analytics', requireSbAuth, async (req, res) => {
   res.render('scoreboard/analytics', { sbUser: u, byRegion, byCountry, byDay, total, days, source, gsPageBreakdown: gsPageBreakdown || [] });
 });
 
+// ── 密码设置 ─────────────────────────────────────────────
+
+router.get('/settings', requireSbAuth, (req, res) => {
+  res.render('scoreboard/settings', {
+    sbUser: req.session.sbUser,
+    success: req.flash('success'),
+    error: req.flash('error')
+  });
+});
+
+router.post('/settings/password', requireSbAuth, async (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  const u = req.session.sbUser;
+
+  if (!current_password || !new_password || !confirm_password) {
+    req.flash('error', '请填写所有字段 | Please fill in all fields');
+    return res.redirect('/scoreboard/settings');
+  }
+  if (new_password.length < 8) {
+    req.flash('error', '新密码至少8位 | New password must be at least 8 characters');
+    return res.redirect('/scoreboard/settings');
+  }
+  if (new_password !== confirm_password) {
+    req.flash('error', '两次密码不一致 | Passwords do not match');
+    return res.redirect('/scoreboard/settings');
+  }
+
+  const dbUser = await queryOne('SELECT * FROM sb_users WHERE id = $1', [u.id]);
+  if (!dbUser || !bcrypt.compareSync(current_password, dbUser.password_hash)) {
+    req.flash('error', '当前密码错误 | Current password is incorrect');
+    return res.redirect('/scoreboard/settings');
+  }
+
+  const hash = bcrypt.hashSync(new_password, 12);
+  await query('UPDATE sb_users SET password_hash = $1 WHERE id = $2', [hash, u.id]);
+  req.session.sbUser = null;
+  req.flash('success', '密码已更新，请重新登录 | Password updated, please log in again');
+  res.redirect('/scoreboard/login');
+});
+
 module.exports = router;
