@@ -33,6 +33,26 @@
       <a href="/admin/ot-staff/participants" class="abtn abtn-blue">📋 全量参赛者信息查询 · Participant Lookup</a>
     </div>
 
+    <!-- DEBUG (temporary) — 登录诊断工具 -->
+    <div class="a-card" style="border:2px dashed #E67E22">
+      <h2>🔍 登录诊断（临时工具） · Login Diagnostic (Temporary)</h2>
+      <p class="a-hint" style="margin-bottom:10px">填入掼蛋赛事管理员的用户名/密码，检查数据库里实际存的值和密码是否匹配，不会显示密码哈希本身。</p>
+      <form action="/admin/ot-staff/debug-login" method="POST" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap">
+        <div class="a-form-group" style="margin:0">
+          <label>用户名 · Username</label>
+          <input type="text" name="username" class="a-input" autocomplete="off">
+        </div>
+        <div class="a-form-group" style="margin:0">
+          <label>密码 · Password</label>
+          <input type="text" name="password" class="a-input" autocomplete="off">
+        </div>
+        <button type="submit" class="abtn abtn-warning">🔍 检查 · Check</button>
+      </form>
+      <% if (typeof debugResult !== 'undefined' && debugResult) { %>
+        <pre style="margin-top:14px; background:#2C0A0A; color:#D4F5E3; padding:14px; border-radius:8px; font-size:0.82rem; overflow-x:auto"><%= JSON.stringify(debugResult, null, 2) %></pre>
+      <% } %>
+    </div>
+
     <!-- Create new staff account -->
     <div class="a-card">
       <h2>➕ 添加掼蛋赛事管理员 · Add Tournament Staff Account</h2>
