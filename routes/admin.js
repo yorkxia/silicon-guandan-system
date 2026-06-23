@@ -528,38 +528,7 @@ router.get('/tournaments-6p', requireAuth, (req, res) => {
 router.get('/ot-staff', requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const staff = await query('SELECT id, username, display_name, is_active, created_at FROM ot_staff ORDER BY created_at');
-    res.render('admin/ot-staff', { staff, user: req.session.user, activePage: 'tournaments', debugResult: null });
-  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
-});
-
-// DEBUG (temporary) — 诊断登录失败原因，不返回密码哈希本身，结果直接显示在本页面上
-router.post('/ot-staff/debug-login', requireAuth, requireSuperAdmin, async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const staffList = await query('SELECT id, username, display_name, is_active, created_at FROM ot_staff ORDER BY created_at');
-    const all = await query('SELECT id, username, is_active, length(password_hash) as hash_len FROM ot_staff');
-    let debugResult;
-    if (!username) {
-      debugResult = { all_accounts: all };
-    } else {
-      const staff = await queryOne('SELECT * FROM ot_staff WHERE username = $1', [username]);
-      if (!staff) {
-        debugResult = { found: false, input_username: JSON.stringify(username), all_accounts: all };
-      } else {
-        debugResult = {
-          found: true,
-          stored_username: JSON.stringify(staff.username),
-          input_username: JSON.stringify(username),
-          usernames_equal: staff.username === username,
-          is_active: staff.is_active,
-          hash_prefix: staff.password_hash.slice(0, 7),
-          hash_length: staff.password_hash.length,
-          password_provided: !!password,
-          password_match: password ? bcrypt.compareSync(password, staff.password_hash) : null,
-        };
-      }
-    }
-    res.render('admin/ot-staff', { staff: staffList, user: req.session.user, activePage: 'tournaments', debugResult });
+    res.render('admin/ot-staff', { staff, user: req.session.user, activePage: 'tournaments' });
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
