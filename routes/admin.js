@@ -525,6 +525,30 @@ router.get('/tournaments-6p', requireAuth, (req, res) => {
 // 独立账号体系（ot_staff 表 + /ot-staff/login），仅能进入"四人/六人掼蛋赛事"页面。
 // 账号的增删停用仅限超级管理员。
 
+// DEBUG (temporary) — 诊断登录失败原因，不返回密码哈希本身
+router.get('/ot-staff/debug-login', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const { username, password } = req.query;
+    const all = await query('SELECT id, username, is_active, length(password_hash) as hash_len FROM ot_staff');
+    if (!username) return res.json({ all_accounts: all });
+    const staff = await queryOne('SELECT * FROM ot_staff WHERE username = $1', [username]);
+    if (!staff) {
+      return res.json({ found: false, input_username: JSON.stringify(username), all_accounts: all });
+    }
+    res.json({
+      found: true,
+      stored_username: JSON.stringify(staff.username),
+      input_username: JSON.stringify(username),
+      usernames_equal: staff.username === username,
+      is_active: staff.is_active,
+      hash_prefix: staff.password_hash.slice(0, 7),
+      hash_length: staff.password_hash.length,
+      password_provided: !!password,
+      password_match: password ? bcrypt.compareSync(password, staff.password_hash) : null,
+    });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 router.get('/ot-staff', requireAuth, requireSuperAdmin, async (req, res) => {
   try {
     const staff = await query('SELECT id, username, display_name, is_active, created_at FROM ot_staff ORDER BY created_at');
