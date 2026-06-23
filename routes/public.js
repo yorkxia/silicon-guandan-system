@@ -212,9 +212,12 @@ router.post('/register/:id', async (req, res) => {
       }
     }
 
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    const geo = await geoLocate(ip);
+
     await query(
-      `INSERT INTO registrations (tournament_id, name_enc, phone_enc, email_enc, team_name_enc, partner_name_enc, backup_partner_name_enc, random_partner)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO registrations (tournament_id, name_enc, phone_enc, email_enc, team_name_enc, partner_name_enc, backup_partner_name_enc, random_partner, region_code, channel)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         tournament.id,
         encrypt(name),
@@ -223,7 +226,9 @@ router.post('/register/:id', async (req, res) => {
         team_name ? encrypt(team_name) : null,
         partner_name ? encrypt(partner_name) : null,
         backup_partner_name ? encrypt(backup_partner_name) : null,
-        random_partner ? 1 : 0
+        random_partner ? 1 : 0,
+        geo.region_code,
+        'web'
       ]
     );
     res.redirect(`/success?status=ok&tid=${req.params.id}`);

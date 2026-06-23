@@ -521,4 +521,143 @@ router.get('/tournaments-6p', requireAuth, (req, res) => {
   });
 });
 
+// ── 系统功能管理：掼蛋赛事管理员账号 ──────────────────────────
+// 独立账号体系（ot_staff 表 + /ot-staff/login），仅能进入"四人/六人掼蛋赛事"页面。
+// 账号的增删停用仅限超级管理员。
+
+router.get('/ot-staff', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const staff = await query('SELECT id, username, display_name, is_active, created_at FROM ot_staff ORDER BY created_at');
+    res.render('admin/ot-staff', { staff, user: req.session.user, activePage: 'tournaments' });
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+router.post('/ot-staff', requireAuth, requireSuperAdmin, async (req, res) => {
+  const { username, display_name, password, confirm_password } = req.body;
+  if (!username || !password || password.length < 8) {
+    req.flash('error', '用户名必填，密码至少8位 | Username required, password min 8 chars');
+    return res.redirect('/admin/ot-staff');
+  }
+  if (password !== confirm_password) {
+    req.flash('error', '两次输入的密码不一致 | Passwords do not match');
+    return res.redirect('/admin/ot-staff');
+  }
+  try {
+    if (await queryOne('SELECT id FROM ot_staff WHERE username = $1', [username])) {
+      req.flash('error', '用户名已存在 | Username already exists');
+      return res.redirect('/admin/ot-staff');
+    }
+    const hash = bcrypt.hashSync(password, 12);
+    await query('INSERT INTO ot_staff (username, password_hash, display_name, created_by) VALUES ($1, $2, $3, $4)',
+      [username, hash, display_name || '', req.session.user.id]);
+    req.flash('success', `掼蛋赛事管理员 ${username} 创建成功 | Account created`);
+    res.redirect('/admin/ot-staff');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+router.post('/ot-staff/:id/toggle-active', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const staff = await queryOne('SELECT * FROM ot_staff WHERE id = $1', [req.params.id]);
+    if (!staff) {
+      req.flash('error', '账号不存在 | Account not found');
+      return res.redirect('/admin/ot-staff');
+    }
+    await query('UPDATE ot_staff SET is_active = $1 WHERE id = $2', [staff.is_active ? 0 : 1, req.params.id]);
+    req.flash('success', staff.is_active ? `已停用 ${staff.username} | Disabled` : `已启用 ${staff.username} | Enabled`);
+    res.redirect('/admin/ot-staff');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+router.post('/ot-staff/:id/delete', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const staff = await queryOne('SELECT * FROM ot_staff WHERE id = $1', [req.params.id]);
+    if (!staff) {
+      req.flash('error', '账号不存在 | Account not found');
+      return res.redirect('/admin/ot-staff');
+    }
+    await query('DELETE FROM ot_staff WHERE id = $1', [req.params.id]);
+    req.flash('success', `账号 ${staff.username} 已删除 | Account deleted`);
+    res.redirect('/admin/ot-staff');
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+// ── 系统功能管理：全量参赛者信息查询 ──────────────────────────
+
+router.get('/ot-staff/participants', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const tournaments = await query('SELECT id, title_zh, title_en FROM tournaments ORDER BY created_at DESC');
+    const tidFilter = req.query.tournament_id;
+    const rows = tidFilter
+      ? await query(
+          `SELECT r.*, t.title_zh, t.title_en FROM registrations r
+           LEFT JOIN tournaments t ON t.id = r.tournament_id
+           WHERE r.tournament_id = $1 ORDER BY r.created_at DESC`, [tidFilter])
+      : await query(
+          `SELECT r.*, t.title_zh, t.title_en FROM registrations r
+           LEFT JOIN tournaments t ON t.id = r.tournament_id
+           ORDER BY r.created_at DESC`);
+    const participants = rows.map(r => ({
+      ...r,
+      name: decrypt(r.name_enc),
+      phone: decrypt(r.phone_enc),
+      email: r.email_enc ? decrypt(r.email_enc) : '',
+    }));
+    res.render('admin/ot-participants', { participants, tournaments, tidFilter: tidFilter || '', user: req.session.user, activePage: 'tournaments' });
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+router.get('/ot-staff/participants/export', requireAuth, requireSuperAdmin, async (req, res) => {
+  try {
+    const tidFilter = req.query.tournament_id;
+    const rows = tidFilter
+      ? await query(
+          `SELECT r.*, t.title_zh, t.title_en FROM registrations r
+           LEFT JOIN tournaments t ON t.id = r.tournament_id
+           WHERE r.tournament_id = $1 ORDER BY r.created_at DESC`, [tidFilter])
+      : await query(
+          `SELECT r.*, t.title_zh, t.title_en FROM registrations r
+           LEFT JOIN tournaments t ON t.id = r.tournament_id
+           ORDER BY r.created_at DESC`);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = '硅谷掼蛋协会';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('参赛者信息');
+    sheet.columns = [
+      { header: '序号', key: 'num', width: 8 },
+      { header: '姓名 Name', key: 'name', width: 16 },
+      { header: '区域 Region', key: 'region', width: 14 },
+      { header: '注册渠道 Channel', key: 'channel', width: 14 },
+      { header: '时间 Time', key: 'date', width: 20 },
+      { header: '电话 Phone', key: 'phone', width: 18 },
+      { header: '邮箱 Email', key: 'email', width: 26 },
+      { header: '赛事名称 Tournament', key: 'tournament', width: 22 },
+      { header: '付款状态 Payment', key: 'payment', width: 14 },
+    ];
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8B0000' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    rows.forEach((r, i) => {
+      sheet.addRow({
+        num: i + 1,
+        name: decrypt(r.name_enc),
+        region: r.region_code || '—',
+        channel: r.channel || 'web',
+        date: new Date(r.created_at).toLocaleString('zh-CN'),
+        phone: decrypt(r.phone_enc),
+        email: r.email_enc ? decrypt(r.email_enc) : '',
+        tournament: r.title_zh || '',
+        payment: r.payment_confirmed ? '✅ 已确认' : '⏳ 待确认',
+      });
+    });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent('参赛者信息.xlsx')}`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
 module.exports = router;

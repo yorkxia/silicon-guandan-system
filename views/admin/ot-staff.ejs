@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>掼蛋赛事管理员账号 | Tournament Staff Accounts</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = 'tournaments'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1>🛠️ 系统功能管理 · System Management</h1>
+      <a href="/admin/tournaments-online" class="abtn abtn-grey">← 返回网上赛事 · Back</a>
+    </div>
+
+    <% if (success && success.length > 0) { %>
+      <div class="flash-wrap">
+        <% success.forEach(function(m) { %><div class="flash flash-success"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+    <% if (error && error.length > 0) { %>
+      <div class="flash-wrap">
+        <% error.forEach(function(m) { %><div class="flash flash-error"><%= m %></div><% }) %>
+      </div>
+    <% } %>
+
+    <div style="margin-bottom:20px">
+      <a href="/admin/ot-staff/participants" class="abtn abtn-blue">📋 全量参赛者信息查询 · Participant Lookup</a>
+    </div>
+
+    <!-- Create new staff account -->
+    <div class="a-card">
+      <h2>➕ 添加掼蛋赛事管理员 · Add Tournament Staff Account</h2>
+      <p class="a-hint" style="margin-bottom:10px">
+        该账号仅能通过 /ot-staff/login 登录，且只能进入"四人掼蛋赛事"和"六人掼蛋赛事"页面，无法访问系统其他任何功能。
+        <br>Staff accounts log in separately and can only reach the 4-player / 6-player tournament pages — no access to any other part of the system.
+      </p>
+      <form action="/admin/ot-staff" method="POST" onsubmit="return checkOtStaffPwd(this)">
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>用户名 · Username <span class="req">*</span></label>
+            <input type="text" name="username" class="a-input" placeholder="请输入用户名" required maxlength="50" autocomplete="off">
+          </div>
+          <div class="a-form-group">
+            <label>显示名称 · Display Name</label>
+            <input type="text" name="display_name" class="a-input" placeholder="例如：现场签到-张三" maxlength="50" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="a-form-group">
+            <label>初始密码 · Initial Password <span class="req">*</span></label>
+            <input type="password" name="password" id="ot-staff-pwd" class="a-input"
+              placeholder="至少8位 · Min 8 characters" required minlength="8" autocomplete="new-password"
+              oninput="checkOtStaffMatch()">
+          </div>
+          <div class="a-form-group">
+            <label>确认密码 · Confirm Password <span class="req">*</span></label>
+            <input type="password" name="confirm_password" id="ot-staff-confirm" class="a-input"
+              placeholder="再次输入密码 · Re-enter password" required minlength="8" autocomplete="new-password"
+              oninput="checkOtStaffMatch()">
+            <p id="ot-staff-match-msg" class="a-hint" style="margin-top:5px"></p>
+          </div>
+        </div>
+        <button type="submit" id="ot-staff-submit" class="abtn abtn-primary" style="margin-top:8px">
+          ✅ 创建账号 · Create Account
+        </button>
+      </form>
+    </div>
+
+    <!-- Staff list -->
+    <div class="a-card">
+      <h2>所有掼蛋赛事管理员 · All Tournament Staff</h2>
+      <div style="overflow-x:auto">
+        <table class="a-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>用户名 · Username</th>
+              <th>显示名称 · Display Name</th>
+              <th>状态 · Status</th>
+              <th>创建时间 · Created</th>
+              <th>操作 · Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (staff.length === 0) { %>
+              <tr><td colspan="6" style="text-align:center; padding:30px; color:#999">暂无账号 | No accounts yet</td></tr>
+            <% } %>
+            <% staff.forEach(function(s, i) { %>
+              <tr>
+                <td style="color:#999; font-size:0.82rem"><%= i + 1 %></td>
+                <td><strong><%= s.username %></strong></td>
+                <td style="color:#666"><%= s.display_name || '—' %></td>
+                <td>
+                  <% if (s.is_active) { %>
+                    <span class="badge badge-active">🟢 正常 · Active</span>
+                  <% } else { %>
+                    <span class="badge badge-locked">🔒 已停用 · Disabled</span>
+                  <% } %>
+                </td>
+                <td style="font-size:0.82rem; color:#888">
+                  <%= new Date(s.created_at).toLocaleDateString('zh-CN') %>
+                </td>
+                <td>
+                  <div style="display:flex; gap:6px">
+                    <form action="/admin/ot-staff/<%= s.id %>/toggle-active" method="POST">
+                      <button type="submit" class="abtn <%= s.is_active ? 'abtn-warning' : 'abtn-success' %>">
+                        <%= s.is_active ? '🔒 停用 · Disable' : '🔓 启用 · Enable' %>
+                      </button>
+                    </form>
+                    <form action="/admin/ot-staff/<%= s.id %>/delete" method="POST" onsubmit="return confirm('确认删除账号 ' + '<%= s.username %>' + '?\nDelete account?')">
+                      <button type="submit" class="abtn abtn-danger">🗑️ 删除</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="background:#EBF5FB; border-radius:8px; padding:14px 18px; font-size:0.85rem; color:#1A5276; border-left:4px solid #2980B9">
+      <strong>💡 说明 · Notes:</strong>
+      <ul style="margin-top:6px; padding-left:18px; line-height:1.8">
+        <li>掼蛋赛事管理员账号与系统管理员账号完全独立，登录入口为 /ot-staff/login · Fully separate login system</li>
+        <li>停用后该账号无法登录，直到重新启用 · Disabled accounts cannot login until re-enabled</li>
+        <li>所有密码均经过 bcrypt 加密存储 · All passwords are bcrypt encrypted</li>
+      </ul>
+    </div>
+  </main>
+</div>
+
+<script>
+function checkOtStaffMatch() {
+  const pwd = document.getElementById('ot-staff-pwd').value;
+  const confirm = document.getElementById('ot-staff-confirm').value;
+  const msg = document.getElementById('ot-staff-match-msg');
+  const btn = document.getElementById('ot-staff-submit');
+  if (confirm.length === 0) { msg.textContent = ''; btn.disabled = false; return; }
+  if (pwd === confirm) {
+    msg.textContent = '✅ 密码一致 · Passwords match';
+    msg.style.color = '#27AE60';
+    btn.disabled = false;
+  } else {
+    msg.textContent = '❌ 密码不一致 · Passwords do not match';
+    msg.style.color = '#E74C3C';
+    btn.disabled = true;
+  }
+}
+
+function checkOtStaffPwd(form) {
+  const pwd = form.password.value;
+  const confirm = form.confirm_password.value;
+  if (pwd !== confirm) {
+    alert('两次密码不一致 | Passwords do not match');
+    return false;
+  }
+  if (pwd.length < 8) {
+    alert('密码至少需要8位 | Password must be at least 8 characters');
+    return false;
+  }
+  return true;
+}
+</script>
+</body>
+</html>

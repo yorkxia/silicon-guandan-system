@@ -7,12 +7,9 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="admin-wrap">
-  <%- include('../partials/admin-sidebar') %>
-
-  <main class="a-main">
-    <%- include('../partials/tournaments-online-body') %>
-  </main>
-</div>
+<%- include('../partials/ot-staff-topbar') %>
+<main class="a-main" style="padding:28px 32px;">
+  <%- include('../partials/tournaments-online-body', { otBase: '/ot-staff' }) %>
+</main>
 </body>
 </html>

@@ -8,6 +8,7 @@ const { initDB } = require('./db/init');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const guandanRoutes = require('./routes/guandan');
+const otStaffRoutes = require('./routes/otStaff');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use((req, res, next) => {
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
   res.locals.user = req.session.user || null;
+  res.locals.otStaff = req.session.otStaff || null;
   next();
 });
 
@@ -38,6 +40,7 @@ app.get('/promo.html', (req, res) => res.sendFile(path.join(__dirname, 'public',
 app.use('/', publicRoutes);
 app.use('/admin', adminRoutes);
 app.use('/guandan', guandanRoutes);
+app.use('/ot-staff', otStaffRoutes);
 
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {

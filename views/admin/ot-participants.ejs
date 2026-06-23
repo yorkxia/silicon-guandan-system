@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>参赛者信息查询 | Participant Lookup</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<% const activePage = 'tournaments'; %>
+
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+
+  <main class="a-main">
+    <div class="a-page-head">
+      <h1>📋 全量参赛者信息查询 · Participant Lookup</h1>
+      <div style="display:flex; gap:10px">
+        <a href="/admin/ot-staff/participants/export<%= tidFilter ? '?tournament_id=' + tidFilter : '' %>" class="abtn abtn-success">📥 导出Excel · Export</a>
+        <a href="/admin/ot-staff" class="abtn abtn-grey">← 返回 · Back</a>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div style="display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap">
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #C0392B">
+        <div style="font-size:1.8rem; font-weight:900; color:#641E16"><%= participants.length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">总参赛者 · Total</div>
+      </div>
+      <div style="background:white; border-radius:8px; padding:12px 20px; box-shadow:0 1px 6px rgba(0,0,0,0.06); border-top:3px solid #27AE60">
+        <div style="font-size:1.8rem; font-weight:900; color:#1E8449"><%= participants.filter(function(p){ return p.payment_confirmed; }).length %></div>
+        <div style="font-size:0.75rem; color:#888; text-transform:uppercase; letter-spacing:1px">已付款 · Paid</div>
+      </div>
+    </div>
+
+    <div class="a-card">
+      <form method="GET" action="/admin/ot-staff/participants" style="margin-bottom:16px; display:flex; gap:10px; align-items:center">
+        <label style="font-size:0.85rem; color:#666">按赛事筛选 · Filter by tournament:</label>
+        <select name="tournament_id" class="a-input" style="max-width:280px" onchange="this.form.submit()">
+          <option value="">全部赛事 · All Tournaments</option>
+          <% tournaments.forEach(function(t) { %>
+            <option value="<%= t.id %>" <%= String(tidFilter) === String(t.id) ? 'selected' : '' %>><%= t.title_zh %></option>
+          <% }) %>
+        </select>
+      </form>
+
+      <h2>
+        参赛者记录 · Participant Records
+        <span style="font-size:0.82rem; font-weight:400; color:#888">🔒 个人信息已加密存储 · Encrypted</span>
+      </h2>
+
+      <% if (participants.length === 0) { %>
+        <div style="text-align:center; padding:40px; color:#999">暂无参赛者记录 | No participants yet</div>
+      <% } else { %>
+        <div style="overflow-x:auto">
+          <table class="a-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>姓名 · Name</th>
+                <th>区域 · Region</th>
+                <th>注册渠道 · Channel</th>
+                <th>时间 · Time</th>
+                <th>电话 · Phone</th>
+                <th>邮箱 · Email</th>
+                <th>赛事名称 · Tournament</th>
+                <th>付款 · Payment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% participants.forEach(function(p, i) { %>
+                <tr>
+                  <td style="color:#999; font-size:0.82rem"><%= i + 1 %></td>
+                  <td><strong><%= p.name %></strong></td>
+                  <td style="font-size:0.83rem; color:#666"><%= p.region_code || '—' %></td>
+                  <td style="font-size:0.83rem; color:#666"><%= p.channel || 'web' %></td>
+                  <td style="font-size:0.8rem; color:#888">
+                    <%= new Date(p.created_at).toLocaleString('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) %>
+                  </td>
+                  <td><%= p.phone %></td>
+                  <td style="color:#666; font-size:0.83rem"><%= p.email || '—' %></td>
+                  <td style="font-size:0.85rem"><%= p.title_zh || '—' %></td>
+                  <td>
+                    <% if (p.payment_confirmed) { %>
+                      <span class="badge badge-paid">✅ 已确认</span>
+                    <% } else { %>
+                      <span class="badge badge-pending">⏳ 待确认</span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+</body>
+</html>

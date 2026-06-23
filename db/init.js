@@ -229,6 +229,24 @@ async function initDB() {
   // 迁移：掼蛋付款邮件确认 token + 激活天数
   await query(`ALTER TABLE gd_payments ADD COLUMN IF NOT EXISTS confirm_token TEXT DEFAULT ''`);
   await query(`ALTER TABLE gd_activations ADD COLUMN IF NOT EXISTS activation_days INTEGER DEFAULT 31`);
+  // 迁移：报名记录的区域定位 + 注册渠道（为网上赛事参赛者报表准备）
+  await query(`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS region_code TEXT DEFAULT NULL`);
+  await query(`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS channel TEXT DEFAULT 'web'`);
+
+  // ============ 网上赛事 · 掼蛋赛事管理员模块 ot_* 表 ============
+  // 独立账号体系：登录入口 /ot-staff/login，session 字段 req.session.otStaff，
+  // 与主后台 users 表完全隔离，仅能访问"四人/六人掼蛋赛事"两个页面
+  await query(`
+    CREATE TABLE IF NOT EXISTS ot_staff (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT DEFAULT '',
+      is_active SMALLINT DEFAULT 1,
+      created_by INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
   // 默认 sb admin
   const sbAdminExists = await queryOne('SELECT id FROM sb_users WHERE username = $1', ['sbadmin']);

@@ -1,0 +1,39 @@
+<style>
+  .ot-topbar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 28px;
+    background: #2C0A0A;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  }
+  .ot-topbar img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
+  .ot-topbar-title { font-weight: 700; letter-spacing: 1px; font-size: 0.95rem; }
+  .ot-topbar-title small { display: block; font-size: 0.68rem; color: rgba(255,255,255,0.55); font-weight: 400; letter-spacing: 1px; }
+  .ot-topbar-spacer { flex: 1; }
+  .ot-topbar-user { font-size: 0.82rem; color: rgba(255,255,255,0.85); margin-right: 4px; }
+  .ot-topbar form { margin: 0; }
+  .ot-topbar button {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 7px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+  .ot-topbar button:hover { background: rgba(255,255,255,0.22); }
+</style>
+<header class="ot-topbar">
+  <img src="/img/assoc-logo.png" alt="硅谷掼蛋协会">
+  <div class="ot-topbar-title">
+    硅谷掼蛋协会 · 掼蛋赛事工作台
+    <small>Tournament Staff Workspace</small>
+  </div>
+  <div class="ot-topbar-spacer"></div>
+  <span class="ot-topbar-user">👤 <%= locals.otStaff ? (otStaff.display_name || otStaff.username) : '' %></span>
+  <form action="/ot-staff/logout" method="POST">
+    <button type="submit">🚪 退出 · Logout</button>
+  </form>
+</header>
