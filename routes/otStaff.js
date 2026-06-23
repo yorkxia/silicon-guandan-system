@@ -8,7 +8,7 @@ const { requireOtStaffAuth } = require('../middleware/otStaffAuth');
 
 router.get('/login', (req, res) => {
   if (req.session.otStaff) return res.redirect('/ot-staff/tournaments-online');
-  res.render('ot-staff/login', { error: req.flash('error'), success: req.flash('success') });
+  res.render('ot-staff/login');
 });
 
 router.post('/login', async (req, res) => {
@@ -44,19 +44,11 @@ router.post('/logout', (req, res) => {
 // ── 网上赛事（仅四人/六人页面，无其他权限） ───────────────
 
 router.get('/tournaments-online', requireOtStaffAuth, (req, res) => {
-  res.render('ot-staff/tournaments-online', {
-    otStaff: req.session.otStaff,
-    success: req.flash('success'),
-    error: req.flash('error'),
-  });
+  res.render('ot-staff/tournaments-online', { otStaff: req.session.otStaff });
 });
 
 router.get('/tournaments-6p', requireOtStaffAuth, (req, res) => {
-  res.render('ot-staff/tournaments-6p', {
-    otStaff: req.session.otStaff,
-    success: req.flash('success'),
-    error: req.flash('error'),
-  });
+  res.render('ot-staff/tournaments-6p', { otStaff: req.session.otStaff });
 });
 
 module.exports = router;
