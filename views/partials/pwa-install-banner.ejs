@@ -1,7 +1,7 @@
-<%# PWA 安装横幅 — 在 <body> 顶部 include，支持 Android/桌面 和 iOS 两套提示 %>
+<%# PWA 安装横幅 — 支持 Android/桌面（顶部）和 iOS（底部固定）两套提示 %>
 
 <style>
-  /* ── Android / 桌面 安装横幅 ── */
+  /* ── Android / 桌面：顶部安装横幅 ── */
   #pwa-install-banner {
     display: none;
     align-items: center;
@@ -36,56 +36,142 @@
   }
   #pwa-install-banner .pwa-btn-install:hover { background: linear-gradient(135deg, #D0101F, #A00010); }
   #pwa-install-banner .pwa-btn-close {
-    background: none;
-    border: none;
+    background: none; border: none;
     color: rgba(255,255,255,0.5);
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
+    font-size: 1.2rem; cursor: pointer;
+    padding: 0 4px; line-height: 1;
   }
-  #pwa-install-banner .pwa-btn-close:hover { color: #fff; }
 
-  /* ── iOS 安装引导提示 ── */
+  /* ── iOS：底部固定安装引导 ── */
   #ios-install-tip {
     display: none;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 18px;
-    background: linear-gradient(135deg, #1a0505, #2C0A0A);
-    color: #fff;
-    font-size: 0.82rem;
-    position: relative;
-    z-index: 9999;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 99999;
+    flex-direction: column;
+    align-items: center;
   }
-  #ios-install-tip img {
-    width: 36px; height: 36px;
-    border-radius: 8px;
-    border: 1px solid rgba(212,172,13,0.5);
+
+  /* 半透明遮罩（点击遮罩关闭） */
+  #ios-install-tip .ios-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: -1;
+  }
+
+  /* 主提示卡片 */
+  #ios-install-tip .ios-card {
+    width: 100%;
+    max-width: 480px;
+    background: linear-gradient(175deg, #2C0A0A 0%, #1a0505 100%);
+    border-top: 3px solid #D4AC0D;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 22px 32px;
+    color: #fff;
+    position: relative;
+  }
+
+  /* 金色把手线 */
+  #ios-install-tip .ios-handle {
+    width: 40px; height: 4px;
+    background: rgba(212,172,13,0.5);
+    border-radius: 2px;
+    margin: 0 auto 18px;
+  }
+
+  #ios-install-tip .ios-top-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  #ios-install-tip .ios-top-row img {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    border: 2px solid rgba(212,172,13,0.6);
+    box-shadow: 0 0 16px rgba(212,172,13,0.3);
     flex-shrink: 0;
   }
-  #ios-install-tip .ios-text { flex: 1; line-height: 1.7; }
-  #ios-install-tip .ios-text strong { color: #FFE066; display: block; margin-bottom: 2px; }
-  #ios-install-tip .ios-share-icon {
+  #ios-install-tip .ios-title {
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: #FFE066;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+  }
+  #ios-install-tip .ios-subtitle {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+  }
+
+  /* 步骤说明 */
+  #ios-install-tip .ios-steps {
+    background: rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  #ios-install-tip .ios-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  #ios-install-tip .ios-step:last-child { margin-bottom: 0; }
+  #ios-install-tip .ios-step-num {
+    width: 24px; height: 24px;
+    background: linear-gradient(135deg, #C0000F, #8B0000);
+    border-radius: 50%;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #ios-install-tip .ios-step-text {
+    font-size: 0.85rem;
+    color: rgba(255,255,255,0.9);
+    line-height: 1.5;
+  }
+  #ios-install-tip .ios-step-text .badge {
     display: inline-block;
     background: rgba(255,255,255,0.15);
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-size: 0.9rem;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    padding: 1px 8px;
+    font-size: 0.8rem;
   }
-  #ios-install-tip .pwa-btn-close {
-    background: none;
+
+  /* 向下箭头（指向Safari工具栏） */
+  #ios-install-tip .ios-arrow-row {
+    text-align: center;
+    font-size: 1.6rem;
+    animation: bounceDown 1.2s ease-in-out infinite;
+    margin-bottom: 8px;
+    color: #FFE066;
+  }
+  @keyframes bounceDown {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(6px); }
+  }
+
+  /* 关闭按钮 */
+  #ios-install-tip .ios-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: rgba(255,255,255,0.1);
     border: none;
-    color: rgba(255,255,255,0.5);
-    font-size: 1.2rem;
+    color: rgba(255,255,255,0.7);
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    font-size: 0.85rem;
     cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
   }
-  #ios-install-tip .pwa-btn-close:hover { color: #fff; }
 </style>
 
-<!-- Android / 桌面：安装提示横幅 -->
+<!-- Android / 桌面：顶部安装横幅 -->
 <div id="pwa-install-banner">
   <img src="/img/assoc-logo.png" alt="掼蛋赛事">
   <div class="pwa-text">
@@ -96,13 +182,42 @@
   <button class="pwa-btn-close" onclick="pwaDismiss()" title="关闭">✕</button>
 </div>
 
-<!-- iOS：手动引导提示 -->
+<!-- iOS：底部弹出安装引导 -->
 <div id="ios-install-tip">
-  <img src="/img/assoc-logo.png" alt="掼蛋赛事">
-  <div class="ios-text">
-    <strong>📲 添加到主屏幕 · Add to Home Screen</strong>
-    点击底部 <span class="ios-share-icon">⬆️ 分享</span> 按钮，
-    然后选择「添加到主屏幕」，即可在桌面一键打开赛事！
+  <div class="ios-overlay" onclick="iosInstallDismiss()"></div>
+  <div class="ios-card">
+    <div class="ios-handle"></div>
+    <button class="ios-close" onclick="iosInstallDismiss()">✕</button>
+
+    <div class="ios-top-row">
+      <img src="/img/assoc-logo.png" alt="掼蛋赛事">
+      <div>
+        <div class="ios-title">🎴 添加到主屏幕</div>
+        <div class="ios-subtitle">Add to Home Screen · 硅谷掼蛋协会</div>
+      </div>
+    </div>
+
+    <div class="ios-steps">
+      <div class="ios-step">
+        <div class="ios-step-num">1</div>
+        <div class="ios-step-text">
+          点击下方 Safari 工具栏的 <span class="badge">⬆️ 分享</span> 按钮
+        </div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">2</div>
+        <div class="ios-step-text">
+          在弹出菜单中选择 <span class="badge">➕ 添加到主屏幕</span>
+        </div>
+      </div>
+      <div class="ios-step">
+        <div class="ios-step-num">3</div>
+        <div class="ios-step-text">
+          点击右上角「添加」，图标出现在桌面，以后直接点击即可进入赛事！
+        </div>
+      </div>
+    </div>
+
+    <div class="ios-arrow-row">↓</div>
   </div>
-  <button class="pwa-btn-close" onclick="iosInstallDismiss()" title="关闭">✕</button>
 </div>
