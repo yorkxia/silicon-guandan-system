@@ -34,14 +34,14 @@
       "name": "四人掼蛋赛事",
       "short_name": "四人赛事",
       "description": "进入四人掼蛋网上赛事",
-      "url": "/ot-staff/tournaments-4p",
+      "url": "/play/4p",
       "icons": [{ "src": "/img/assoc-logo.png", "sizes": "192x192" }]
     },
     {
       "name": "六人掼蛋赛事",
       "short_name": "六人赛事",
       "description": "进入六人掼蛋网上赛事",
-      "url": "/ot-staff/tournaments-6p",
+      "url": "/play/6p",
       "icons": [{ "src": "/img/assoc-logo.png", "sizes": "192x192" }]
     },
     {
