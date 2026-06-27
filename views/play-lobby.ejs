@@ -167,10 +167,9 @@ socket.on('room:error', function(d) {
 });
 
 socket.on('game:starting', function() {
-  setStatus('🎴 所有玩家就绪！游戏即将开始...', 'starting');
+  setStatus('🎴 所有玩家就绪！正在发牌...', 'starting');
   document.getElementById('btn-ready').disabled = true;
-  /* Phase 5 开发完成后在此跳转到游戏页面 */
-  /* setTimeout(function(){ location.href = '/play/game/' + ROOM_CODE; }, 2000); */
+  setTimeout(function(){ location.href = '/play/game/' + ROOM_CODE; }, 1200);
 });
 
 function renderState(state) {

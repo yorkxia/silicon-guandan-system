@@ -424,6 +424,12 @@ router.get('/play/6p', (req, res) => {
 router.get('/play/tournaments-4p', (req, res) => res.redirect('/play/4p'));
 router.get('/play/tournaments-6p', (req, res) => res.redirect('/play/6p'));
 
+router.get('/play/game/:code', (req, res) => {
+  const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (!roomCode) return res.redirect('/play');
+  res.render('play-game', { roomCode });
+});
+
 router.get('/play/lobby/:code', (req, res) => {
   const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) return res.redirect('/play');

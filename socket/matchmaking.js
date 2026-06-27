@@ -5,6 +5,7 @@ const {
   joinQueue, tryMatch, createMatch,
   joinRoomByCode, getRoomState, createRoom
 } = require('../db/gdo');
+const { createDoubleDeck, shuffle, deal4, sortHand } = require('../utils/cards');
 
 module.exports = function(io, socket) {
 
@@ -120,8 +121,29 @@ module.exports = function(io, socket) {
 
       const need = state.room.game_mode === '6p' ? 6 : 4;
       if (state.seats.length === need && state.seats.every(s => s.is_ready)) {
-        io.to(roomCode).emit('game:starting', { roomCode });
-        await query(`UPDATE gdo_rooms SET status='playing', started_at=NOW() WHERE room_code=$1`, [roomCode]);
+        /* ── 发牌 ── */
+        const deck   = shuffle(createDoubleDeck());
+        const halves = deal4(deck); // 4份各27张（6p暂与4p相同处理）
+        const newRound = parseInt(state.room.round_count || 0) + 1;
+
+        /* 建局记录，hands_json 按 player_id 存储 */
+        const hands = {};
+        state.seats.forEach((s, i) => { hands[String(s.player_id)] = halves[i]; });
+
+        const rows = await query(
+          `INSERT INTO gdo_rounds(room_id, round_number, hands_json)
+           VALUES($1,$2,$3) RETURNING id`,
+          [state.room.id, newRound, JSON.stringify(hands)]
+        );
+        const roundId = rows[0].id;
+        await query(
+          `UPDATE gdo_rooms SET status='playing', started_at=NOW(), round_count=$1 WHERE room_code=$2`,
+          [newRound, roomCode]
+        );
+
+        /* 通知每位玩家游戏开始（game:starting 附带 roundId） */
+        io.to(roomCode).emit('game:starting', { roomCode, roundId });
+        console.log(`[掼蛋] 🃏 发牌完成 · 房间 ${roomCode} · 第${newRound}局 · 每人27张`);
       }
     } catch (e) {
       console.error('[room:ready]', e.message);

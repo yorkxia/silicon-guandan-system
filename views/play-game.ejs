@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>掼蛋 · <%= roomCode %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <%- include('partials/pwa-head') %>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: radial-gradient(ellipse at center, #1a4a1a 0%, #0d2d0d 60%, #061a06 100%);
+      display: flex; flex-direction: column; margin: 0;
+    }
+
+    /* ── 顶部状态栏 ── */
+    #top-bar {
+      display: flex; align-items: center; padding: 8px 14px; gap: 10px;
+      background: rgba(0,0,0,0.4); flex-shrink: 0; z-index: 10;
+    }
+    #top-bar .room-tag {
+      font-size: 0.7rem; color: rgba(255,255,255,0.5); letter-spacing: 2px;
+    }
+    #top-bar .room-code { font-size: 0.85rem; font-weight:900; color: #FFE066; letter-spacing: 3px; }
+    #top-bar .level-row { margin-left: auto; display: flex; gap: 10px; }
+    .level-badge {
+      padding: 3px 10px; border-radius: 8px; font-size: 0.72rem; font-weight: 700; letter-spacing:1px;
+    }
+    .level-badge.t1 { background: rgba(192,0,15,0.25); color:#F08080; border:1px solid rgba(192,0,15,0.4); }
+    .level-badge.t2 { background: rgba(0,85,187,0.25); color:#80A8E8; border:1px solid rgba(0,85,187,0.4); }
+
+    /* ── 牌桌主区 ── */
+    #table-area {
+      flex: 1; display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+    }
+
+    /* ── 对家区域（对面玩家） ── */
+    #opponents {
+      display: flex; justify-content: space-around; align-items: flex-start;
+      padding: 10px 16px 6px; gap: 8px; flex-shrink: 0;
+    }
+    .opponent-box {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .opponent-name {
+      font-size: 0.68rem; color: rgba(255,255,255,0.6); letter-spacing: 1px; text-align:center;
+    }
+    .opponent-cards {
+      display: flex; gap: -4px;
+    }
+    .card-back {
+      width: 22px; height: 32px; border-radius: 4px;
+      background: linear-gradient(135deg, #8B0000, #C0000F);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+      margin-left: -8px;
+      flex-shrink: 0;
+    }
+    .card-back:first-child { margin-left: 0; }
+    .team-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .team-dot.t1 { background: #C0000F; box-shadow: 0 0 4px #C0000F; }
+    .team-dot.t2 { background: #0055BB; box-shadow: 0 0 4px #0055BB; }
+
+    /* ── 中央出牌区 ── */
+    #play-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    #play-hint {
+      color: rgba(255,255,255,0.2); font-size: 0.85rem; letter-spacing: 3px; text-align:center;
+    }
+    /* 圆形桌面装饰 */
+    #play-area::before {
+      content: '';
+      position: absolute; width: min(220px, 55vw); height: min(220px, 55vw);
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+    }
+
+    /* ── 左右玩家 ── */
+    .side-player {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    #player-left  { left: 8px; }
+    #player-right { right: 8px; }
+    .side-cards {
+      display: flex; flex-direction: column; gap: -6px;
+    }
+    .card-back-v {
+      width: 28px; height: 18px; border-radius: 4px;
+      background: linear-gradient(135deg, #8B0000, #C0000F);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+      margin-top: -8px; flex-shrink: 0;
+    }
+    .card-back-v:first-child { margin-top: 0; }
+    .side-name { font-size: 0.62rem; color: rgba(255,255,255,0.5); text-align:center; max-width:50px; }
+
+    /* ── 我的手牌区 ── */
+    #my-hand-area {
+      flex-shrink: 0; padding: 8px 0 env(safe-area-inset-bottom, 8px);
+      background: rgba(0,0,0,0.35);
+    }
+    #my-name-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0 14px 6px;
+    }
+    #my-name { font-size: 0.72rem; color: rgba(255,255,255,0.7); letter-spacing:1px; }
+    #my-card-count { font-size: 0.65rem; color: rgba(255,255,255,0.35); }
+
+    /* 手牌横向滚动 */
+    #hand-scroll {
+      overflow-x: auto; overflow-y: hidden;
+      display: flex; padding: 0 14px 4px;
+      scrollbar-width: none; -ms-overflow-style: none;
+      gap: 0;
+    }
+    #hand-scroll::-webkit-scrollbar { display: none; }
+
+    /* 单张牌 */
+    .hand-card {
+      flex-shrink: 0;
+      width: 52px; height: 76px;
+      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #ddd;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.4);
+      margin-left: -18px;
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 4px 5px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hand-card:first-child { margin-left: 0; }
+    .hand-card:hover, .hand-card.selected {
+      transform: translateY(-16px);
+      box-shadow: 2px 8px 16px rgba(0,0,0,0.5);
+      z-index: 5;
+    }
+    .hand-card.selected { outline: 2px solid #FFE066; }
+
+    .card-top { font-size: 0.95rem; font-weight: 900; line-height: 1; }
+    .card-suit { font-size: 0.85rem; line-height: 1; margin-top: 1px; }
+    .card-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+                   font-size: 1.3rem; opacity: 0.08; }
+    /* Jokers */
+    .hand-card.joker-big  { background: linear-gradient(145deg,#FFF8E0,#FFE066); }
+    .hand-card.joker-small{ background: linear-gradient(145deg,#F5F5F5,#E0E0E0); }
+    .joker-label { font-size: 0.7rem; font-weight:900; text-align:center; width:100%;
+                   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+                   letter-spacing:1px; }
+
+    /* ── 操作按钮区 ── */
+    #action-bar {
+      display: flex; gap: 10px; padding: 8px 14px;
+      background: rgba(0,0,0,0.3); flex-shrink: 0; justify-content: flex-end;
+    }
+    .action-btn {
+      padding: 10px 20px; border-radius: 10px; border: none;
+      font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn.play {
+      background: linear-gradient(135deg,#C0000F,#8B0000);
+      color: #fff; box-shadow: 0 3px 10px rgba(192,0,15,0.4);
+    }
+    .action-btn.play:hover { transform:translateY(-2px); box-shadow:0 5px 14px rgba(192,0,15,0.5); }
+    .action-btn.play:disabled { background:#555; box-shadow:none; transform:none; cursor:default; }
+    .action-btn.pass {
+      background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .action-btn.pass:hover { background: rgba(255,255,255,0.18); }
+
+    /* 加载中 */
+    #loading-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: radial-gradient(ellipse,#1a4a1a,#061a06);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    }
+    #loading-overlay .spin { font-size:2.5rem; animation: spin 1s linear infinite; }
+    @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+    #loading-overlay p { color:rgba(255,255,255,0.6); font-size:0.9rem; letter-spacing:2px; }
+
+    /* 错误提示 */
+    #err-box {
+      display:none; position:fixed; inset:0; z-index:200;
+      background:rgba(0,0,0,0.85); align-items:center; justify-content:center;
+    }
+    #err-box div {
+      background:#1a0505; border:1px solid rgba(192,0,15,0.4); border-radius:18px;
+      padding:32px 28px; text-align:center; max-width:320px;
+    }
+    #err-box p { color:#F08080; margin:0 0 18px; font-size:0.9rem; line-height:1.6; }
+    #err-box a { color:#FFE066; font-size:0.85rem; }
+  </style>
+</head>
+<body>
+
+<!-- 加载层 -->
+<div id="loading-overlay">
+  <div class="spin">🃏</div>
+  <p>正在发牌...</p>
+</div>
+
+<!-- 错误层 -->
+<div id="err-box">
+  <div>
+    <p id="err-msg">发生错误</p>
+    <a href="/play">← 返回大厅</a>
+  </div>
+</div>
+
+<!-- ── 顶部状态栏 ── -->
+<div id="top-bar">
+  <div>
+    <div class="room-tag">房间号</div>
+    <div class="room-code"><%= roomCode %></div>
+  </div>
+  <div class="level-row">
+    <div class="level-badge t1" id="lvl-t1">甲队 · 2</div>
+    <div class="level-badge t2" id="lvl-t2">乙队 · 2</div>
+  </div>
+</div>
+
+<!-- ── 牌桌 ── -->
+<div id="table-area">
+  <!-- 对家（上方） -->
+  <div id="opponents"></div>
+
+  <!-- 中央出牌区 + 左右玩家 -->
+  <div id="play-area">
+    <div id="play-hint">等待出牌</div>
+
+    <div class="side-player" id="player-left">
+      <div class="side-name" id="left-name">—</div>
+      <div class="side-cards" id="left-cards"></div>
+    </div>
+
+    <div class="side-player" id="player-right">
+      <div class="side-name" id="right-name">—</div>
+      <div class="side-cards" id="right-cards"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 我的手牌 ── -->
+<div id="my-hand-area">
+  <div id="my-name-row">
+    <div class="team-dot t1" id="my-team-dot"></div>
+    <div id="my-name">我</div>
+    <div id="my-card-count">27张</div>
+  </div>
+  <div id="hand-scroll"></div>
+</div>
+
+<!-- ── 操作按钮 ── -->
+<div id="action-bar">
+  <button class="action-btn pass" id="btn-pass" onclick="doPass()" disabled>不出</button>
+  <button class="action-btn play" id="btn-play" onclick="doPlay()" disabled>出牌</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var ROOM_CODE  = '<%= roomCode %>';
+var MY_TOKEN   = localStorage.getItem('gd-token') || '';
+var MY_NAME_LS = localStorage.getItem('gd-name')  || '我';
+var selected   = []; // 选中的牌
+var myHand     = [];
+var myTeam     = 1;
+var mySeat     = 0;
+
+var socket = io({ transports: ['websocket','polling'] });
+
+socket.on('connect', function() {
+  socket.emit('game:request_hand', { token: MY_TOKEN, roomCode: ROOM_CODE });
+});
+
+socket.on('game:hand', function(d) {
+  document.getElementById('loading-overlay').style.display = 'none';
+  myHand  = d.hand;
+  myTeam  = d.myTeam;
+  mySeat  = d.mySeat;
+
+  var levelNames = ['','','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  document.getElementById('lvl-t1').textContent = '甲队 · ' + (levelNames[d.levelTeam1] || d.levelTeam1);
+  document.getElementById('lvl-t2').textContent = '乙队 · ' + (levelNames[d.levelTeam2] || d.levelTeam2);
+
+  document.getElementById('my-name').textContent = MY_NAME_LS;
+  document.getElementById('my-card-count').textContent = myHand.length + '张';
+  document.getElementById('my-team-dot').className = 'team-dot ' + (myTeam === 1 ? 't1' : 't2');
+
+  renderOpponents(d.players, mySeat, d.gameMode);
+  renderHand(myHand);
+
+  document.getElementById('btn-pass').disabled = false;
+  document.getElementById('btn-play').disabled = false;
+});
+
+socket.on('game:error', function(d) {
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('err-msg').textContent = d.message;
+  document.getElementById('err-box').style.display = 'flex';
+});
+
+/* ── 渲染对手 ── */
+function renderOpponents(players, mySeat, mode) {
+  var total = mode === '6p' ? 6 : 4;
+  // 相对座位顺序：我=bottom, 对家=top, 左=left, 右=right
+  // 4人: 座位顺序 1(bottom), 2(right), 3(top), 4(left)
+  var relMap = buildRelMap(mySeat, total);
+  var opp = document.getElementById('opponents');
+  opp.innerHTML = '';
+
+  var leftP  = players.find(function(p){ return relMap[p.seat] === 'left';  });
+  var rightP = players.find(function(p){ return relMap[p.seat] === 'right'; });
+  var topPs  = players.filter(function(p){ return relMap[p.seat] === 'top';  });
+
+  // 对家（上方，可能1或2人）
+  topPs.forEach(function(p) {
+    opp.appendChild(makeOpponentBox(p));
+  });
+
+  // 左右
+  setAside('player-left',  'left-name',  'left-cards',  leftP);
+  setAside('player-right', 'right-name', 'right-cards', rightP);
+}
+
+function buildRelMap(mySeat, total) {
+  // 顺时针：bottom=我, right=下一个, top=对面, left=上一个
+  var map = {};
+  var positions = ['bottom','right','top-1','top-2','left','extra'];
+  if (total === 4) positions = ['bottom','right','top','left'];
+  for (var i = 0; i < total; i++) {
+    var seat = ((mySeat - 1 + i) % total) + 1;
+    map[seat] = positions[i] || 'top';
+  }
+  return map;
+}
+
+function makeOpponentBox(p) {
+  if (!p) return document.createElement('div');
+  var box = document.createElement('div');
+  box.className = 'opponent-box';
+  var dot = '<span class="team-dot ' + (p.team === 1 ? 't1' : 't2') + '" style="width:6px;height:6px;"></span>';
+  var n = document.createElement('div');
+  n.className = 'opponent-name';
+  n.innerHTML = dot + ' ' + esc(p.name);
+  var c = document.createElement('div');
+  c.className = 'opponent-cards';
+  var show = Math.min(p.cardCount, 14);
+  for (var i = 0; i < show; i++) {
+    var cb = document.createElement('div');
+    cb.className = 'card-back';
+    c.appendChild(cb);
+  }
+  box.appendChild(n);
+  box.appendChild(c);
+  return box;
+}
+
+function setAside(boxId, nameId, cardsId, p) {
+  var nameEl  = document.getElementById(nameId);
+  var cardsEl = document.getElementById(cardsId);
+  if (!p) { nameEl.textContent = ''; cardsEl.innerHTML = ''; return; }
+  nameEl.innerHTML = '<span class="team-dot ' + (p.team===1?'t1':'t2') + '" style="width:6px;height:6px;display:inline-block;border-radius:50%;margin-right:3px;"></span>' + esc(p.name);
+  cardsEl.innerHTML = '';
+  var show = Math.min(p.cardCount, 10);
+  for (var i = 0; i < show; i++) {
+    var cb = document.createElement('div');
+    cb.className = 'card-back-v';
+    cardsEl.appendChild(cb);
+  }
+}
+
+/* ── 渲染手牌 ── */
+function renderHand(hand) {
+  var scroll = document.getElementById('hand-scroll');
+  scroll.innerHTML = '';
+  hand.forEach(function(code, idx) {
+    var card = document.createElement('div');
+    card.className = 'hand-card' + (selected.indexOf(code + '_' + idx) >= 0 ? ' selected' : '');
+    card.dataset.code = code;
+    card.dataset.idx  = idx;
+
+    if (code === 'BJ') {
+      card.classList.add('joker-big');
+      card.innerHTML = '<div class="joker-label" style="color:#D4AC0D;">大<br>王</div>';
+    } else if (code === 'LJ') {
+      card.classList.add('joker-small');
+      card.innerHTML = '<div class="joker-label" style="color:#666;">小<br>王</div>';
+    } else {
+      var suit = code[0], rank = code.slice(1);
+      var isRed = (suit === 'H' || suit === 'D');
+      var color = isRed ? '#C0000F' : '#1a1a2e';
+      var suitSym = { S:'♠', H:'♥', D:'♦', C:'♣' }[suit];
+      var rankDisp = rank === 'T' ? '10' : rank;
+      card.style.color = color;
+      card.innerHTML =
+        '<div class="card-top">' + rankDisp + '</div>' +
+        '<div class="card-suit">' + suitSym + '</div>' +
+        '<div class="card-center">' + suitSym + '</div>';
+    }
+
+    card.addEventListener('click', function() { toggleCard(code, idx); });
+    scroll.appendChild(card);
+  });
+  document.getElementById('my-card-count').textContent = hand.length + '张';
+}
+
+function toggleCard(code, idx) {
+  var key = code + '_' + idx;
+  var i   = selected.indexOf(key);
+  if (i >= 0) selected.splice(i, 1);
+  else         selected.push(key);
+  renderHand(myHand); // re-render to reflect selection
+}
+
+/* ── 出牌 / 不出（Phase 5 接入游戏逻辑） ── */
+function doPlay() {
+  if (selected.length === 0) return;
+  // Phase 5 将在这里验证牌型并 emit play:cards
+  alert('出牌功能将在阶段五开放 · 已选 ' + selected.length + ' 张');
+}
+
+function doPass() {
+  // Phase 5: emit play:pass
+  alert('不出功能将在阶段五开放');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

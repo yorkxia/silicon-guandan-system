@@ -423,6 +423,9 @@ async function initDB() {
   await query(`CREATE INDEX IF NOT EXISTS idx_gdo_queue_status   ON gdo_queue(status, game_mode)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_gdo_players_token  ON gdo_players(player_token)`);
 
+  /* 阶段四迁移：gdo_rounds 加 hands_json 列 */
+  await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS hands_json JSONB`);
+
   console.log('✅ Database initialized');
 }
 
