@@ -1,14 +1,15 @@
-/* 硅谷掼蛋协会 · Service Worker v2 · 网上赛事版 */
-var CACHE = 'gd-pwa-v2';
+/* 硅谷掼蛋协会 · Service Worker v3 · 网上赛事版 */
+var CACHE = 'gd-pwa-v3';
 
 var PRECACHE = [
   '/manifest.json',
   '/css/style.css',
   '/img/assoc-logo.png',
   '/img/guandan-icon.png',
-  '/ot-staff/tournaments-online',
-  '/ot-staff/tournaments-4p',
-  '/ot-staff/tournaments-6p',
+  '/play',
+  '/play/4p',
+  '/play/6p',
+  '/install',
   '/guandan'
 ];
 
@@ -36,14 +37,12 @@ self.addEventListener('activate', function(e) {
 
 /* 拦截请求：网络优先，离线降级到缓存 */
 self.addEventListener('fetch', function(e) {
-  /* Socket.io 和 API 请求不缓存 */
   if (e.request.url.indexOf('/socket.io') !== -1) return;
   if (e.request.url.indexOf('/api/') !== -1) return;
   if (e.request.method !== 'GET') return;
 
   e.respondWith(
     fetch(e.request).then(function(r) {
-      /* 只缓存成功的同源响应 */
       if (r && r.status === 200 && r.type === 'basic') {
         var rc = r.clone();
         caches.open(CACHE).then(function(c) { c.put(e.request, rc); });
