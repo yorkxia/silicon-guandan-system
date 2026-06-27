@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成邀请卡 · 硅谷掼蛋协会</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    .ic-wrap { max-width: 860px; }
+
+    /* ── 操作区 ── */
+    .ic-toolbar {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .ic-toolbar h2 { font-size: 1.25rem; font-weight: 900; color: #8B0000; flex: 1; margin: 0; }
+    .ic-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: 10px; font-size: 0.9rem;
+      font-weight: 700; cursor: pointer; border: none; letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    .ic-btn-red {
+      background: linear-gradient(135deg, #C0000F, #8B0000);
+      color: #fff; box-shadow: 0 4px 14px rgba(192,0,15,0.35);
+    }
+    .ic-btn-red:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(192,0,15,0.5); }
+    .ic-btn-outline {
+      background: #fff; color: #8B0000;
+      border: 2px solid #C0000F;
+    }
+    .ic-btn-outline:hover { background: #FFF0F0; }
+    .ic-hint {
+      font-size: 0.82rem; color: #888; margin-bottom: 20px; line-height: 1.8;
+      padding: 12px 16px; background: #FFF8F0;
+      border-left: 4px solid #D4AC0D; border-radius: 0 8px 8px 0;
+    }
+
+    /* ── 卡片容器（用于截图） ── */
+    #invite-card-capture {
+      width: 750px;
+      background: linear-gradient(160deg, #1a0505 0%, #3D0A0A 45%, #1a0505 100%);
+      border-radius: 24px;
+      padding: 50px 48px 44px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      margin: 0 auto;
+    }
+
+    /* 背景花色装饰 */
+    .ic-bg-suits {
+      position: absolute; inset: 0;
+      font-size: 9rem; line-height: 1;
+      color: rgba(255,255,255,0.03);
+      pointer-events: none;
+      display: flex; flex-wrap: wrap;
+      align-content: flex-start;
+      padding: 10px; gap: 0;
+      letter-spacing: 10px;
+    }
+
+    /* 金色上边框 */
+    .ic-gold-top {
+      position: absolute; top: 0; left: 0; right: 0; height: 6px;
+      background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent);
+    }
+    .ic-gold-bottom {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
+      background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent);
+    }
+
+    /* 协会Logo区 */
+    .ic-logo-row {
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 32px; position: relative;
+    }
+    .ic-logo {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 3px solid rgba(212,172,13,0.7);
+      box-shadow: 0 0 24px rgba(212,172,13,0.35);
+      object-fit: cover; background: #fff; padding: 2px;
+      flex-shrink: 0;
+    }
+    .ic-assoc-name {
+      font-size: 0.78rem; color: rgba(212,172,13,0.8);
+      letter-spacing: 4px; margin-bottom: 6px;
+    }
+    .ic-assoc-title {
+      font-size: 1.6rem; font-weight: 900; color: #fff;
+      letter-spacing: 3px; line-height: 1.2;
+    }
+    .ic-assoc-en {
+      font-size: 0.68rem; color: rgba(255,255,255,0.45);
+      letter-spacing: 3px; margin-top: 4px;
+    }
+
+    /* 金色分割线 */
+    .ic-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(212,172,13,0.6), transparent);
+      margin: 0 0 28px;
+    }
+
+    /* 主标题 */
+    .ic-main-title {
+      text-align: center; margin-bottom: 10px;
+    }
+    .ic-main-title h2 {
+      font-size: 2rem; font-weight: 900; color: #FFE066;
+      letter-spacing: 6px; margin: 0 0 6px; text-shadow: 0 2px 12px rgba(212,172,13,0.4);
+    }
+    .ic-main-title p {
+      font-size: 0.8rem; color: rgba(255,255,255,0.5); letter-spacing: 4px;
+    }
+
+    /* 花色装饰行 */
+    .ic-suits-row {
+      text-align: center; font-size: 1.4rem; letter-spacing: 14px;
+      color: rgba(255,255,255,0.2); margin: 12px 0 24px;
+    }
+
+    /* 功能标签 */
+    .ic-features {
+      display: flex; gap: 10px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 28px;
+    }
+    .ic-feature-tag {
+      padding: 5px 16px; border-radius: 20px;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: 1px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(212,172,13,0.35);
+      color: rgba(255,255,255,0.85);
+    }
+
+    /* 二维码区域 */
+    .ic-qr-section {
+      display: flex; align-items: center; gap: 28px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(212,172,13,0.2);
+      border-radius: 18px; padding: 24px 28px;
+      margin-bottom: 24px;
+    }
+    .ic-qr-box {
+      background: #FFF8F0; padding: 10px; border-radius: 12px;
+      border: 2px solid rgba(212,172,13,0.5);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+    .ic-qr-box img { width: 160px; height: 160px; display: block; }
+    .ic-qr-text { flex: 1; color: #fff; }
+    .ic-qr-text h3 {
+      font-size: 1.1rem; font-weight: 900; color: #FFE066;
+      letter-spacing: 2px; margin: 0 0 10px;
+    }
+    .ic-qr-text ul {
+      list-style: none; padding: 0; margin: 0;
+      font-size: 0.82rem; color: rgba(255,255,255,0.8);
+      line-height: 2.2;
+    }
+    .ic-qr-text ul li::before { content: '✦ '; color: #D4AC0D; }
+
+    /* 底部说明 */
+    .ic-footer-text {
+      text-align: center; font-size: 0.73rem;
+      color: rgba(255,255,255,0.35); letter-spacing: 2px;
+      line-height: 1.8;
+    }
+
+    /* 预览区域缩放（桌面屏幕适配） */
+    .ic-preview-wrap {
+      overflow-x: auto; padding-bottom: 20px;
+    }
+    #download-status {
+      display: none; margin-top: 12px; padding: 10px 18px;
+      background: #E8F5E9; border-radius: 8px; color: #1A7A40;
+      font-size: 0.88rem; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+  <main class="a-main" style="padding:32px 36px;">
+    <div class="ic-wrap">
+
+      <div class="ic-toolbar">
+        <h2>🎴 生成赛事邀请卡</h2>
+        <button class="ic-btn ic-btn-outline" onclick="window.history.back()">← 返回</button>
+        <button class="ic-btn ic-btn-red" onclick="downloadCard()" id="dl-btn">
+          ⬇️ 下载邀请图片
+        </button>
+      </div>
+
+      <div class="ic-hint">
+        💡 <strong>使用方法：</strong>点击「下载邀请图片」保存PNG文件 →
+        通过<strong>微信</strong>或<strong>Messenger</strong>发给朋友 →
+        朋友用微信<strong>长按图片扫二维码</strong>，或用手机相机扫码 →
+        即可打开安装页面，将掼蛋赛事App添加到手机桌面。
+      </div>
+
+      <!-- 邀请卡（此区域会被截图） -->
+      <div class="ic-preview-wrap">
+        <div id="invite-card-capture">
+          <div class="ic-gold-top"></div>
+          <div class="ic-gold-bottom"></div>
+          <div class="ic-bg-suits">♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣</div>
+
+          <!-- 协会Logo -->
+          <div class="ic-logo-row">
+            <img src="/img/assoc-logo.png" alt="硅谷掼蛋协会" class="ic-logo">
+            <div>
+              <div class="ic-assoc-name">硅 谷 掼 蛋 协 会</div>
+              <div class="ic-assoc-title">网上掼蛋赛事</div>
+              <div class="ic-assoc-en">SILICON VALLEY GUANDAN ASSOCIATION</div>
+            </div>
+          </div>
+
+          <div class="ic-divider"></div>
+
+          <!-- 主标题 -->
+          <div class="ic-main-title">
+            <h2>🎴 立即加入赛事</h2>
+            <p>ONLINE TOURNAMENT · JOIN NOW</p>
+          </div>
+
+          <div class="ic-suits-row">♥ ♦ ♣ ♠</div>
+
+          <!-- 功能标签 -->
+          <div class="ic-features">
+            <span class="ic-feature-tag">🏆 四人掼蛋</span>
+            <span class="ic-feature-tag">🎯 六人掼蛋</span>
+            <span class="ic-feature-tag">📱 手机平板</span>
+            <span class="ic-feature-tag">⚡ 随机参赛</span>
+            <span class="ic-feature-tag">🌏 全球对战</span>
+          </div>
+
+          <!-- 二维码 -->
+          <div class="ic-qr-section">
+            <div class="ic-qr-box">
+              <img src="<%= qrDataUrl %>" alt="扫码安装">
+            </div>
+            <div class="ic-qr-text">
+              <h3>📲 扫码安装赛事App</h3>
+              <ul>
+                <li>微信：长按图片识别二维码</li>
+                <li>相机：直接扫码即可打开</li>
+                <li>安装后图标存至手机桌面</li>
+                <li>支持苹果 · 安卓 · 平板 · 电脑</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- 底部 -->
+          <div class="ic-footer-text">
+            硅谷掼蛋协会 · Silicon Valley Guandan Association<br>
+            <%= installUrl %>
+          </div>
+
+          <div class="ic-gold-bottom"></div>
+        </div>
+      </div>
+
+      <div id="download-status">✅ 图片已下载！请到手机相册或下载文件夹查找「掼蛋赛事邀请卡.png」</div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+async function downloadCard() {
+  var btn = document.getElementById('dl-btn');
+  btn.textContent = '⏳ 生成中...';
+  btn.disabled = true;
+
+  try {
+    var card = document.getElementById('invite-card-capture');
+    var canvas = await html2canvas(card, {
+      scale: 2,          // 高清2倍
+      useCORS: true,
+      backgroundColor: null,
+      logging: false
+    });
+
+    var link = document.createElement('a');
+    link.download = '掼蛋赛事邀请卡.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    document.getElementById('download-status').style.display = 'block';
+  } catch(e) {
+    alert('生成失败，请刷新页面重试');
+  } finally {
+    btn.textContent = '⬇️ 下载邀请图片';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

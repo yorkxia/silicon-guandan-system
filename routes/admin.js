@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
+const QRCode = require('qrcode');
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { requireAuth, requireSuperAdmin } = require('../middleware/auth');
@@ -667,6 +668,22 @@ router.get('/ot-staff/participants/export', requireAuth, requireSuperAdmin, asyn
     await workbook.xlsx.write(res);
     res.end();
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
+});
+
+// ── 邀请卡生成页 ──────────────────────────────────────────
+router.get('/invite-card', requireAuth, async (req, res) => {
+  const baseUrl = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
+  const installUrl = `${baseUrl}/install`;
+  const qrDataUrl = await QRCode.toDataURL(installUrl, {
+    width: 300, margin: 2,
+    color: { dark: '#1a0505', light: '#FFF8F0' }
+  });
+  res.render('admin/invite-card', {
+    user: req.session.user,
+    activePage: 'tournaments',
+    qrDataUrl,
+    installUrl
+  });
 });
 
 module.exports = router;

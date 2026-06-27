@@ -402,4 +402,9 @@ h2{color:#27AE60;}p{color:#555;}small{color:#aaa;}</style></head><body>
   }
 });
 
+// ── PWA 安装落地页 ──────────────────────────────────────────
+router.get('/install', (req, res) => {
+  res.render('install');
+});
+
 module.exports = router;

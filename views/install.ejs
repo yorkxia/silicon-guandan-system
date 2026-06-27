@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>安装掼蛋赛事 App · 硅谷掼蛋协会</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <%- include('partials/pwa-head') %>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #1a0505 0%, #3D0A0A 50%, #1a0505 100%);
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      color: #fff;
+    }
+
+    .inst-page {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 40px 24px 100px;
+      text-align: center;
+    }
+
+    /* Logo */
+    .inst-logo {
+      width: 100px; height: 100px;
+      border-radius: 24px;
+      border: 3px solid rgba(212,172,13,0.7);
+      box-shadow: 0 0 32px rgba(212,172,13,0.3), 0 8px 32px rgba(0,0,0,0.4);
+      object-fit: cover; background: #fff; padding: 3px;
+      margin: 0 auto 20px;
+      display: block;
+    }
+
+    .inst-app-name {
+      font-size: 1.6rem; font-weight: 900;
+      color: #FFE066; letter-spacing: 3px;
+      margin-bottom: 6px;
+      text-shadow: 0 2px 12px rgba(212,172,13,0.4);
+    }
+    .inst-app-sub {
+      font-size: 0.78rem; color: rgba(255,255,255,0.5);
+      letter-spacing: 4px; margin-bottom: 32px;
+    }
+
+    /* 金色分割线 */
+    .inst-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(212,172,13,0.5), transparent);
+      margin: 0 auto 28px;
+    }
+
+    /* 功能标签 */
+    .inst-tags {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      justify-content: center; margin-bottom: 32px;
+    }
+    .inst-tag {
+      padding: 5px 14px; border-radius: 20px;
+      font-size: 0.78rem; font-weight: 600;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(212,172,13,0.3);
+      color: rgba(255,255,255,0.85);
+    }
+
+    /* Android/桌面 安装按钮区 */
+    #android-install-section { display: none; margin-bottom: 24px; }
+    .inst-install-btn {
+      display: block; width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #C0000F, #8B0000);
+      color: #fff; border: none; border-radius: 14px;
+      font-size: 1.1rem; font-weight: 900;
+      letter-spacing: 2px; cursor: pointer;
+      box-shadow: 0 6px 24px rgba(192,0,15,0.45);
+      transition: all 0.25s;
+    }
+    .inst-install-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(192,0,15,0.6);
+    }
+
+    /* 步骤卡片 */
+    .inst-steps-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(212,172,13,0.2);
+      border-radius: 18px;
+      padding: 24px 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .inst-steps-title {
+      font-size: 0.85rem; font-weight: 700;
+      color: #FFE066; letter-spacing: 2px;
+      margin-bottom: 18px; text-align: center;
+    }
+    .inst-step {
+      display: flex; align-items: flex-start;
+      gap: 14px; margin-bottom: 16px;
+    }
+    .inst-step:last-child { margin-bottom: 0; }
+    .inst-step-num {
+      width: 28px; height: 28px; flex-shrink: 0;
+      background: linear-gradient(135deg, #C0000F, #8B0000);
+      border-radius: 50%;
+      font-size: 0.78rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .inst-step-body { flex: 1; }
+    .inst-step-label {
+      font-size: 0.88rem; font-weight: 700;
+      color: #fff; margin-bottom: 3px;
+    }
+    .inst-step-desc {
+      font-size: 0.78rem; color: rgba(255,255,255,0.6);
+      line-height: 1.6;
+    }
+    .inst-step-desc .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 5px; padding: 1px 7px;
+      font-size: 0.8rem;
+    }
+
+    /* 已安装提示 */
+    #standalone-msg {
+      display: none;
+      background: rgba(39,174,96,0.15);
+      border: 1px solid rgba(39,174,96,0.4);
+      border-radius: 14px; padding: 20px;
+      margin-bottom: 24px;
+      font-size: 0.9rem; color: #6EE89A;
+      line-height: 1.8;
+    }
+
+    /* 进入赛事按钮 */
+    .inst-enter-btn {
+      display: block; width: 100%;
+      padding: 15px;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(212,172,13,0.3);
+      border-radius: 14px;
+      font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 2px; cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .inst-enter-btn:hover {
+      background: rgba(255,255,255,0.14);
+      color: #fff; text-decoration: none;
+    }
+
+    /* 底部 */
+    .inst-footer {
+      margin-top: 32px;
+      font-size: 0.7rem; color: rgba(255,255,255,0.25);
+      letter-spacing: 2px; line-height: 2;
+    }
+  </style>
+</head>
+<body>
+<%- include('partials/pwa-install-banner') %>
+
+<div class="inst-page">
+
+  <img src="/img/assoc-logo.png" alt="硅谷掼蛋协会" class="inst-logo">
+  <div class="inst-app-name">🎴 掼蛋赛事</div>
+  <div class="inst-app-sub">SILICON VALLEY GUANDAN ASSOCIATION</div>
+
+  <div class="inst-divider"></div>
+
+  <div class="inst-tags">
+    <span class="inst-tag">🏆 四人掼蛋</span>
+    <span class="inst-tag">🎯 六人掼蛋</span>
+    <span class="inst-tag">⚡ 随机参赛</span>
+    <span class="inst-tag">🌏 全球对战</span>
+    <span class="inst-tag">📱 免费安装</span>
+  </div>
+
+  <!-- 已安装为PWA时显示 -->
+  <div id="standalone-msg">
+    ✅ 已成功安装！<br>
+    掼蛋赛事 App 已在您的桌面上。<br>
+    点击下方按钮立即进入赛事！
+  </div>
+
+  <!-- Android/桌面：一键安装按钮 -->
+  <div id="android-install-section">
+    <button class="inst-install-btn" onclick="pwaInstall()">
+      📲 立即安装到桌面
+    </button>
+    <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:10px;">
+      点击后按提示操作，图标将出现在您的桌面
+    </p>
+  </div>
+
+  <!-- iOS：手动步骤说明 -->
+  <div class="inst-steps-card" id="ios-steps">
+    <div class="inst-steps-title">📲 安装到手机桌面（3步完成）</div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">点击底部分享按钮</div>
+        <div class="inst-step-desc">
+          点击 Safari 底部工具栏的 <span class="badge">⬆️ 分享</span> 按钮
+        </div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">选择「添加到主屏幕」</div>
+        <div class="inst-step-desc">
+          在弹出菜单中找到并点击 <span class="badge">➕ 添加到主屏幕</span>
+        </div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">点击右上角「添加」</div>
+        <div class="inst-step-desc">
+          掼蛋赛事图标出现在桌面，以后直接点击图标即可进入赛事！
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <a href="/ot-staff/tournaments-online" class="inst-enter-btn">
+    🎴 直接进入赛事 →
+  </a>
+
+  <div class="inst-footer">
+    硅谷掼蛋协会 · Silicon Valley Guandan Association<br>
+    silicon-guandan-system.onrender.com
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var isStandalone = window.navigator.standalone ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  if (isStandalone) {
+    document.getElementById('standalone-msg').style.display = 'block';
+    document.getElementById('ios-steps').style.display = 'none';
+    return;
+  }
+
+  /* Android/桌面：监听安装事件，显示安装按钮 */
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    window._pwaPrompt = e;
+    document.getElementById('android-install-section').style.display = 'block';
+    document.getElementById('ios-steps').style.display = 'none';
+  });
+
+  /* iOS：直接显示步骤，底部弹窗已由pwa-head.ejs处理 */
+  if (!isIOS) {
+    /* 非iOS且没有install事件（桌面Firefox等）：显示通用说明 */
+  }
+})();
+</script>
+</body>
+</html>
