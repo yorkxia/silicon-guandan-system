@@ -325,6 +325,104 @@ async function initDB() {
     )
   `);
 
+  // ============================================================
+  // 网上掼蛋对战模块 gdo_* 表（阶段二）
+  // gdo = Guandan Online，与离线计分器 gd_* 表完全独立
+  // ============================================================
+
+  // 玩家身份表：由 localStorage token 驱动，无需注册
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_players (
+      id              SERIAL PRIMARY KEY,
+      player_token    VARCHAR(64) UNIQUE NOT NULL,
+      display_name    VARCHAR(32) NOT NULL DEFAULT '匿名玩家',
+      games_played    INT NOT NULL DEFAULT 0,
+      games_won       INT NOT NULL DEFAULT 0,
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_active_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // 游戏房间表：一个房间对应一场「升级」对局（多轮）
+  // level_team1/2 用整数存级别：2=二，3=三…10=十，11=J，12=Q，13=K，14=A
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_rooms (
+      id            SERIAL PRIMARY KEY,
+      room_code     VARCHAR(8) UNIQUE NOT NULL,
+      game_mode     VARCHAR(4) NOT NULL CHECK (game_mode IN ('4p', '6p')),
+      room_type     VARCHAR(16) NOT NULL DEFAULT 'random'
+                      CHECK (room_type IN ('random', 'private', 'tournament')),
+      status        VARCHAR(16) NOT NULL DEFAULT 'waiting'
+                      CHECK (status IN ('waiting', 'playing', 'finished', 'abandoned')),
+      level_team1   SMALLINT NOT NULL DEFAULT 2,
+      level_team2   SMALLINT NOT NULL DEFAULT 2,
+      round_count   INT NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at    TIMESTAMPTZ,
+      finished_at   TIMESTAMPTZ
+    )
+  `);
+
+  // 座位表：玩家 ↔ 房间对应关系，含队伍、socket、就绪状态
+  // 四人：seat 1-4，team 1={1,3} team 2={2,4}
+  // 六人：seat 1-6，team 1={1,3,5} team 2={2,4,6}
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_seats (
+      id            SERIAL PRIMARY KEY,
+      room_id       INT NOT NULL REFERENCES gdo_rooms(id) ON DELETE CASCADE,
+      player_id     INT NOT NULL REFERENCES gdo_players(id),
+      seat          SMALLINT NOT NULL,
+      team          SMALLINT NOT NULL CHECK (team IN (1, 2)),
+      socket_id     VARCHAR(48),
+      is_ready      BOOLEAN NOT NULL DEFAULT FALSE,
+      is_connected  BOOLEAN NOT NULL DEFAULT TRUE,
+      joined_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (room_id, seat),
+      UNIQUE (room_id, player_id)
+    )
+  `);
+
+  // 局结算表：每轮完成后写入一条，记录完成顺序和升级结果
+  // result_type: '大胜'(头+二同队+3),'小胜'(头+三同队+2),'末胜'(头+末同队+1)
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_rounds (
+      id                SERIAL PRIMARY KEY,
+      room_id           INT NOT NULL REFERENCES gdo_rooms(id) ON DELETE CASCADE,
+      round_number      SMALLINT NOT NULL,
+      finish_order      INT[] NOT NULL DEFAULT '{}',
+      winner_team       SMALLINT CHECK (winner_team IN (1, 2)),
+      result_type       VARCHAR(8),
+      level_delta       SMALLINT,
+      level_team1_after SMALLINT,
+      level_team2_after SMALLINT,
+      started_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      finished_at       TIMESTAMPTZ
+    )
+  `);
+
+  // 匹配队列表：个人随机匹配用，matched 后填入 room_id
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_queue (
+      id            SERIAL PRIMARY KEY,
+      player_id     INT NOT NULL REFERENCES gdo_players(id),
+      player_token  VARCHAR(64) NOT NULL,
+      game_mode     VARCHAR(4) NOT NULL CHECK (game_mode IN ('4p', '6p')),
+      socket_id     VARCHAR(48),
+      status        VARCHAR(16) NOT NULL DEFAULT 'waiting'
+                      CHECK (status IN ('waiting', 'matched', 'cancelled', 'timeout')),
+      queued_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      matched_at    TIMESTAMPTZ,
+      room_id       INT REFERENCES gdo_rooms(id)
+    )
+  `);
+
+  // 索引（幂等：PostgreSQL 支持 CREATE INDEX IF NOT EXISTS）
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_rooms_status   ON gdo_rooms(status)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_seats_room     ON gdo_seats(room_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_rounds_room    ON gdo_rounds(room_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_queue_status   ON gdo_queue(status, game_mode)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_players_token  ON gdo_players(player_token)`);
+
   console.log('✅ Database initialized');
 }
 
