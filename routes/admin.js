@@ -680,7 +680,7 @@ router.get('/invite-card', requireAuth, async (req, res) => {
   });
   res.render('admin/invite-card', {
     user: req.session.user,
-    activePage: 'tournaments',
+    activePage: 'invite-card',
     qrDataUrl,
     installUrl
   });
