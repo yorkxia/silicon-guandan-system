@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>硅谷掼蛋协会 · 网上赛事</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <%- include('partials/pwa-head') %>
+</head>
+<body>
+<%- include('partials/pwa-install-banner') %>
+
+<!-- 简洁公开顶栏（无管理功能） -->
+<header style="display:flex;align-items:center;gap:14px;padding:12px 24px;background:#2C0A0A;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+  <img src="/img/assoc-logo.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" alt="硅谷掼蛋协会">
+  <div style="font-weight:700;font-size:0.95rem;color:#fff;letter-spacing:1px;">
+    硅谷掼蛋协会 · 网上赛事
+    <small style="display:block;font-size:0.68rem;color:rgba(255,255,255,0.5);font-weight:400;letter-spacing:1px;">Silicon Valley Guandan Association</small>
+  </div>
+</header>
+
+<main class="a-main" style="padding:28px 32px;">
+  <%- include('partials/tournaments-online-body', { otBase: '/play' }) %>
+</main>
+</body>
+</html>

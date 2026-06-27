@@ -407,4 +407,17 @@ router.get('/install', (req, res) => {
   res.render('install');
 });
 
+// ── 公开赛事页（无需登录，朋友扫码后直接进入） ──────────────
+router.get('/play', (req, res) => {
+  res.render('play');
+});
+
+router.get('/play/4p', (req, res) => {
+  res.render('play-4p');
+});
+
+router.get('/play/6p', (req, res) => {
+  res.render('play-6p');
+});
+
 module.exports = router;
