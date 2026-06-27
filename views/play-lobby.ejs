@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>掼蛋房间 <%= roomCode %> · 等候大厅</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <%- include('partials/pwa-head') %>
+  <style>
+    body { background: linear-gradient(165deg,#1a0505 0%,#2C0A0A 50%,#1a0505 100%); min-height:100vh; }
+
+    .lobby-wrap { max-width:520px; margin:0 auto; padding:24px 20px 40px; }
+
+    /* 顶栏 */
+    .lobby-top { display:flex; align-items:center; gap:12px; margin-bottom:28px; }
+    .lobby-top img { width:32px; height:32px; border-radius:50%; }
+    .lobby-top-title { flex:1; color:#fff; font-weight:700; font-size:0.9rem; letter-spacing:1px; }
+    .lobby-top-sub { font-size:0.68rem; color:rgba(255,255,255,0.45); }
+    .lobby-back { color:rgba(255,255,255,0.5); font-size:0.82rem; text-decoration:none; padding:6px 12px;
+                  border:1px solid rgba(255,255,255,0.2); border-radius:8px; }
+    .lobby-back:hover { color:#fff; border-color:rgba(255,255,255,0.4); }
+
+    /* 房间号牌 */
+    .room-code-box {
+      text-align:center; background:rgba(255,255,255,0.05);
+      border:1px solid rgba(212,172,13,0.3); border-radius:18px; padding:22px 24px 18px;
+      margin-bottom:20px;
+    }
+    .room-code-label { font-size:0.72rem; color:rgba(212,172,13,0.7); letter-spacing:4px; margin-bottom:8px; }
+    .room-code-value { font-size:2.8rem; font-weight:900; color:#FFE066; letter-spacing:12px;
+                       text-shadow:0 2px 16px rgba(212,172,13,0.5); }
+    .room-code-copy { margin-top:12px; display:inline-flex; align-items:center; gap:6px;
+                      padding:7px 18px; border-radius:20px; background:rgba(212,172,13,0.15);
+                      border:1px solid rgba(212,172,13,0.3); color:#FFE066; font-size:0.8rem;
+                      cursor:pointer; }
+    .room-code-copy:hover { background:rgba(212,172,13,0.25); }
+
+    /* 座位区 */
+    .seats-title { color:rgba(255,255,255,0.6); font-size:0.78rem; letter-spacing:3px;
+                   margin-bottom:14px; text-align:center; }
+    .seats-grid { display:grid; gap:10px; margin-bottom:22px; }
+    .seat-row {
+      display:flex; align-items:center; gap:12px;
+      background:rgba(255,255,255,0.06); border-radius:12px; padding:12px 16px;
+      border:1px solid rgba(255,255,255,0.08);
+      transition:all 0.3s;
+    }
+    .seat-row.team1 { border-left:3px solid #C0000F; }
+    .seat-row.team2 { border-left:3px solid #0055BB; }
+    .seat-row.filled { background:rgba(255,255,255,0.10); }
+    .seat-num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center;
+                justify-content:center; font-size:0.75rem; font-weight:700; flex-shrink:0;
+                background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); }
+    .seat-row.team1 .seat-num { background:rgba(192,0,15,0.2); color:#F08080; }
+    .seat-row.team2 .seat-num { background:rgba(0,85,187,0.2); color:#80A8E8; }
+    .seat-player { flex:1; }
+    .seat-name { font-size:0.9rem; font-weight:700; color:#fff; }
+    .seat-empty { font-size:0.85rem; color:rgba(255,255,255,0.3); font-style:italic; }
+    .seat-team-tag { font-size:0.65rem; color:rgba(255,255,255,0.4); letter-spacing:1px; margin-top:2px; }
+    .seat-ready { font-size:0.75rem; padding:3px 10px; border-radius:10px; flex-shrink:0; }
+    .seat-ready.yes { background:rgba(76,175,80,0.2); color:#80D880; border:1px solid rgba(76,175,80,0.3); }
+    .seat-ready.no  { background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.3); border:1px solid rgba(255,255,255,0.1); }
+
+    /* 操作按钮 */
+    .lobby-actions { display:flex; flex-direction:column; gap:12px; }
+    .btn-ready {
+      width:100%; padding:16px; border-radius:14px; border:none; cursor:pointer;
+      font-size:1rem; font-weight:900; letter-spacing:3px; color:#fff;
+      background:linear-gradient(135deg,#C0000F,#8B0000);
+      box-shadow:0 4px 18px rgba(192,0,15,0.4);
+      transition:all 0.25s;
+    }
+    .btn-ready:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(192,0,15,0.5); }
+    .btn-ready:disabled { background:#555; box-shadow:none; cursor:default; transform:none; }
+
+    /* 状态条 */
+    .lobby-status {
+      text-align:center; padding:14px; border-radius:12px;
+      background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+      color:rgba(255,255,255,0.6); font-size:0.85rem; line-height:1.7;
+    }
+    .lobby-status.all-ready { background:rgba(76,175,80,0.1); border-color:rgba(76,175,80,0.3); color:#80D880; }
+    .lobby-status.starting  { background:rgba(212,172,13,0.1); border-color:rgba(212,172,13,0.3); color:#FFE066; }
+
+    /* 连接指示 */
+    .conn-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px; }
+    .conn-dot.on  { background:#4CAF50; box-shadow:0 0 6px #4CAF50; }
+    .conn-dot.off { background:#f44; }
+
+    @media(max-width:500px){ .room-code-value { font-size:2.2rem; letter-spacing:8px; } }
+  </style>
+</head>
+<body>
+<%- include('partials/pwa-install-banner') %>
+
+<div class="lobby-wrap">
+
+  <!-- 顶栏 -->
+  <div class="lobby-top">
+    <img src="/img/assoc-logo.png" alt="">
+    <div class="lobby-top-title">
+      硅谷掼蛋协会 · 等候大厅
+      <div class="lobby-top-sub">Silicon Valley Guandan Association</div>
+    </div>
+    <a href="/play" class="lobby-back">← 返回</a>
+  </div>
+
+  <!-- 房间号 -->
+  <div class="room-code-box">
+    <div class="room-code-label">房 间 号 码</div>
+    <div class="room-code-value" id="room-code-display"><%= roomCode %></div>
+    <div class="room-code-copy" onclick="copyCode()">📋 复制房间号</div>
+  </div>
+
+  <!-- 座位列表（由 JS 动态填充） -->
+  <div class="seats-title">玩家座位 · 等待就绪</div>
+  <div class="seats-grid" id="seats-grid">
+    <!-- 由 renderSeats() 填充 -->
+    <div style="text-align:center;color:rgba(255,255,255,0.3);padding:20px;">连接中...</div>
+  </div>
+
+  <!-- 操作区 -->
+  <div class="lobby-actions">
+    <button class="btn-ready" id="btn-ready" onclick="markReady()" disabled>
+      ✋ 准备就绪
+    </button>
+    <div class="lobby-status" id="lobby-status">
+      <span class="conn-dot off" id="conn-dot"></span>
+      正在连接服务器...
+    </div>
+  </div>
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+var ROOM_CODE = '<%= roomCode %>';
+var MODE      = '<%= gameMode %>';
+var NEED      = MODE === '6p' ? 6 : 4;
+
+/* 玩家身份（来自 localStorage） */
+var MY_TOKEN = localStorage.getItem('gd-token') || '';
+var MY_NAME  = localStorage.getItem('gd-name')  || '匿名玩家';
+var myReady  = false;
+
+var socket = io({ transports: ['websocket','polling'] });
+
+socket.on('connect', function() {
+  setStatus('<span class="conn-dot on"></span>已连接 · 正在进入房间...');
+  socket.emit('room:join', { token: MY_TOKEN, name: MY_NAME, roomCode: ROOM_CODE });
+});
+
+socket.on('disconnect', function() {
+  setStatus('<span class="conn-dot off"></span>连接断开，尝试重连中...');
+});
+
+socket.on('room:joined', function(d) {
+  renderState(d.state);
+});
+
+socket.on('room:update', function(d) {
+  renderState(d.state);
+});
+
+socket.on('room:error', function(d) {
+  setStatus('❌ ' + d.message);
+});
+
+socket.on('game:starting', function() {
+  setStatus('🎴 所有玩家就绪！游戏即将开始...', 'starting');
+  document.getElementById('btn-ready').disabled = true;
+  /* Phase 5 开发完成后在此跳转到游戏页面 */
+  /* setTimeout(function(){ location.href = '/play/game/' + ROOM_CODE; }, 2000); */
+});
+
+function renderState(state) {
+  if (!state) return;
+  var room  = state.room;
+  var seats = state.seats;
+  var grid  = document.getElementById('seats-grid');
+  var html  = '';
+
+  for (var i = 1; i <= NEED; i++) {
+    var s = seats.find(function(x){ return x.seat === i; });
+    var teamClass = (i % 2 === 1) ? 'team1' : 'team2';
+    var teamLabel = (i % 2 === 1) ? '队伍甲' : '队伍乙';
+    if (s) {
+      var isMe = s.player_token === MY_TOKEN;
+      var rdyClass = s.is_ready ? 'yes' : 'no';
+      var rdyText  = s.is_ready ? '✅ 已就绪' : '等待中';
+      html += '<div class="seat-row ' + teamClass + ' filled">' +
+        '<div class="seat-num">' + i + '</div>' +
+        '<div class="seat-player">' +
+          '<div class="seat-name">' + esc(s.display_name) + (isMe ? ' <span style="color:#FFE066;font-size:0.7rem;">（我）</span>' : '') + '</div>' +
+          '<div class="seat-team-tag">' + teamLabel + '</div>' +
+        '</div>' +
+        '<div class="seat-ready ' + rdyClass + '">' + rdyText + '</div>' +
+      '</div>';
+      if (isMe) myReady = s.is_ready;
+    } else {
+      html += '<div class="seat-row ' + teamClass + '">' +
+        '<div class="seat-num">' + i + '</div>' +
+        '<div class="seat-player">' +
+          '<div class="seat-empty">等待玩家加入...</div>' +
+          '<div class="seat-team-tag">' + teamLabel + '</div>' +
+        '</div>' +
+      '</div>';
+    }
+  }
+  grid.innerHTML = html;
+
+  var filled   = seats.length;
+  var allReady = filled === NEED && seats.every(function(s){ return s.is_ready; });
+
+  if (allReady) {
+    setStatus('🎴 所有玩家就绪！等待游戏开始...', 'all-ready');
+  } else {
+    setStatus('<span class="conn-dot on"></span>已连接 · ' + filled + '/' + NEED + ' 人 · 等待就绪');
+  }
+
+  var readyBtn = document.getElementById('btn-ready');
+  readyBtn.disabled = (filled < NEED || myReady);
+  if (myReady) readyBtn.textContent = '✅ 已就绪';
+}
+
+function markReady() {
+  socket.emit('room:ready', { roomCode: ROOM_CODE });
+  document.getElementById('btn-ready').disabled = true;
+  document.getElementById('btn-ready').textContent = '⏳ 确认中...';
+}
+
+function setStatus(html, cls) {
+  var el = document.getElementById('lobby-status');
+  el.innerHTML = html;
+  el.className = 'lobby-status' + (cls ? ' ' + cls : '');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(ROOM_CODE).then(function(){
+    var el = document.querySelector('.room-code-copy');
+    el.textContent = '✅ 已复制！';
+    setTimeout(function(){ el.innerHTML = '📋 复制房间号'; }, 2000);
+  }).catch(function(){
+    prompt('请复制此房间号：', ROOM_CODE);
+  });
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>

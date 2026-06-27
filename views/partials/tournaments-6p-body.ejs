@@ -254,7 +254,7 @@
 <div class="gd6-grid">
 
   <!-- 1. 个人随机参赛 -->
-  <a href="#" class="gd6-card gd6-card-1" onclick="return false;">
+  <a href="#" class="gd6-card gd6-card-1" onclick="openQueue();return false;">
     <div class="gd6-card-head">
       <div class="gd6-icon-bg">🎲</div>
       <div class="gd6-mode-num">模式 01 · MODE 01</div>
@@ -276,7 +276,7 @@
   </a>
 
   <!-- 2. 社交/家庭/朋友开房 -->
-  <a href="#" class="gd6-card gd6-card-2" onclick="return false;">
+  <a href="#" class="gd6-card gd6-card-2" onclick="openRoom();return false;">
     <div class="gd6-card-head">
       <div class="gd6-icon-bg">🏠</div>
       <div class="gd6-mode-num">模式 02 · MODE 02</div>
@@ -321,6 +321,117 @@
 
 </div>
 
-<div class="gd6-hint">
-  💡 <strong>温馨提示：</strong>以上三种赛事模式功能正在开发中，敬请期待。点击按钮后暂无跳转，后续版本将逐步开放。
+<!-- 随机匹配等候叠加层 -->
+<div id="overlay-queue" style="display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(145deg,#2C0A0A,#1a0505);border:1px solid rgba(212,172,13,0.3);
+              border-radius:24px;padding:40px 36px;max-width:360px;width:90%;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:16px;" id="q-spinner">⏳</div>
+    <div style="font-size:1.1rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:8px;">正在匹配对手</div>
+    <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);margin-bottom:20px;">六人掼蛋 · 随机匹配</div>
+    <div style="font-size:2rem;font-weight:900;color:#fff;margin-bottom:6px;" id="q-timer">0</div>
+    <div style="font-size:0.75rem;color:rgba(255,255,255,0.35);margin-bottom:28px;">秒</div>
+    <div style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-bottom:24px;" id="q-msg">正在寻找其他玩家...</div>
+    <button onclick="cancelQueue()" style="padding:10px 28px;border-radius:10px;border:1px solid rgba(255,100,80,0.5);
+      background:rgba(255,100,80,0.12);color:#F08080;font-size:0.88rem;cursor:pointer;">✖ 取消匹配</button>
+  </div>
 </div>
+
+<!-- 亲友开房对话框 -->
+<div id="overlay-room" style="display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(145deg,#0a1a2C,#05101a);border:1px solid rgba(39,174,96,0.3);
+              border-radius:24px;padding:36px 32px;max-width:380px;width:90%;">
+    <div style="font-size:1.1rem;font-weight:900;color:#80D4A8;letter-spacing:2px;margin-bottom:24px;text-align:center;">
+      🏠 亲友开房 · 六人掼蛋
+    </div>
+    <button onclick="doCreateRoom()" style="width:100%;padding:14px;border-radius:12px;border:none;
+      background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;font-size:0.95rem;
+      font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:16px;">✨ 创建新房间</button>
+    <div style="text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;margin-bottom:16px;">— 或者加入已有房间 —</div>
+    <div style="display:flex;gap:10px;">
+      <input id="room-code-input" type="text" maxlength="6" placeholder="输入房间号（如 AB1234）"
+        style="flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(39,174,96,0.4);
+        background:rgba(255,255,255,0.06);color:#fff;font-size:0.9rem;letter-spacing:2px;
+        text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      <button onclick="doJoinRoom()" style="padding:12px 18px;border-radius:10px;border:none;
+        background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;font-weight:700;cursor:pointer;">加入</button>
+    </div>
+    <div id="room-msg" style="margin-top:12px;font-size:0.82rem;color:#F08080;min-height:20px;text-align:center;"></div>
+    <button onclick="closeRoom()" style="display:block;width:100%;margin-top:20px;padding:10px;
+      border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;
+      color:rgba(255,255,255,0.4);font-size:0.85rem;cursor:pointer;">取消</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/gd-socket.js"></script>
+<script>
+var GD_MODE = '6p';
+var qTimer = null, qSec = 0;
+var spinners = ['⏳','🔄','⚡','🎲'];
+
+function openQueue() {
+  document.getElementById('overlay-queue').style.display = 'flex';
+  qSec = 0;
+  document.getElementById('q-timer').textContent = '0';
+  qTimer = setInterval(function(){
+    qSec++;
+    document.getElementById('q-timer').textContent = qSec;
+    document.getElementById('q-spinner').textContent = spinners[qSec % spinners.length];
+  }, 1000);
+  function tryJoin() {
+    if (window.gdSocket && window.gdSocket.connected) {
+      window.gdSocket.emit('queue:join', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
+    } else { setTimeout(tryJoin, 300); }
+  }
+  tryJoin();
+}
+function cancelQueue() {
+  clearInterval(qTimer);
+  document.getElementById('overlay-queue').style.display = 'none';
+  if (window.gdSocket) window.gdSocket.emit('queue:cancel', { token: window.gdGetToken() });
+}
+function openRoom() { document.getElementById('overlay-room').style.display = 'flex'; }
+function closeRoom() { document.getElementById('overlay-room').style.display = 'none'; }
+function doCreateRoom() {
+  setRoomMsg('创建中...');
+  if (window.gdSocket && window.gdSocket.connected)
+    window.gdSocket.emit('room:create', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
+  else setRoomMsg('连接中，请稍候重试');
+}
+function doJoinRoom() {
+  var code = document.getElementById('room-code-input').value.trim().toUpperCase();
+  if (code.length < 4) return setRoomMsg('请输入正确的房间号');
+  if (window.gdSocket && window.gdSocket.connected)
+    window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
+  else setRoomMsg('连接中，请稍候重试');
+}
+function setRoomMsg(msg) { document.getElementById('room-msg').textContent = msg; }
+
+document.addEventListener('DOMContentLoaded', function() {
+  function attachEvents() {
+    if (!window.gdSocket) { setTimeout(attachEvents, 300); return; }
+    window.gdSocket.on('match:found', function(d) {
+      clearInterval(qTimer);
+      document.getElementById('q-msg').textContent = '🎉 匹配成功！进入房间...';
+      setTimeout(function(){ location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE; }, 800);
+    });
+    window.gdSocket.on('queue:error', function(d) {
+      clearInterval(qTimer);
+      document.getElementById('q-msg').textContent = '❌ ' + d.message;
+    });
+    window.gdSocket.on('room:already', function(d) {
+      location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE;
+    });
+    window.gdSocket.on('room:joined', function(d) {
+      closeRoom();
+      location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE;
+    });
+    window.gdSocket.on('room:error', function(d) { setRoomMsg('❌ ' + d.message); });
+  }
+  attachEvents();
+});
+</script>
