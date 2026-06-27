@@ -512,6 +512,15 @@ router.get('/tournaments-online', requireAuth, (req, res) => {
   });
 });
 
+router.get('/tournaments-4p', requireAuth, (req, res) => {
+  res.render('admin/tournaments-4p', {
+    user: req.session.user,
+    activePage: 'tournaments',
+    success: req.flash('success'),
+    error: req.flash('error')
+  });
+});
+
 router.get('/tournaments-6p', requireAuth, (req, res) => {
   res.render('admin/tournaments-6p', {
     user: req.session.user,

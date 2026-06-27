@@ -47,6 +47,10 @@ router.get('/tournaments-online', requireOtStaffAuth, (req, res) => {
   res.render('ot-staff/tournaments-online', { otStaff: req.session.otStaff });
 });
 
+router.get('/tournaments-4p', requireOtStaffAuth, (req, res) => {
+  res.render('ot-staff/tournaments-4p', { otStaff: req.session.otStaff });
+});
+
 router.get('/tournaments-6p', requireOtStaffAuth, (req, res) => {
   res.render('ot-staff/tournaments-6p', { otStaff: req.session.otStaff });
 });
