@@ -420,6 +420,10 @@ router.get('/play/6p', (req, res) => {
   res.render('play-6p');
 });
 
+/* tournaments-online-body 的链接格式是 otBase + /tournaments-4p|6p */
+router.get('/play/tournaments-4p', (req, res) => res.redirect('/play/4p'));
+router.get('/play/tournaments-6p', (req, res) => res.redirect('/play/6p'));
+
 router.get('/play/lobby/:code', (req, res) => {
   const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) return res.redirect('/play');
