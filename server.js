@@ -1,9 +1,11 @@
 require('dotenv').config();
+const http = require('http');
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
 const helmet = require('helmet');
 const path = require('path');
+const { Server } = require('socket.io');
 const { initDB } = require('./db/init');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
@@ -11,6 +13,10 @@ const guandanRoutes = require('./routes/guandan');
 const otStaffRoutes = require('./routes/otStaff');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.set('view engine', 'ejs');
@@ -42,13 +48,17 @@ app.use('/admin', adminRoutes);
 app.use('/guandan', guandanRoutes);
 app.use('/ot-staff', otStaffRoutes);
 
+/* Socket.io 事件处理 */
+require('./socket/index')(io);
+
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`\n✅ 掼蛋比赛系统已启动 | Guandan Tournament System running`);
     console.log(`   访问地址 URL: http://localhost:${PORT}`);
     console.log(`   管理后台 Admin: http://localhost:${PORT}/admin/login`);
     console.log(`   掼蛋计分器 Game:   http://localhost:${PORT}/guandan`);
+    console.log(`   网上赛事入口: http://localhost:${PORT}/play`);
     console.log(`   默认账号 Default: admin / Admin2025!`);
     console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ set' : '❌ NOT SET'}`);
     console.log(`   EMAIL_FROM: ${process.env.EMAIL_FROM || '(not set)'}\n`);
