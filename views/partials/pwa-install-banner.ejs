@@ -1,0 +1,108 @@
+<%# PWA 安装横幅 — 在 <body> 顶部 include，支持 Android/桌面 和 iOS 两套提示 %>
+
+<style>
+  /* ── Android / 桌面 安装横幅 ── */
+  #pwa-install-banner {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px;
+    background: linear-gradient(135deg, #1a0505, #2C0A0A);
+    color: #fff;
+    font-size: 0.83rem;
+    position: relative;
+    z-index: 9999;
+  }
+  #pwa-install-banner img {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(212,172,13,0.5);
+    flex-shrink: 0;
+  }
+  #pwa-install-banner .pwa-text { flex: 1; line-height: 1.5; }
+  #pwa-install-banner .pwa-text strong { color: #FFE066; }
+  #pwa-install-banner .pwa-text small { color: rgba(255,255,255,0.65); font-size: 0.75rem; }
+  #pwa-install-banner .pwa-btn-install {
+    background: linear-gradient(135deg, #C0000F, #8B0000);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 16px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    letter-spacing: 1px;
+  }
+  #pwa-install-banner .pwa-btn-install:hover { background: linear-gradient(135deg, #D0101F, #A00010); }
+  #pwa-install-banner .pwa-btn-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  #pwa-install-banner .pwa-btn-close:hover { color: #fff; }
+
+  /* ── iOS 安装引导提示 ── */
+  #ios-install-tip {
+    display: none;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #1a0505, #2C0A0A);
+    color: #fff;
+    font-size: 0.82rem;
+    position: relative;
+    z-index: 9999;
+  }
+  #ios-install-tip img {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid rgba(212,172,13,0.5);
+    flex-shrink: 0;
+  }
+  #ios-install-tip .ios-text { flex: 1; line-height: 1.7; }
+  #ios-install-tip .ios-text strong { color: #FFE066; display: block; margin-bottom: 2px; }
+  #ios-install-tip .ios-share-icon {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.9rem;
+  }
+  #ios-install-tip .pwa-btn-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  #ios-install-tip .pwa-btn-close:hover { color: #fff; }
+</style>
+
+<!-- Android / 桌面：安装提示横幅 -->
+<div id="pwa-install-banner">
+  <img src="/img/assoc-logo.png" alt="掼蛋赛事">
+  <div class="pwa-text">
+    <strong>📲 安装掼蛋赛事 App</strong><br>
+    <small>添加到桌面，随时一键进入赛事 · Add to Home Screen</small>
+  </div>
+  <button class="pwa-btn-install" onclick="pwaInstall()">安装</button>
+  <button class="pwa-btn-close" onclick="pwaDismiss()" title="关闭">✕</button>
+</div>
+
+<!-- iOS：手动引导提示 -->
+<div id="ios-install-tip">
+  <img src="/img/assoc-logo.png" alt="掼蛋赛事">
+  <div class="ios-text">
+    <strong>📲 添加到主屏幕 · Add to Home Screen</strong>
+    点击底部 <span class="ios-share-icon">⬆️ 分享</span> 按钮，
+    然后选择「添加到主屏幕」，即可在桌面一键打开赛事！
+  </div>
+  <button class="pwa-btn-close" onclick="iosInstallDismiss()" title="关闭">✕</button>
+</div>

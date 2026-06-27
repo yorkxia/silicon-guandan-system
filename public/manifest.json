@@ -1,26 +1,57 @@
 {
-  "name": "硅谷掼蛋协会-智能电子掼蛋计分器",
-  "short_name": "掼蛋计分器",
-  "description": "硅谷掼蛋协会专业智能电子计分器 · 升级追踪 · 赛事记录 · 屏幕常亮",
-  "start_url": "/guandan",
+  "name": "硅谷掼蛋协会 · 网上赛事",
+  "short_name": "掼蛋赛事",
+  "description": "硅谷掼蛋协会网上赛事平台 · 四人掼蛋 · 六人掼蛋 · 随机参赛 · Silicon Valley Guandan Association",
+  "start_url": "/ot-staff/tournaments-online",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#1a0505",
-  "theme_color": "#D4AC0D",
+  "theme_color": "#C0000F",
   "lang": "zh-CN",
   "icons": [
+    {
+      "src": "/img/assoc-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/assoc-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
     {
       "src": "/img/guandan-icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "四人掼蛋赛事",
+      "short_name": "四人赛事",
+      "description": "进入四人掼蛋网上赛事",
+      "url": "/ot-staff/tournaments-4p",
+      "icons": [{ "src": "/img/assoc-logo.png", "sizes": "192x192" }]
     },
     {
-      "src": "/img/guandan-icon.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "name": "六人掼蛋赛事",
+      "short_name": "六人赛事",
+      "description": "进入六人掼蛋网上赛事",
+      "url": "/ot-staff/tournaments-6p",
+      "icons": [{ "src": "/img/assoc-logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "掼蛋计分器",
+      "short_name": "计分器",
+      "description": "硅谷掼蛋协会智能电子计分器",
+      "url": "/guandan",
+      "icons": [{ "src": "/img/guandan-icon.png", "sizes": "192x192" }]
     }
-  ]
+  ],
+  "categories": ["games", "sports"],
+  "prefer_related_applications": false
 }

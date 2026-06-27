@@ -1,0 +1,87 @@
+<%# PWA meta tags + Service Worker 注册 + 安装提示 %>
+<%# 在所有 ot-staff 页面的 <head> 末尾 include 此文件 %>
+
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="掼蛋赛事">
+<meta name="theme-color" content="#C0000F">
+<meta name="msapplication-TileColor" content="#C0000F">
+<meta name="msapplication-TileImage" content="/img/assoc-logo.png">
+
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/img/assoc-logo.png">
+<link rel="apple-touch-icon" sizes="152x152" href="/img/assoc-logo.png">
+<link rel="apple-touch-icon" sizes="167x167" href="/img/assoc-logo.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/img/assoc-logo.png">
+<link rel="icon" type="image/png" href="/img/assoc-logo.png">
+
+<script>
+/* ── Service Worker 注册 ── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+  });
+}
+
+/* ── PWA 安装提示横幅 ── */
+var _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _pwaPrompt = e;
+  var banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.style.display = 'flex';
+});
+
+function pwaInstall() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(function() {
+    _pwaPrompt = null;
+    var banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+  });
+}
+
+function pwaDismiss() {
+  var banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.style.display = 'none';
+  /* 记住用户关闭，7天内不再显示 */
+  localStorage.setItem('pwa-dismissed', Date.now());
+}
+
+/* 检查7天内是否已关闭过 */
+window.addEventListener('DOMContentLoaded', function() {
+  var dismissed = localStorage.getItem('pwa-dismissed');
+  if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 3600 * 1000) {
+    var banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+  }
+  /* 若已安装为PWA则隐藏横幅 */
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    var banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.style.display = 'none';
+  }
+});
+</script>
+
+<%# iOS 安装引导提示（iOS不支持beforeinstallprompt，需手动引导） %>
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isStandalone = window.navigator.standalone;
+  var dismissed = localStorage.getItem('ios-pwa-dismissed');
+  var recentlyDismissed = dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 3600 * 1000;
+
+  if (isIOS && !isStandalone && !recentlyDismissed) {
+    var tip = document.getElementById('ios-install-tip');
+    if (tip) tip.style.display = 'flex';
+  }
+});
+
+function iosInstallDismiss() {
+  var tip = document.getElementById('ios-install-tip');
+  if (tip) tip.style.display = 'none';
+  localStorage.setItem('ios-pwa-dismissed', Date.now());
+}
+</script>
