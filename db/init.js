@@ -430,6 +430,11 @@ async function initDB() {
   await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS current_hands_json JSONB`);
   await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS turn_state_json JSONB`);
 
+  /* 六人赛事迁移：A级连败计数 + 进贡待处理信息 */
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS a_fails_team1 SMALLINT NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS a_fails_team2 SMALLINT NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS tribute_json JSONB`);
+
   console.log('✅ Database initialized');
 }
 

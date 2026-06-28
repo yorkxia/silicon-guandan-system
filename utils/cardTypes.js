@@ -155,4 +155,172 @@ function removeCards(hand, played) {
   return h;
 }
 
-module.exports = { detectType, canBeat, isBomb, settle, levelName, removeCards };
+/* ══════════════════════════════════════════════════════
+ * 六人掼蛋 · 扩展牌型体系
+ * ══════════════════════════════════════════════════════ */
+
+/* ── 6P 牌型识别 ── */
+function detectType6p(cards) {
+  if (!cards || cards.length === 0) return null;
+  const n  = cards.length;
+  const bj = cards.filter(c => c === 'BJ').length;
+  const lj = cards.filter(c => c === 'LJ').length;
+
+  /* 天王炸：3大王 + 3小王 */
+  if (n === 6 && bj === 3 && lj === 3)
+    return { type: 'joker_bomb', value: 99999, label: '天王炸' };
+
+  /* 大王三张炸 */
+  if (n === 3 && bj === 3)
+    return { type: 'triple_bj', value: 160, label: '大王三炸' };
+
+  /* 小王三张炸 */
+  if (n === 3 && lj === 3)
+    return { type: 'triple_lj', value: 150, label: '小王三炸' };
+
+  /* Joker 不能进其他牌型 */
+  if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
+
+  /* 以下与四人版相同 */
+  const rv    = cards.map(rankVal).sort((a, b) => b - a);
+  const suits = cards.map(c => c[0]);
+
+  if (n >= 4 && rv.every(r => r === rv[0])) {
+    const uniqSuits = [...new Set(suits)];
+    if (uniqSuits.length === 1)
+      return { type: 'flush_bomb', size: n, value: rv[0], label: `${n}张同花炸` };
+    return { type: 'bomb', size: n, value: rv[0], label: `${n}张炸弹` };
+  }
+
+  if (n === 1) return { type: 'single', value: rv[0], label: '单张' };
+  if (n === 2 && rv[0] === rv[1]) return { type: 'pair', value: rv[0], label: '对子' };
+  if (n === 3 && rv.every(r => r === rv[0])) return { type: 'triple', value: rv[0], label: '三张' };
+
+  if (n === 5) {
+    const fh = findFullHouse(rv);
+    if (fh) return { type: 'fullhouse', value: fh, label: '三带二' };
+  }
+
+  if (n >= 6 && n % 2 === 0) {
+    const ds = findDoubleStraight(rv);
+    if (ds !== null) return { type: 'dbl_straight', size: n / 2, value: ds, label: `${n / 2}连对` };
+  }
+
+  if (n >= 5) {
+    const uniqRv = [...new Set(rv)].sort((a, b) => b - a);
+    if (uniqRv.length === n && isConsec(uniqRv)) {
+      const uniqSuits = [...new Set(suits)];
+      if (uniqSuits.length === 1)
+        return { type: 'flush_straight', size: n, value: uniqRv[0], label: `${n}张同花顺` };
+      return { type: 'straight', size: n, value: uniqRv[0], label: `${n}张顺子` };
+    }
+  }
+
+  return null;
+}
+
+/* ── 6P 炸弹强度评分 ──
+   层级（低→高）：
+   普通4头炸(V=2..14) < 同花4头炸(102..114) < 3小王(150) < 3大王(160)
+   < 普通5头炸(200+V) < 同花5头炸(300+V) < 普通6头炸(400+V) < ...
+   < 同花顺(1e6+) < 天王炸(1e8)
+*/
+function bombScore6p(pt) {
+  if (pt.type === 'joker_bomb')     return 1e8;
+  if (pt.type === 'flush_straight') return 1e6 + pt.size * 100 + pt.value;
+  if (pt.type === 'triple_bj')      return 160;
+  if (pt.type === 'triple_lj')      return 150;
+  if (pt.type === 'flush_bomb')     return (pt.size - 4) * 200 + 100 + pt.value;
+  if (pt.type === 'bomb')           return (pt.size - 4) * 200 + pt.value;
+  return 0;
+}
+
+/* ── 6P 炸弹判断 ── */
+function isBomb6p(pt) {
+  return pt && ['bomb','flush_bomb','flush_straight','joker_bomb','triple_bj','triple_lj'].includes(pt.type);
+}
+
+/* ── 6P 压牌判断 ── */
+function canBeat6p(newPt, curPt) {
+  if (!curPt) return !!newPt;
+  if (!newPt)  return false;
+  if (newPt.type === 'joker_bomb') return true;
+  if (curPt.type === 'joker_bomb') return false;
+  if (isBomb6p(newPt) && !isBomb6p(curPt)) return true;
+  if (!isBomb6p(newPt) && isBomb6p(curPt)) return false;
+  if (!isBomb6p(newPt)) {
+    if (newPt.type !== curPt.type) return false;
+    if (newPt.size !== undefined && newPt.size !== curPt.size) return false;
+    return newPt.value > curPt.value;
+  }
+  return bombScore6p(newPt) > bombScore6p(curPt);
+}
+
+/* ── 6P 结算 ──────────────────────────────────────────
+   finishOrder[0]=头游 .. finishOrder[5]=末游
+   从末游往上数被抓的对方人数：
+     6th=己方队友 → +1
+     5th=己方队友，6th=对方 → +2
+     4th=己方队友，5th+6th=对方 → +3
+     4th+5th+6th=全对方 → +4
+*/
+function settle6p(finishOrder, lv1, lv2) {
+  const headTeam = finishOrder[0].team;
+  let delta, resultType;
+
+  if (finishOrder[5].team === headTeam) {
+    delta = 1; resultType = '末胜';
+  } else if (finishOrder[4].team === headTeam) {
+    delta = 2; resultType = '小胜';
+  } else if (finishOrder[3].team === headTeam) {
+    delta = 3; resultType = '大胜';
+  } else {
+    delta = 4; resultType = '全胜';
+  }
+
+  const winnerTeam = headTeam;
+  const newLv1 = winnerTeam === 1 ? Math.min(lv1 + delta, 14) : lv1;
+  const newLv2 = winnerTeam === 2 ? Math.min(lv2 + delta, 14) : lv2;
+  return { resultType, winnerTeam, delta, newLv1, newLv2 };
+}
+
+/* ── 6P 进贡计算 ──────────────────────────────────────
+   对方在4th/5th/6th的玩家需进贡。
+   进贡对象：头游方按完成顺序依次接收（头游拿最大）。
+   返回 { giverIds, receiverIds, headPlayerId, tributeLeaderId }
+     tributeLeaderId：给头游进贡的人（还贡后由其先出牌）
+*/
+function computeTribute6p(finishOrder, headTeam) {
+  const givers    = [];
+  const receivers = [];
+
+  /* 找对方在4th/5th/6th的玩家（indices 3,4,5） */
+  for (let i = 3; i <= 5; i++) {
+    if (finishOrder[i].team !== headTeam) givers.push(finishOrder[i]);
+  }
+
+  /* 头游方按完成顺序 */
+  const headTeamOrder = finishOrder.filter(f => f.team === headTeam);
+
+  /* 按接收方数量配对（givers已按完成顺序排列，接收方也按顺序） */
+  for (let i = 0; i < givers.length; i++) {
+    if (headTeamOrder[i]) receivers.push(headTeamOrder[i]);
+  }
+
+  return {
+    headPlayerId:    headTeamOrder[0] ? headTeamOrder[0].playerId : null,
+    tributeLeaderId: givers.length > 0 && receivers[0]?.playerId === headTeamOrder[0]?.playerId
+                       ? givers[0].playerId : (givers[0]?.playerId || null),
+    exchanges: givers.map((g, i) => ({
+      giverId:    g.playerId,
+      receiverId: receivers[i] ? receivers[i].playerId : null,
+      giverSeat:  g.seat,
+      receiverSeat: receivers[i] ? receivers[i].seat : null
+    })).filter(e => e.receiverId)
+  };
+}
+
+module.exports = {
+  detectType, canBeat, isBomb, settle, levelName, removeCards,
+  detectType6p, canBeat6p, isBomb6p, bombScore6p, settle6p, computeTribute6p
+};

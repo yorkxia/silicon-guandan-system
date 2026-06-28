@@ -331,10 +331,10 @@
               border-radius:24px;padding:40px 36px;max-width:360px;width:90%;text-align:center;">
     <div style="font-size:3rem;margin-bottom:16px;" id="q-spinner">⏳</div>
     <div style="font-size:1.1rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:8px;">
-      正在匹配对手
+      正在进入游戏
     </div>
     <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);letter-spacing:1px;margin-bottom:20px;">
-      四人掼蛋 · 随机匹配
+      四人掼蛋 · 随机参赛
     </div>
     <div style="font-size:2rem;font-weight:900;color:#fff;margin-bottom:6px;" id="q-timer">0</div>
     <div style="font-size:0.75rem;color:rgba(255,255,255,0.35);margin-bottom:28px;">秒</div>
@@ -349,7 +349,7 @@
 </div>
 
 <!-- ══════════════════════════════════════════════ -->
-<!-- 亲友开房对话框叠加层 -->
+<!-- 亲友开房：创建 / 加入 对话框 -->
 <!-- ══════════════════════════════════════════════ -->
 <div id="overlay-room" style="display:none;position:fixed;inset:0;z-index:9000;
   background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);
@@ -359,19 +359,14 @@
     <div style="font-size:1.1rem;font-weight:900;color:#80D4A8;letter-spacing:2px;margin-bottom:24px;text-align:center;">
       🏠 亲友开房 · 四人掼蛋
     </div>
-
-    <!-- 创建房间 -->
     <button onclick="doCreateRoom()" style="width:100%;padding:14px;border-radius:12px;border:none;
       background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;font-size:0.95rem;
       font-weight:700;letter-spacing:2px;cursor:pointer;margin-bottom:16px;">
-      ✨ 创建新房间
+      ✨ 创建私人房间
     </button>
-
     <div style="text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;margin-bottom:16px;">
-      — 或者加入已有房间 —
+      — 或者用房间号加入 —
     </div>
-
-    <!-- 加入房间 -->
     <div style="display:flex;gap:10px;">
       <input id="room-code-input" type="text" maxlength="6" placeholder="输入房间号（如 AB1234）"
         style="flex:1;padding:12px 14px;border-radius:10px;border:1px solid rgba(39,174,96,0.4);
@@ -382,12 +377,108 @@
         加入
       </button>
     </div>
-
     <div id="room-msg" style="margin-top:12px;font-size:0.82rem;color:#F08080;min-height:20px;text-align:center;"></div>
-
     <button onclick="closeRoom()" style="display:block;width:100%;margin-top:20px;padding:10px;
       border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:transparent;
-      color:rgba(255,255,255,0.4);font-size:0.85rem;cursor:pointer;">
+      color:rgba(255,255,255,0.4);font-size:0.85rem;cursor:pointer;">取消</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 房间邀请层（创建房间后显示：房间号 + 二维码） -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="overlay-invite" style="display:none;position:fixed;inset:0;z-index:9100;
+  background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;overflow-y:auto;padding:20px 0;">
+  <div style="background:linear-gradient(145deg,#071a0f,#041008);border:1px solid rgba(39,174,96,0.4);
+              border-radius:24px;padding:30px 28px;max-width:360px;width:90%;text-align:center;">
+
+    <!-- 标题 -->
+    <div style="font-size:1rem;font-weight:900;color:#80D4A8;letter-spacing:3px;margin-bottom:6px;">
+      🏠 四人掼蛋 · 私人房间已创建
+    </div>
+    <div style="font-size:0.72rem;color:rgba(255,255,255,0.35);letter-spacing:2px;margin-bottom:20px;">
+      邀请亲友加入，满四人后即刻开始
+    </div>
+
+    <!-- 房间号码 -->
+    <div style="background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);
+                border-radius:12px;padding:12px 16px;margin-bottom:18px;
+                display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div>
+        <div style="font-size:0.62rem;color:rgba(255,255,255,0.35);letter-spacing:2px;margin-bottom:4px;text-align:left;">房间号码</div>
+        <div id="invite-code-display" style="font-size:1.8rem;font-weight:900;color:#FFE066;
+             letter-spacing:6px;font-family:monospace;"></div>
+      </div>
+      <button onclick="copyRoomCode()" id="copy-code-btn"
+        style="padding:8px 14px;border-radius:8px;border:1px solid rgba(39,174,96,0.5);
+        background:rgba(39,174,96,0.15);color:#80D4A8;font-size:0.78rem;
+        cursor:pointer;white-space:nowrap;flex-shrink:0;">
+        📋 复制
+      </button>
+    </div>
+
+    <!-- 二维码 -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:0.68rem;color:rgba(255,255,255,0.4);letter-spacing:2px;margin-bottom:10px;">
+        用微信 / Messenger 扫码邀请亲友
+      </div>
+      <div style="background:#f8fdf8;border-radius:12px;padding:8px;display:inline-block;">
+        <img id="invite-qr-img" src="" alt="扫码加入" width="180" height="180"
+          style="display:block;border-radius:6px;">
+      </div>
+      <div style="font-size:0.6rem;color:rgba(255,255,255,0.25);margin-top:8px;word-break:break-all;padding:0 4px;"
+        id="invite-qr-url"></div>
+    </div>
+
+    <!-- 复制链接按钮 -->
+    <button onclick="copyInviteLink()" id="copy-link-btn"
+      style="width:100%;padding:11px;border-radius:10px;border:1px solid rgba(39,174,96,0.4);
+      background:rgba(39,174,96,0.1);color:#80D4A8;font-size:0.85rem;
+      cursor:pointer;letter-spacing:1px;margin-bottom:12px;">
+      🔗 复制邀请链接（含二维码）
+    </button>
+
+    <!-- 准备就绪按钮 -->
+    <button onclick="doReady()" id="ready-btn"
+      style="width:100%;padding:14px;border-radius:12px;border:none;
+      background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;
+      font-size:0.95rem;font-weight:900;letter-spacing:3px;cursor:pointer;">
+      ✅ 准备就绪，进入游戏
+    </button>
+
+    <div style="font-size:0.68rem;color:rgba(255,255,255,0.25);margin-top:14px;line-height:1.6;">
+      进入游戏后在游戏界面等候<br>亲友扫码加入，满四人即刻发牌
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- 扫码加入提示层（?join=CODE 时显示）-->
+<!-- ══════════════════════════════════════════════ -->
+<div id="overlay-scan-join" style="display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,0.82);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(145deg,#0a1a2C,#05101a);border:1px solid rgba(39,174,96,0.3);
+              border-radius:24px;padding:36px 32px;max-width:360px;width:90%;text-align:center;">
+    <div style="font-size:2rem;margin-bottom:14px;">🏠</div>
+    <div style="font-size:1rem;font-weight:900;color:#80D4A8;letter-spacing:2px;margin-bottom:8px;">
+      四人掼蛋 · 亲友邀请
+    </div>
+    <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);margin-bottom:20px;">
+      您受邀加入房间：
+    </div>
+    <div id="scan-join-code" style="font-size:2rem;font-weight:900;color:#FFE066;
+         letter-spacing:8px;font-family:monospace;margin-bottom:24px;"></div>
+    <button onclick="doScanJoin()" id="scan-join-btn"
+      style="width:100%;padding:14px;border-radius:12px;border:none;
+      background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;
+      font-size:0.95rem;font-weight:900;letter-spacing:2px;cursor:pointer;margin-bottom:12px;">
+      立即加入游戏
+    </button>
+    <button onclick="document.getElementById('overlay-scan-join').style.display='none'"
+      style="width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);
+      background:transparent;color:rgba(255,255,255,0.4);font-size:0.85rem;cursor:pointer;">
       取消
     </button>
   </div>
@@ -402,6 +493,9 @@
 var GD_MODE = '4p';
 var qTimer = null, qSec = 0;
 var spinners = ['⏳','🔄','⚡','🎲'];
+var gdRoomAction = null;  // 'create' 或 'join'
+var gdInviteCode = null;
+var gdInviteUrl  = null;
 
 /* ── 随机匹配 ── */
 function openQueue() {
@@ -415,75 +509,147 @@ function openQueue() {
     document.getElementById('q-spinner').textContent = spinners[qSec % spinners.length];
     if (qSec > 3) document.getElementById('q-msg').textContent = '正在寻找其他玩家...';
   }, 1000);
-
-  /* 等 socket 就绪再发送 */
   function tryJoin() {
     if (window.gdSocket && window.gdSocket.connected) {
       window.gdSocket.emit('queue:join', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
-    } else {
-      setTimeout(tryJoin, 300);
-    }
+    } else { setTimeout(tryJoin, 300); }
   }
   tryJoin();
 }
-
 function cancelQueue() {
   clearInterval(qTimer);
   document.getElementById('overlay-queue').style.display = 'none';
   if (window.gdSocket) window.gdSocket.emit('queue:cancel', { token: window.gdGetToken() });
 }
 
-/* ── 亲友开房 ── */
+/* ── 亲友开房：第一步 — 选择创建或加入 ── */
 function openRoom() { document.getElementById('overlay-room').style.display = 'flex'; }
 function closeRoom() { document.getElementById('overlay-room').style.display = 'none'; }
 
 function doCreateRoom() {
+  gdRoomAction = 'create';
   setRoomMsg('创建中...');
-  if (window.gdSocket && window.gdSocket.connected) {
-    window.gdSocket.emit('room:create', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
-  } else {
-    setRoomMsg('连接中，请稍候重试');
+  function tryCreate() {
+    if (window.gdSocket && window.gdSocket.connected) {
+      window.gdSocket.emit('room:create', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
+    } else { setTimeout(tryCreate, 300); }
   }
+  tryCreate();
 }
 
 function doJoinRoom() {
   var code = document.getElementById('room-code-input').value.trim().toUpperCase();
   if (code.length < 4) return setRoomMsg('请输入正确的房间号');
+  gdRoomAction = 'join';
   if (window.gdSocket && window.gdSocket.connected) {
     window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
-  } else {
-    setRoomMsg('连接中，请稍候重试');
-  }
+  } else { setRoomMsg('连接中，请稍候重试'); }
 }
 
 function setRoomMsg(msg) { document.getElementById('room-msg').textContent = msg; }
 
+/* ── 亲友开房：第二步 — 邀请层（创建者专用）── */
+function showInviteOverlay(roomCode) {
+  closeRoom();
+  gdInviteCode = roomCode;
+  var host    = window.location.host;
+  var proto   = window.location.protocol;
+  gdInviteUrl = proto + '//' + host + '/play/join?code=' + roomCode;
+
+  document.getElementById('invite-code-display').textContent = roomCode;
+  document.getElementById('invite-qr-img').src = '/play/qr?code=' + roomCode;
+  document.getElementById('invite-qr-url').textContent = gdInviteUrl;
+  document.getElementById('overlay-invite').style.display = 'flex';
+}
+
+function copyRoomCode() {
+  navigator.clipboard.writeText(gdInviteCode || '').then(function() {
+    var btn = document.getElementById('copy-code-btn');
+    btn.textContent = '✅ 已复制';
+    setTimeout(function(){ btn.textContent = '📋 复制'; }, 2000);
+  }).catch(function() {
+    /* 降级：选中文本 */
+    var el = document.getElementById('invite-code-display');
+    var r = document.createRange(); r.selectNode(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  });
+}
+
+function copyInviteLink() {
+  var text = '我在硅谷掼蛋联赛开了一桌四人掼蛋，房间号：' + gdInviteCode +
+             '\n扫码或点击链接直接加入：' + gdInviteUrl;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = document.getElementById('copy-link-btn');
+    btn.textContent = '✅ 邀请链接已复制！';
+    setTimeout(function(){ btn.textContent = '🔗 复制邀请链接（含二维码）'; }, 2500);
+  });
+}
+
+function doReady() {
+  if (!gdInviteCode) return;
+  document.getElementById('ready-btn').textContent = '正在进入...';
+  document.getElementById('ready-btn').disabled = true;
+  location.href = '/play/game/' + gdInviteCode;
+}
+
+/* ── 扫码加入：处理 ?join=CODE 参数 ── */
+function initScanJoin() {
+  var params = new URLSearchParams(window.location.search);
+  var joinCode = params.get('join');
+  if (!joinCode) return;
+  joinCode = joinCode.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (!joinCode) return;
+  document.getElementById('scan-join-code').textContent = joinCode;
+  document.getElementById('overlay-scan-join').style.display = 'flex';
+  /* 预填输入框以备用 */
+  document.getElementById('room-code-input').value = joinCode;
+  window._scanJoinCode = joinCode;
+}
+
+function doScanJoin() {
+  var code = window._scanJoinCode;
+  if (!code) return;
+  document.getElementById('scan-join-btn').textContent = '加入中...';
+  document.getElementById('scan-join-btn').disabled = true;
+  gdRoomAction = 'join';
+  function tryJoin() {
+    if (window.gdSocket && window.gdSocket.connected) {
+      window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
+    } else { setTimeout(tryJoin, 300); }
+  }
+  tryJoin();
+}
+
 /* ── Socket 事件回调 ── */
 document.addEventListener('DOMContentLoaded', function() {
+  initScanJoin();
+
   function attachEvents() {
     if (!window.gdSocket) { setTimeout(attachEvents, 300); return; }
 
-    window.gdSocket.on('match:found', function(d) {
+    window.gdSocket.on('queue:joined', function(d) {
       clearInterval(qTimer);
-      document.getElementById('q-msg').textContent = '🎉 匹配成功！进入房间...';
-      setTimeout(function(){ location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE; }, 800);
+      document.getElementById('q-msg').textContent = '✅ 已进入房间，跳转中...';
+      setTimeout(function(){ location.href = '/play/game/' + d.roomCode; }, 400);
     });
-
     window.gdSocket.on('queue:error', function(d) {
       clearInterval(qTimer);
       document.getElementById('q-msg').textContent = '❌ ' + d.message;
     });
 
-    window.gdSocket.on('room:already', function(d) {
-      location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE;
-    });
-
     window.gdSocket.on('room:joined', function(d) {
-      closeRoom();
-      location.href = '/play/lobby/' + d.roomCode + '?mode=' + GD_MODE;
+      document.getElementById('overlay-scan-join').style.display = 'none';
+      if (gdRoomAction === 'create') {
+        /* 创建者：显示邀请层，等待"准备就绪"点击 */
+        showInviteOverlay(d.roomCode);
+      } else {
+        /* 加入者：直接进游戏页等候 */
+        location.href = '/play/game/' + d.roomCode;
+      }
     });
-
     window.gdSocket.on('room:error', function(d) {
+      document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').disabled = false);
+      document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').textContent = '立即加入游戏');
       setRoomMsg('❌ ' + d.message);
     });
   }

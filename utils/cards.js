@@ -17,6 +17,11 @@ function createDoubleDeck() {
   return [...createDeck(), ...createDeck()];
 }
 
+/* 三副162张（六人掼蛋专用） */
+function createTripleDeck() {
+  return [...createDeck(), ...createDeck(), ...createDeck()];
+}
+
 /* Fisher-Yates 洗牌 */
 function shuffle(arr) {
   const a = [...arr];
@@ -34,6 +39,18 @@ function deal4(deck) {
     deck.slice(27, 54),
     deck.slice(54, 81),
     deck.slice(81, 108)
+  ];
+}
+
+/* 发给6个玩家，各27张（从162张三副牌发） */
+function deal6(deck) {
+  return [
+    deck.slice(0,   27),
+    deck.slice(27,  54),
+    deck.slice(54,  81),
+    deck.slice(81,  108),
+    deck.slice(108, 135),
+    deck.slice(135, 162)
   ];
 }
 
@@ -77,4 +94,4 @@ function cardInfo(code) {
   };
 }
 
-module.exports = { createDoubleDeck, shuffle, deal4, sortHand, cardInfo, rankVal };
+module.exports = { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6, sortHand, cardInfo, rankVal };

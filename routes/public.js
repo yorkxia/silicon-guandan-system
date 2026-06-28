@@ -4,6 +4,7 @@ const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { geoLocate } = require('../utils/geo');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 function amountToDays(amount) {
   if (!amount) return 31;
@@ -435,6 +436,39 @@ router.get('/play/lobby/:code', (req, res) => {
   if (!roomCode) return res.redirect('/play');
   const gameMode = req.query.mode || '4p';
   res.render('play-lobby', { roomCode, gameMode });
+});
+
+/* ── 扫码加入：按房间模式重定向到对应赛事页 ── */
+router.get('/play/join', async (req, res) => {
+  const code = (req.query.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (!code) return res.redirect('/play');
+  try {
+    const room = await queryOne(
+      `SELECT game_mode, status FROM gdo_rooms WHERE room_code=$1`, [code]
+    );
+    if (!room || room.status === 'finished') return res.redirect('/play');
+    const page = room.game_mode === '6p' ? '/play/6p' : '/play/4p';
+    return res.redirect(`${page}?join=${code}`);
+  } catch (e) {
+    return res.redirect('/play');
+  }
+});
+
+/* ── 二维码图片生成（PNG，服务端渲染）── */
+router.get('/play/qr', async (req, res) => {
+  const code = (req.query.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (!code) return res.status(400).end();
+  const host    = req.get('host') || 'silicon-guandan-system.onrender.com';
+  const proto   = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const joinUrl = `${proto}://${host}/play/join?code=${code}`;
+  try {
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    await QRCode.toFileStream(res, joinUrl, { width: 240, margin: 2,
+      color: { dark: '#0d2d0d', light: '#f8fdf8' } });
+  } catch (e) {
+    res.status(500).end();
+  }
 });
 
 module.exports = router;

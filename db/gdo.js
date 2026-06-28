@@ -134,9 +134,25 @@ async function getRoomState(roomCode) {
   return { room, seats };
 }
 
+/* ── 找或建"永远有房间等候"的公开房间 ── */
+async function findOrCreateOpenRoom(mode) {
+  const maxSeats = mode === '6p' ? 6 : 4;
+  const existing = await queryOne(`
+    SELECT r.room_code FROM gdo_rooms r
+    WHERE r.game_mode=$1 AND r.status='waiting' AND r.room_type='random'
+      AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id) < $2
+    ORDER BY r.created_at ASC
+    LIMIT 1
+  `, [mode, maxSeats]);
+  if (existing) return existing.room_code;
+  const room = await createRoom(mode, 'random');
+  return room.room_code;
+}
+
 module.exports = {
   getOrCreatePlayer,
   createRoom,
+  findOrCreateOpenRoom,
   joinQueue,
   tryMatch,
   createMatch,
