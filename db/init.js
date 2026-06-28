@@ -426,6 +426,10 @@ async function initDB() {
   /* 阶段四迁移：gdo_rounds 加 hands_json 列 */
   await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS hands_json JSONB`);
 
+  /* 阶段五迁移：gdo_rounds 加游戏进行中状态列（用于断线重连） */
+  await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS current_hands_json JSONB`);
+  await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS turn_state_json JSONB`);
+
   console.log('✅ Database initialized');
 }
 

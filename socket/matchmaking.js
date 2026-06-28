@@ -6,6 +6,7 @@ const {
   joinRoomByCode, getRoomState, createRoom
 } = require('../db/gdo');
 const { createDoubleDeck, shuffle, deal4, sortHand } = require('../utils/cards');
+const { initGameState } = require('./game');
 
 module.exports = function(io, socket) {
 
@@ -141,7 +142,20 @@ module.exports = function(io, socket) {
           [newRound, roomCode]
         );
 
-        /* 通知每位玩家游戏开始（game:starting 附带 roundId） */
+        /* 初始化内存游戏状态 */
+        const sortedSeats = [...state.seats].sort((a, b) => a.seat - b.seat);
+        const seatObjs = sortedSeats.map(s => ({
+          seat: s.seat, team: s.team,
+          playerId: s.player_id, name: s.display_name
+        }));
+        initGameState(
+          roomCode, roundId, state.room.id,
+          seatObjs, hands,
+          state.room.level_team1, state.room.level_team2,
+          state.room.game_mode
+        );
+
+        /* 通知每位玩家游戏开始 */
         io.to(roomCode).emit('game:starting', { roomCode, roundId });
         console.log(`[掼蛋] 🃏 发牌完成 · 房间 ${roomCode} · 第${newRound}局 · 每人27张`);
       }
