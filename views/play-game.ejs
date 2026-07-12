@@ -87,6 +87,10 @@
     .pbox-name.active { color: #FFE066; font-weight: 700; }
     .pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
     .h-pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
+    .pbox-avatar.waiting-empty, .h-pbox-avatar.waiting-empty {
+      opacity: .4; border-style: dashed !important;
+    }
+    .pbox.waiting-empty { opacity: .7; }
 
     /* 队友标签 */
     .buddy-tag {
@@ -826,8 +830,9 @@ var POS_LABELS = ['','头游','二游','三游','四游','五游','末游'];
 var POS_CLASS  = ['','p1','p2','p3','p3','p3','p4'];
 
 /* ════════════════════ 等候层变量 ════════════════════ */
-var waitRoomType = 'public'; // 'public' | 'private'
+var waitRoomType = 'random'; // 'random' | 'private'
 var waitNeed     = 4;
+var IN_WAITING   = false;     // 随机参赛：是否处于"真实牌桌上等待"状态
 
 /* ════════════════════ Socket ════════════════════ */
 var socket = io({ transports:['websocket','polling'] });
@@ -843,18 +848,33 @@ socket.on('game:waiting', function(d){
   mySeat      = d.mySeat;
   myTeam      = d.myTeam;
   myPlayerId  = d.myPlayerId;
-  waitRoomType = d.roomType || 'public';
+  waitRoomType = d.roomType || 'random';
   waitNeed     = d.mode === '6p' ? 6 : 4;
+  GAME_MODE    = d.mode || '4p';
   document.getElementById('lvl-t1').textContent = '甲队 · ' + lvName(d.levelTeam1 || 2);
   document.getElementById('lvl-t2').textContent = '乙队 · ' + lvName(d.levelTeam2 || 2);
-  renderWaiting(d.seats, d.roomCode, d.roomType);
-  document.getElementById('wait-overlay').style.display = 'flex';
+
+  if (d.roomType === 'random') {
+    /* 立即随机参赛：直接在真实牌桌上等待（不再弹"等候室"遮罩）*/
+    document.getElementById('wait-overlay').style.display = 'none';
+    enterWaitingTable(d);
+  } else {
+    /* 私人房间 / 联赛：保留原有"等候室"遮罩 */
+    IN_WAITING = false;
+    renderWaiting(d.seats, d.roomCode, d.roomType);
+    document.getElementById('wait-overlay').style.display = 'flex';
+  }
 });
 
 /* ── 等候层座位更新 ── */
 socket.on('game:seat_update', function(d){
   waitNeed = (d.mode === '6p') ? 6 : 4;
-  renderWaiting(d.seats, d.roomCode, d.roomType);
+  if (d.roomType === 'random') {
+    /* 随机参赛：仅在牌桌等待态时实时刷新座位 */
+    if (IN_WAITING) renderWaitingSeats(d.seats, waitNeed, d.mode || GAME_MODE);
+  } else {
+    renderWaiting(d.seats, d.roomCode, d.roomType);
+  }
 });
 
 /* ── 满员，开始发牌（或进贡完成后进入游戏）── */
@@ -902,6 +922,110 @@ function renderWaiting(seats, roomCode, roomType) {
   document.getElementById('wait-seats').innerHTML = html;
 }
 
+/* ════════ 随机参赛：真实牌桌上等待（方案A）════════ */
+function seatTeamOf(n){ return (n % 2 === 1) ? 1 : 2; }
+
+/* 首次进入：布好牌桌骨架（座位定位 + 我的信息），再填座位 */
+function enterWaitingTable(d){
+  IN_WAITING = true;
+  var need = (d.mode === '6p') ? 6 : 4;
+  document.getElementById('loading-overlay').style.display = 'none';
+
+  if (d.mode === '6p') {
+    document.body.classList.add('mode-6p');
+    document.getElementById('my-name-6p').textContent = MY_NAME_LS;
+    document.getElementById('my-team-dot-6p').className = 'my-team-dot ' + (myTeam===1?'t1':'t2');
+    document.getElementById('my-card-count-6p').textContent = '已入座';
+    document.getElementById('hand-scroll-6p').innerHTML = '';
+    /* 定位六个座位格（与 init6pBoard 一致）*/
+    for (var i = 0; i < 6; i++) {
+      var actualSeat = ((mySeat - 1 + i) % 6) + 1;
+      var el = document.getElementById('h-seat-' + actualSeat);
+      if (!el) continue;
+      var pos = HEX_POS[i + 1];
+      if (!pos) continue;
+      el.style.left = pos.left; el.style.top = pos.top;
+      el.style.transform = 'translate(-50%,-50%)';
+      el.dataset.displayIdx = i + 1;
+    }
+  } else {
+    document.body.classList.remove('mode-6p');
+    document.getElementById('hand-scroll').innerHTML = '';
+  }
+  renderWaitingSeats(d.seats, need, d.mode || '4p');
+}
+
+/* 刷新等待中的座位（占用=名字，空位=等待加入）*/
+function renderWaitingSeats(seatsList, need, mode){
+  var occ = {};
+  (seatsList || []).forEach(function(s){ occ[s.seat] = s; });
+  var filled = (seatsList || []).length;
+
+  if (mode === '6p') {
+    for (var i = 0; i < 6; i++) {
+      var actualSeat = ((mySeat - 1 + i) % 6) + 1;
+      var el = document.getElementById('h-seat-' + actualSeat);
+      if (!el) continue;
+      var s     = occ[actualSeat];
+      var isMe  = (actualSeat === mySeat);
+      var team  = seatTeamOf(actualSeat);
+      var tCls  = team===1 ? 'team1' : 'team2';
+      var name  = isMe ? (MY_NAME_LS || '我') : (s ? esc(s.display_name || s.name || '玩家') : '等待加入');
+      var occd  = !!s || isMe;
+      var initials = occd ? String(name).replace(/^玩家/,'').slice(0,2) : '空';
+      var statusTxt = occd ? '已入座' : '虚位以待';
+      var emptyCls  = occd ? '' : ' waiting-empty';
+      el.innerHTML =
+        '<div class="h-pbox-avatar ' + tCls + emptyCls + '">' + initials + '</div>' +
+        '<div class="h-pbox-name' + (occd?'':' offline') + '">' + name + (isMe?' (我)':'') + '</div>' +
+        '<div class="h-pbox-info"><span style="color:rgba(255,255,255,.4);font-size:.6rem;">' + statusTxt + '</span></div>';
+    }
+    document.getElementById('action-hint-6p').textContent = '等待掼友加入 ' + filled + '/' + need + ' 人，满员即发牌';
+    var hx = document.getElementById('hex-hint'); if (hx) hx.textContent = '等待掼友加入 ' + filled + '/' + need;
+    return;
+  }
+
+  /* 四人：填对家/左/右 三个盒子 + 我 */
+  var relMap = buildRelMap(mySeat, 4);
+  var BOX = {
+    top:  {box:'box-top',  av:'top-avatar',  nm:'top-name',  bd:'top-buddy',  cc:'top-ccount',  cards:'top-cards',  fin:'top-finish',  dir:'h'},
+    left: {box:'box-left', av:'left-avatar', nm:'left-name', bd:'left-buddy', cc:'left-ccount', cards:'left-cards', fin:'left-finish', dir:'v'},
+    right:{box:'box-right',av:'right-avatar',nm:'right-name',bd:'right-buddy',cc:'right-ccount',cards:'right-cards',fin:'right-finish',dir:'v'}
+  };
+  for (var seatNum = 1; seatNum <= 4; seatNum++) {
+    var team2 = seatTeamOf(seatNum);
+    if (seatNum === mySeat) {
+      document.getElementById('my-name').textContent = MY_NAME_LS;
+      document.getElementById('my-team-dot').className = 'my-team-dot ' + (team2===1?'t1':'t2');
+      document.getElementById('my-card-count').textContent = '已入座';
+      continue;
+    }
+    var rel = relMap[seatNum];
+    var B = BOX[rel];
+    if (!B) continue;
+    var s2  = occ[seatNum];
+    var nm2 = s2 ? (s2.display_name || s2.name || '玩家') : null;
+    var box = document.getElementById(B.box);
+    box.style.display = 'flex';
+    box.className = 'pbox ' + (B.dir==='h'?'pbox-top':'pbox-side') + ' ' + (team2===1?'team1':'team2') + (nm2?'':' waiting-empty');
+    var av = document.getElementById(B.av);
+    av.textContent = nm2 ? String(nm2).replace(/^玩家/,'').slice(0,2) : '空';
+    av.className = 'pbox-avatar ' + (team2===1?'team1':'team2');
+    var nmEl = document.getElementById(B.nm);
+    nmEl.textContent = nm2 || '等待加入';
+    nmEl.className = 'pbox-name' + (nm2?'':' offline');
+    document.getElementById(B.bd).style.display = 'none';
+    document.getElementById(B.cc).textContent = nm2 ? '已入座' : '';
+    document.getElementById(B.cards).innerHTML = '';
+    document.getElementById(B.fin).style.display = 'none';
+  }
+  var ph = document.getElementById('play-hint');
+  if (ph) { ph.style.display = ''; ph.textContent = '等待掼友加入 ' + filled + '/' + need + '，满员即发牌'; }
+  document.getElementById('leader-badge').style.display = 'none';
+  document.getElementById('trick-area').style.display = 'none';
+  document.getElementById('action-hint').textContent = '等待掼友加入 ' + filled + '/' + need + ' 人';
+}
+
 function copyWaitCode() {
   var code = document.getElementById('wait-code-display').textContent || ROOM_CODE;
   navigator.clipboard.writeText(code).then(function(){
@@ -920,6 +1044,7 @@ function replayRoom() {
 socket.on('game:hand', function(d){
   document.getElementById('loading-overlay').style.display = 'none';
   document.getElementById('tribute-overlay').style.display = 'none';
+  IN_WAITING = false;          // 已发牌，退出"牌桌等待"态
   myHand     = d.hand;
   myTeam     = d.myTeam;
   mySeat     = d.mySeat;
