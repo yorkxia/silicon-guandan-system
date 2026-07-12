@@ -85,6 +85,8 @@
       max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .pbox-name.active { color: #FFE066; font-weight: 700; }
+    .pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
+    .h-pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
 
     /* 队友标签 */
     .buddy-tag {
@@ -947,6 +949,7 @@ socket.on('game:state', function(d){
   isMyTurn    = (d.turnSeat === mySeat);
   hasLastPlay = !!d.lastPlay;
   curFinish   = d.finishOrder || [];
+  if (d.connected) connMap = d.connected;      // 阶段九：座位在线状态
 
   players.forEach(function(p){
     if(d.handCounts && d.handCounts[p.playerId] !== undefined)
@@ -978,6 +981,58 @@ socket.on('game:state', function(d){
     }
   }
 });
+
+/* ════════ 阶段九：回合倒计时 + 掉线重连 ════════ */
+var connMap = {};              // seat -> 是否在线
+var _turnDeadline = 0, _turnInterval = null, _turnSeatCur = 0;
+
+function ensureTimerEl(){
+  var el = document.getElementById('gd-turn-timer');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'gd-turn-timer';
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);' +
+      'z-index:9999;padding:5px 16px;border-radius:18px;font-size:15px;font-weight:700;' +
+      'color:#fff;background:rgba(0,0,0,.65);box-shadow:0 2px 10px rgba(0,0,0,.35);' +
+      'display:none;transition:background .3s;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function stopTurnCountdown(){
+  if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
+  var el = document.getElementById('gd-turn-timer'); if(el) el.style.display = 'none';
+}
+function tickTurn(){
+  var el = ensureTimerEl();
+  var remain = Math.max(0, Math.ceil((_turnDeadline - Date.now())/1000));
+  var mine = (_turnSeatCur === mySeat);
+  el.style.display = 'block';
+  el.textContent = (mine ? '⏱ 该你出牌 ' : '⏱ ') + remain + 's';
+  el.style.background = remain <= 5 ? 'rgba(200,0,15,.92)'
+                      : (mine ? 'rgba(212,172,13,.95)' : 'rgba(0,0,0,.65)');
+  if(remain <= 0) stopTurnCountdown();
+}
+socket.on('game:turn_timer', function(d){
+  _turnDeadline = d.deadline || (Date.now() + (d.seconds||30)*1000);
+  _turnSeatCur  = d.turnSeat;
+  if(_turnInterval) clearInterval(_turnInterval);
+  tickTurn();
+  _turnInterval = setInterval(tickTurn, 500);
+});
+
+/* 掉线 / 重连通知 */
+socket.on('game:player_connection', function(d){
+  connMap[d.seat] = d.connected;
+  showToast((d.name || ('座位'+d.seat)) + (d.connected ? ' 已重新连接 🟢' : ' 掉线了 📴'),
+            d.connected ? '#2e7d32' : '#c8000f');
+  if (GAME_MODE === '6p') render6pPlayers(players, curFinish, _turnSeatCur);
+  else                    renderAllPlayers(players, curFinish, _turnSeatCur);
+});
+
+/* 超时自动托管提示 */
+socket.on('game:auto_played', function(d){ showToast((d.name||'玩家') + ' 超时·自动出牌'); });
+socket.on('game:auto_passed', function(d){ showToast((d.name||'玩家') + ' 超时·自动不出'); });
 
 /* ── 我出牌后更新手牌 ── */
 socket.on('game:hand_update', function(d){
@@ -1023,6 +1078,7 @@ socket.on('game:error', function(d){
 
 /* ── 局结算 ── */
 socket.on('round:result', function(d){
+  stopTurnCountdown();          // 阶段九：本局结束，停止倒计时
   var isWin = myTeam === d.winnerTeam;
   var el    = document.getElementById('result-type-text');
   el.textContent = d.resultType;
@@ -1103,8 +1159,9 @@ function fillPlayerBox(boxId, avatarId, nameId, buddyId, ccountId, cardsId, fini
 
   /* 名字 */
   var nameEl = document.getElementById(nameId);
-  nameEl.textContent = p.name || '—';
-  nameEl.className   = 'pbox-name' + (isActive?' active':'');
+  var offline = (connMap[p.seat] === false);
+  nameEl.textContent = (p.name || '—') + (offline ? ' 📴' : '');
+  nameEl.className   = 'pbox-name' + (isActive?' active':'') + (offline?' offline':'');
 
   /* 队友标签 */
   document.getElementById(buddyId).style.display = isBuddy ? 'inline-block' : 'none';
@@ -1464,8 +1521,10 @@ function render6pPlayers(pList, finOrder, turnSeat) {
     var isActive = (turnSeat === actualSeat);
     var isBuddy  = p && (p.team === myTeam);
     var isMe     = p && p.isMe;
+    var offline  = (connMap[actualSeat] === false) && !isMe;
     var label    = isMe ? (MY_NAME_LS || '我') : (p ? esc(p.name) : '等待...');
-    var initials = label.replace(/^玩家/,'').slice(0,2);
+    if (offline) label += ' 📴';
+    var initials = label.replace(/^玩家/,'').replace(/ 📴$/,'').slice(0,2);
     var teamCls  = p ? (p.team===1?'team1':'team2') : 'team2';
 
     var finBadge = '';
@@ -1482,7 +1541,7 @@ function render6pPlayers(pList, finOrder, turnSeat) {
 
     el.innerHTML =
       '<div class="h-pbox-avatar ' + teamCls + (isActive?' active':'') + '">' + initials + '</div>' +
-      '<div class="h-pbox-name">' + label + (isMe?' (我)':'') + '</div>' +
+      '<div class="h-pbox-name' + (offline?' offline':'') + '">' + label + (isMe?' (我)':'') + '</div>' +
       '<div class="h-pbox-info">' +
         (isBuddy && !isMe ? '<span class="h-buddy-tag">队友</span>' : '') +
         (finBadge || ('<span style="color:rgba(255,255,255,.35);font-size:.6rem;">' + (finItem?'':'') + (p?(p.cardCount||0)+'张':'') + '</span>')) +

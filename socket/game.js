@@ -7,6 +7,12 @@ const {
 } = require('../utils/cardTypes');
 const gameStates = require('./gameState');
 
+/* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
+   在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
+*/
+const TURN_SECONDS    = 30;
+const DC_TURN_SECONDS = 12;
+
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode) {
   const state = {
@@ -20,7 +26,10 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     passCount:    0,
     finishOrder:  [],
     totalPlayers: seats.length,
-    tributePhase: null   // 仅六人赛事使用
+    tributePhase: null,   // 仅六人赛事使用
+    disconnected: new Set(), // 掉线的座位号集合（阶段九）
+    turnTimer:    null,   // setTimeout 句柄
+    turnDeadline: 0       // 当前回合截止时间戳（毫秒）
   };
   gameStates.set(roomCode, state);
   return state;
@@ -38,10 +47,77 @@ function nextSeat(currentSeat, seats, finishOrder) {
   return currentSeat;
 }
 
+/* ══════════════════════════════════════════════════════
+ * 回合计时器（阶段九核心：避免掉线/挂机永久卡死）
+ * ══════════════════════════════════════════════════════ */
+function clearTurnTimer(state) {
+  if (state && state.turnTimer) {
+    clearTimeout(state.turnTimer);
+    state.turnTimer = null;
+  }
+}
+
+function isSeatDisconnected(state, seat) {
+  return state.disconnected && state.disconnected.has(seat);
+}
+
+/* 启动/重置当前回合计时器 */
+function startTurnTimer(io, state) {
+  clearTurnTimer(state);
+  if (!state) return;
+  /* 进贡阶段、已结束（只剩末游）不计时 */
+  if (state.tributePhase) return;
+  if (state.finishOrder.length >= state.totalPlayers - 1) return;
+
+  const dc   = isSeatDisconnected(state, state.turnSeat);
+  const secs = dc ? DC_TURN_SECONDS : TURN_SECONDS;
+  state.turnDeadline = Date.now() + secs * 1000;
+
+  io.to(state.roomCode).emit('game:turn_timer', {
+    turnSeat: state.turnSeat,
+    deadline: state.turnDeadline,
+    seconds:  secs
+  });
+
+  state.turnTimer = setTimeout(() => {
+    onTurnTimeout(io, state).catch(e => console.error('[turn_timeout]', e.message));
+  }, secs * 1000);
+}
+
+/* 超时自动托管 */
+async function onTurnTimeout(io, state) {
+  /* 防止对已被替换/结束的旧 state 触发 */
+  if (gameStates.get(state.roomCode) !== state) return;
+  const seatObj = state.seats.find(s => s.seat === state.turnSeat);
+  if (!seatObj) return;
+
+  if (state.lastPlay) {
+    /* 有上家牌 → 自动不出 */
+    await applyPass(io, state, seatObj.playerId, true);
+  } else {
+    /* 先出方 → 自动出最小单张 */
+    const hand     = sortHand(state.hands[String(seatObj.playerId)] || []);
+    const smallest = hand[hand.length - 1];
+    if (smallest) {
+      const r = await applyPlay(io, state, seatObj.playerId, [smallest], true);
+      /* 万一最小单张被判无效（理论上不会），退化为跳过一手 */
+      if (r && r.error) {
+        state.turnSeat = nextSeat(seatObj.seat, state.seats, state.finishOrder);
+        await persistState(state);
+        broadcastState(io, state);
+        startTurnTimer(io, state);
+      }
+    }
+  }
+}
+
 /* ─── 广播游戏状态 ────────────────────────────────── */
 function broadcastState(io, state) {
   const handCounts = {};
   for (const [pid, h] of Object.entries(state.hands)) handCounts[pid] = h.length;
+  /* 每个座位在线状态（阶段九）*/
+  const connected = {};
+  for (const s of state.seats) connected[s.seat] = !isSeatDisconnected(state, s.seat);
   io.to(state.roomCode).emit('game:state', {
     turnSeat:    state.turnSeat,
     leadSeat:    state.leadSeat,
@@ -52,7 +128,9 @@ function broadcastState(io, state) {
       label: state.lastPlay.playType.label
     } : null,
     handCounts,
-    finishOrder: state.finishOrder
+    finishOrder:  state.finishOrder,
+    connected,
+    turnDeadline: state.turnDeadline || 0
   });
 }
 
@@ -153,6 +231,7 @@ async function finishRound6p(io, state) {
 
 /* ─── 公共写库逻辑 ──────────────────────────────── */
 async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tributeJson = null) {
+  clearTurnTimer(state);
   await query(`
     UPDATE gdo_rounds
     SET finish_order=$1, winner_team=$2, result_type=$3,
@@ -248,6 +327,7 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     /* 全部抗贡或没有贡 → 直接开始 */
     await query(`UPDATE gdo_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
     io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
+    startTurnTimer(io, state);
     return true;
   }
 
@@ -273,6 +353,110 @@ function _rankVal(card) {
   if (card === 'LJ') return 15;
   const m = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
   return m[card.slice(1)] || 0;
+}
+
+/* ══════════════════════════════════════════════════════
+ * 出牌 / 过牌 核心逻辑（socket 处理器与超时托管共用）
+ * 返回 { ok:true } 或 { error:'...' }
+ * ══════════════════════════════════════════════════════ */
+async function applyPlay(io, state, playerId, cards, isAuto = false) {
+  const mySeat = state.seats.find(s => s.playerId === playerId);
+  if (!mySeat) return { error: '您不在此房间中' };
+  if (mySeat.seat !== state.turnSeat) return { error: '还没有轮到您出牌' };
+
+  const hand    = state.hands[String(playerId)];
+  const newHand = removeCards(hand, cards);
+  if (!newHand) return { error: '您没有选中的这些牌' };
+
+  const detect6p  = state.gameMode === '6p';
+  const playType  = detect6p ? detectType6p(cards) : detectType(cards);
+  if (!playType) return { error: '无效牌型，请重新选择' };
+
+  const beatFn = detect6p ? canBeat6p : canBeat;
+  if (state.lastPlay && !beatFn(playType, state.lastPlay.playType))
+    return { error: `出牌需要压过：${state.lastPlay.playType.label}` };
+
+  state.hands[String(playerId)] = newHand;
+  state.lastPlay  = { seat: mySeat.seat, name: mySeat.name, cards, playType };
+  state.leadSeat  = mySeat.seat;
+  state.passCount = 0;
+
+  /* 把新手牌发回该玩家（若其 socket 在线）*/
+  if (mySeat.socketId) io.to(mySeat.socketId).emit('game:hand_update', { hand: sortHand(newHand) });
+
+  if (isAuto) {
+    io.to(state.roomCode).emit('game:auto_played', {
+      seat: mySeat.seat, name: mySeat.name, cards
+    });
+  }
+
+  if (newHand.length === 0) {
+    const pos = state.finishOrder.length + 1;
+    state.finishOrder.push({
+      position: pos, seat: mySeat.seat,
+      playerId, name: mySeat.name, team: mySeat.team
+    });
+    io.to(state.roomCode).emit('player:finished', {
+      seat: mySeat.seat, name: mySeat.name, position: pos
+    });
+  }
+
+  if (state.finishOrder.length >= state.totalPlayers - 1) {
+    const doneSet  = new Set(state.finishOrder.map(f => f.seat));
+    const lastSeat = state.seats.find(s => !doneSet.has(s.seat));
+    if (lastSeat) {
+      state.finishOrder.push({
+        position: state.totalPlayers, seat: lastSeat.seat,
+        playerId: lastSeat.playerId, name: lastSeat.name, team: lastSeat.team
+      });
+    }
+    if (state.gameMode === '6p') await finishRound6p(io, state);
+    else                         await finishRound(io, state);
+    return { ok: true };
+  }
+
+  state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
+  await persistState(state);
+  broadcastState(io, state);
+  startTurnTimer(io, state);
+  return { ok: true };
+}
+
+async function applyPass(io, state, playerId, isAuto = false) {
+  const mySeat = state.seats.find(s => s.playerId === playerId);
+  if (!mySeat || mySeat.seat !== state.turnSeat) return { error: '还没有轮到您' };
+
+  if (!state.lastPlay) return { error: '先出方必须出牌，不能不出' };
+
+  state.passCount++;
+
+  if (isAuto) {
+    io.to(state.roomCode).emit('game:auto_passed', { seat: mySeat.seat, name: mySeat.name });
+  }
+
+  const doneSeats   = new Set(state.finishOrder.map(f => f.seat));
+  const activeSeats = state.seats.filter(s => !doneSeats.has(s.seat));
+  const leaderAlive = activeSeats.some(s => s.seat === state.leadSeat);
+  const needed      = leaderAlive ? activeSeats.length - 1 : activeSeats.length;
+
+  if (state.passCount >= needed) {
+    state.lastPlay  = null;
+    state.passCount = 0;
+    if (leaderAlive) {
+      state.turnSeat = state.leadSeat;
+    } else {
+      state.turnSeat = nextSeat(state.leadSeat, state.seats, state.finishOrder);
+      state.leadSeat = state.turnSeat;
+    }
+    io.to(state.roomCode).emit('game:trick_won', { seat: state.turnSeat });
+  } else {
+    state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
+  }
+
+  await persistState(state);
+  broadcastState(io, state);
+  startTurnTimer(io, state);
+  return { ok: true };
 }
 
 /* ══════════════════════════════════════════════════════
@@ -335,6 +519,17 @@ module.exports = function(io, socket) {
       const mySeatObj = state.seats.find(s => s.playerId === player.id);
       if (mySeatObj) mySeatObj.socketId = socket.id;
 
+      /* 重连：清除掉线标记并广播（阶段九）*/
+      const wasDisconnected = isSeatDisconnected(state, seat.seat);
+      if (wasDisconnected) {
+        state.disconnected.delete(seat.seat);
+        io.to(roomCode).emit('game:player_connection', {
+          seat: seat.seat, name: seat.display_name, connected: true
+        });
+        /* 若正轮到该玩家，用正常时长重启计时 */
+        if (state.turnSeat === seat.seat) startTurnTimer(io, state);
+      }
+
       const myHand  = sortHand(state.hands[String(player.id)] || []);
       const players = state.seats.map(s => ({
         seat:      s.seat,
@@ -357,11 +552,14 @@ module.exports = function(io, socket) {
 
       broadcastState(io, state);
 
+      /* 若游戏进行中但计时器丢失（服务器重启后重建），重新启动 */
+      if (!state.turnTimer && !state.tributePhase &&
+          state.finishOrder.length < state.totalPlayers - 1) {
+        startTurnTimer(io, state);
+      }
+
       /* 若进贡阶段仍在进行（断线重连）*/
       if (state.tributePhase) {
-        const ex = state.tributePhase.exchanges.find(
-          e => !e.done && !e.resisted && e.receiverId === player.id
-        );
         socket.emit('tribute:phase', {
           exchanges: state.tributePhase.exchanges.map(e => ({
             giverId: e.giverId, receiverId: e.receiverId,
@@ -388,59 +586,8 @@ module.exports = function(io, socket) {
       );
       if (!player) return socket.emit('play:invalid', { message: '身份未找到' });
 
-      const mySeat = state.seats.find(s => s.playerId === player.id);
-      if (!mySeat) return socket.emit('play:invalid', { message: '您不在此房间中' });
-      if (mySeat.seat !== state.turnSeat)
-        return socket.emit('play:invalid', { message: '还没有轮到您出牌' });
-
-      const hand    = state.hands[String(player.id)];
-      const newHand = removeCards(hand, cards);
-      if (!newHand) return socket.emit('play:invalid', { message: '您没有选中的这些牌' });
-
-      /* 六人/四人分别使用对应牌型识别器 */
-      const detect6p = state.gameMode === '6p';
-      const playType = detect6p ? detectType6p(cards) : detectType(cards);
-      if (!playType) return socket.emit('play:invalid', { message: '无效牌型，请重新选择' });
-
-      const beatFn = detect6p ? canBeat6p : canBeat;
-      if (state.lastPlay && !beatFn(playType, state.lastPlay.playType))
-        return socket.emit('play:invalid', { message: `出牌需要压过：${state.lastPlay.playType.label}` });
-
-      state.hands[String(player.id)] = newHand;
-      state.lastPlay  = { seat: mySeat.seat, name: mySeat.name, cards, playType };
-      state.leadSeat  = mySeat.seat;
-      state.passCount = 0;
-
-      socket.emit('game:hand_update', { hand: sortHand(newHand) });
-
-      if (newHand.length === 0) {
-        const pos = state.finishOrder.length + 1;
-        state.finishOrder.push({
-          position: pos, seat: mySeat.seat,
-          playerId: player.id, name: mySeat.name, team: mySeat.team
-        });
-        io.to(roomCode).emit('player:finished', {
-          seat: mySeat.seat, name: mySeat.name, position: pos
-        });
-      }
-
-      if (state.finishOrder.length >= state.totalPlayers - 1) {
-        const doneSet  = new Set(state.finishOrder.map(f => f.seat));
-        const lastSeat = state.seats.find(s => !doneSet.has(s.seat));
-        if (lastSeat) {
-          state.finishOrder.push({
-            position: state.totalPlayers, seat: lastSeat.seat,
-            playerId: lastSeat.playerId, name: lastSeat.name, team: lastSeat.team
-          });
-        }
-        if (state.gameMode === '6p') await finishRound6p(io, state);
-        else                         await finishRound(io, state);
-        return;
-      }
-
-      state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
-      await persistState(state);
-      broadcastState(io, state);
+      const result = await applyPlay(io, state, player.id, cards, false);
+      if (result.error) socket.emit('play:invalid', { message: result.error });
 
     } catch (e) {
       console.error('[play:cards]', e.message);
@@ -460,35 +607,8 @@ module.exports = function(io, socket) {
       );
       if (!player) return;
 
-      const mySeat = state.seats.find(s => s.playerId === player.id);
-      if (!mySeat || mySeat.seat !== state.turnSeat) return;
-
-      if (!state.lastPlay)
-        return socket.emit('play:invalid', { message: '先出方必须出牌，不能不出' });
-
-      state.passCount++;
-
-      const doneSeats   = new Set(state.finishOrder.map(f => f.seat));
-      const activeSeats = state.seats.filter(s => !doneSeats.has(s.seat));
-      const leaderAlive = activeSeats.some(s => s.seat === state.leadSeat);
-      const needed      = leaderAlive ? activeSeats.length - 1 : activeSeats.length;
-
-      if (state.passCount >= needed) {
-        state.lastPlay  = null;
-        state.passCount = 0;
-        if (leaderAlive) {
-          state.turnSeat = state.leadSeat;
-        } else {
-          state.turnSeat = nextSeat(state.leadSeat, state.seats, state.finishOrder);
-          state.leadSeat = state.turnSeat;
-        }
-        io.to(roomCode).emit('game:trick_won', { seat: state.turnSeat });
-      } else {
-        state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
-      }
-
-      await persistState(state);
-      broadcastState(io, state);
+      const result = await applyPass(io, state, player.id, false);
+      if (result.error) socket.emit('play:invalid', { message: result.error });
 
     } catch (e) {
       console.error('[play:pass]', e.message);
@@ -555,13 +675,40 @@ module.exports = function(io, socket) {
 
         io.to(roomCode).emit('tribute:done', {});
         io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
+        startTurnTimer(io, state);
       }
     } catch (e) {
       console.error('[tribute:return]', e.message);
     }
   });
 
+  /* ── 断线处理（阶段九：标记掉线 + 广播 + 缩短其回合计时）── */
+  socket.on('disconnect', function() {
+    try {
+      for (const state of gameStates.values()) {
+        const seatObj = state.seats.find(s => s.socketId === socket.id);
+        if (!seatObj) continue;
+        seatObj.socketId = null;
+        state.disconnected.add(seatObj.seat);
+        io.to(state.roomCode).emit('game:player_connection', {
+          seat: seatObj.seat, name: seatObj.name, connected: false
+        });
+        /* 若正轮到掉线者，缩短计时尽快托管 */
+        if (state.turnSeat === seatObj.seat && state.turnTimer) {
+          startTurnTimer(io, state);
+        }
+      }
+    } catch (e) { console.error('[game.disconnect]', e.message); }
+  });
+
 };
 
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
+
+/* 供离线集成测试使用（阶段十）*/
+module.exports._test = {
+  applyPlay, applyPass, onTurnTimeout, startTurnTimer, clearTurnTimer,
+  nextSeat, broadcastState, isSeatDisconnected,
+  TURN_SECONDS, DC_TURN_SECONDS, gameStates
+};
