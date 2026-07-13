@@ -221,13 +221,15 @@ function settle6p(finishOrder, lv1, lv2) {
   let delta, resultType;
 
   if (finishOrder[5].team === headTeam) {
+    /* 头游队有人垫底(末游/第6) → 升1级 */
     delta = 1; resultType = '末胜';
-  } else if (finishOrder[4].team === headTeam) {
-    delta = 2; resultType = '小胜';
-  } else if (finishOrder[3].team === headTeam) {
-    delta = 3; resultType = '大胜';
   } else {
-    delta = 4; resultType = '全胜';
+    /* 头游队进入前三名(index 0,1,2)的人数 */
+    let inTop3 = 0;
+    for (let i = 0; i < 3; i++) if (finishOrder[i].team === headTeam) inTop3++;
+    if (inTop3 === 3)      { delta = 4; resultType = '三下'; }  // 三下
+    else if (inTop3 === 2) { delta = 3; resultType = '大胜'; }  // 头游+二游+X
+    else                   { delta = 2; resultType = '小胜'; }  // 头游+四游+五游
   }
   const winnerTeam = headTeam;
   const newLv1 = winnerTeam === 1 ? Math.min(lv1 + delta, 14) : lv1;
