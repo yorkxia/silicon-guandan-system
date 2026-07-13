@@ -305,6 +305,7 @@
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
@@ -1151,7 +1152,7 @@ socket.on('game:hand', function(d){
   } else {
     document.body.classList.remove('mode-6p');
     document.getElementById('my-name').textContent = MY_NAME_LS;
-    document.getElementById('my-card-count').textContent = myHand.length + '张';
+    document.getElementById('my-card-count').textContent = fmtCount(myHand.length);
     document.getElementById('my-team-dot').className = 'my-team-dot ' + (myTeam===1?'t1':'t2');
     renderAllPlayers(players, []);
     renderHand(myHand);
@@ -1307,12 +1308,12 @@ socket.on('game:hand_update', function(d){
     render6pHand(myHand);
     syncButtons6p();
     updateSelInfo6p();
-    document.getElementById('my-card-count-6p').textContent = myHand.length + '张';
+    document.getElementById('my-card-count-6p').textContent = fmtCount(myHand.length);
   } else {
     renderHand(myHand);
     syncButtons();
     updateSelInfo();
-    document.getElementById('my-card-count').textContent = myHand.length + '张';
+    document.getElementById('my-card-count').textContent = fmtCount(myHand.length);
   }
 });
 
@@ -1437,11 +1438,12 @@ function fillPlayerBox(boxId, avatarId, nameId, buddyId, ccountId, cardsId, fini
   /* 队友标签 */
   document.getElementById(buddyId).style.display = isBuddy ? 'inline-block' : 'none';
 
-  /* 牌数：始终显示真实牌数，≤10 张高亮 */
+  /* 牌数：开局不显示，剩 ≤10 张才显示（高亮） */
   var cnt = finItem ? 0 : p.cardCount;
+  var showCount = !finItem && cnt <= 10;
   var ccEl = document.getElementById(ccountId);
-  ccEl.textContent = cnt + '张';
-  ccEl.className = 'card-count-badge' + ((!finItem && cnt <= 10) ? ' low' : '');
+  ccEl.textContent = showCount ? cnt + '张' : '';
+  ccEl.className = 'card-count-badge' + (showCount ? ' low' : '');
 
   /* 面板发光 */
   box.className = 'pbox ' + (dir==='h'?'pbox-top':'pbox-side') +
@@ -1566,6 +1568,22 @@ function sortHandLevel(hand, level){
   });
 }
 
+/* 触摸友好的点选：静止轻点才触发；滑动（滚动手牌）不触发，规避横向滚动吞掉 click。
+   兼容鼠标（pointer 事件覆盖鼠标）。 */
+function attachTap(el, fn){
+  var sx = 0, sy = 0, moved = false, down = false;
+  el.addEventListener('pointerdown', function(e){ down = true; moved = false; sx = e.clientX; sy = e.clientY; });
+  el.addEventListener('pointermove', function(e){
+    if (!down) return;
+    if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) moved = true;
+  });
+  el.addEventListener('pointerup',     function(){ if (down && !moved) fn(); down = false; });
+  el.addEventListener('pointercancel', function(){ down = false; moved = false; });
+}
+
+/* 牌数格式：开局不显示，剩 ≤10 张才显示 */
+function fmtCount(n){ return (n != null && n <= 10) ? n + '张' : ''; }
+
 /* 构建单张手牌 DOM */
 function buildHandCardEl(code, idx, onClick){
   var key  = code + '_' + idx;
@@ -1589,7 +1607,7 @@ function buildHandCardEl(code, idx, onClick){
       '<div class="card-suit">' + sym + '</div>' +
       '<div class="card-center">' + sym + '</div>';
   }
-  card.addEventListener('click', onClick);
+  attachTap(card, onClick);
   return card;
 }
 
@@ -1826,7 +1844,7 @@ function init6pBoard(d) {
   winsTeam2  = d.winsTeam2 || 0;
   updateCurrentLevel();
   document.getElementById('my-name-6p').textContent = MY_NAME_LS;
-  document.getElementById('my-card-count-6p').textContent = myHand.length + '张';
+  document.getElementById('my-card-count-6p').textContent = fmtCount(myHand.length);
   document.getElementById('my-team-dot-6p').className = 'my-team-dot ' + (myTeam===1?'t1':'t2');
 
   /* 定位六个座位格：按我的实际 seat 偏移 */
@@ -1886,7 +1904,7 @@ function render6pPlayers(pList, finOrder, turnSeat) {
       '<div class="h-pbox-name' + (offline?' offline':'') + '">' + label + (isMe?' (我)':'') + '</div>' +
       '<div class="h-pbox-info">' +
         (isBuddy && !isMe ? '<span class="h-buddy-tag">队友</span>' : '') +
-        (finBadge || (p ? '<span class="h-count' + ((p.cardCount||0)<=10?' low':'') + '" style="font-size:.6rem;padding:0 5px;border-radius:7px;">' + (p.cardCount||0) + '张</span>' : '')) +
+        (finBadge || (p && (p.cardCount||0) <= 10 ? '<span class="h-count low" style="font-size:.6rem;padding:0 5px;border-radius:7px;">' + (p.cardCount||0) + '张</span>' : '')) +
       '</div>' +
       (cardBacks ? '<div class="h-card-fan">' + cardBacks + '</div>' : '');
   }
@@ -1940,7 +1958,7 @@ function build6pCardEl(code, idx){
       '<div class="card-suit" style="font-size:.7rem;">'+sym+'</div>'+
       '<div class="card-center" style="font-size:.85rem;">'+sym+'</div>';
   }
-  card.addEventListener('click', (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
+  attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
   return card;
 }
 
