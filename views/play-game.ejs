@@ -395,6 +395,19 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(180,0,0,.45);
       text-shadow: 0 1px 2px rgba(80,0,0,.5);
     }
+    /* 各家出的牌贴其座位显示 */
+    .seat-play {
+      position: fixed; transform: translate(-50%,-50%); z-index: 42;
+      display: flex; gap: 1px; pointer-events: none; align-items: center;
+    }
+    .sp-pass {
+      background: rgba(214,150,20,.95); color: #fff; font-weight: 900;
+      padding: 2px 12px; border-radius: 12px; font-size: 15px; letter-spacing: 2px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    .sp-more { color: #fff; font-size: 11px; margin-left: 3px; align-self: center; text-shadow: 0 1px 2px #000; }
+    /* 出牌改为贴座位，中央不再重复 */
+    #trick-area, #hex-trick { display: none !important; }
 
     /* 操作无效提示 toast */
     #err-toast {
@@ -1207,6 +1220,7 @@ socket.on('game:state', function(d){
       setHint((tp ? tp.name : '座位'+d.turnSeat) + ' 出牌中...','');
     }
   }
+  renderSeatPlays(d.seatPlays);   // 各家出的牌贴座位显示
 });
 
 /* ════════ 阶段九：回合倒计时 + 掉线重连 ════════ */
@@ -1298,6 +1312,40 @@ function showSeatBubble(seat, text, bg){
 socket.on('player:played', function(d){ showSeatBubble(d.seat, '出',   'rgba(30,150,60,.92)'); });
 socket.on('player:passed', function(d){ showSeatBubble(d.seat, '不出', 'rgba(214,150,20,.95)'); });
 
+/* ── 各家出的牌贴近其座位（桌上常有≥3家牌）── */
+function clearSeatPlays(){
+  for (var s = 1; s <= 6; s++){ var el = document.getElementById('seat-play-'+s); if(el) el.style.display='none'; }
+}
+function renderSeatPlays(sp){
+  sp = sp || {};
+  var total = (GAME_MODE === '6p') ? 6 : 4;
+  var cx = window.innerWidth/2, cy = window.innerHeight/2;
+  for (var seat = 1; seat <= total; seat++){
+    var el = document.getElementById('seat-play-'+seat);
+    var play = sp[seat];
+    var panel = seatPanelEl(seat);
+    if (!play || !panel){ if(el) el.style.display='none'; continue; }
+    var r = panel.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0){ if(el) el.style.display='none'; continue; }
+    if (!el){ el = document.createElement('div'); el.id = 'seat-play-'+seat; el.className = 'seat-play'; document.body.appendChild(el); }
+    if (play.pass){
+      el.innerHTML = '<span class="sp-pass">不出</span>';
+    } else {
+      var cards = play.cards || [], html = '';
+      var show = Math.min(cards.length, 14);
+      for (var i = 0; i < show; i++) html += miniCardHtml(cards[i]);
+      if (cards.length > show) html += '<span class="sp-more">共'+cards.length+'</span>';
+      el.innerHTML = html;
+    }
+    var px = r.left + r.width/2, py = r.top + r.height/2;
+    var dx = cx - px, dy = cy - py, len = Math.sqrt(dx*dx + dy*dy) || 1;
+    var off = Math.min(len * 0.4, 105);
+    el.style.display = 'flex';
+    el.style.left = (px + dx/len*off) + 'px';
+    el.style.top  = (py + dy/len*off) + 'px';
+  }
+}
+
 /* 掉线 / 重连通知 */
 socket.on('game:player_connection', function(d){
   connMap[d.seat] = d.connected;
@@ -1356,6 +1404,7 @@ socket.on('game:error', function(d){
 /* ── 局结算 ── */
 socket.on('round:result', function(d){
   stopTurnCountdown();          // 阶段九：本局结束，停止倒计时
+  clearSeatPlays();             // 清空贴座位的出牌
   /* 更新级牌 + 胜局，刷新左上面板 */
   if (typeof d.newLv1 !== 'undefined') levelTeam1 = d.newLv1;
   if (typeof d.newLv2 !== 'undefined') levelTeam2 = d.newLv2;

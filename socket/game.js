@@ -31,7 +31,8 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     disconnected: new Set(), // 掉线的座位号集合（阶段九）
     turnTimer:    null,   // setTimeout 句柄
     turnDeadline: 0,      // 当前回合截止时间戳（毫秒）
-    firstMove:    true    // 开局第一手（用于40秒看牌时间）
+    firstMove:    true,   // 开局第一手（用于40秒看牌时间）
+    seatPlays:    {}      // 各座位最近一手 { seat: {cards,label} | {pass:true} }
   };
   gameStates.set(roomCode, state);
   return state;
@@ -132,7 +133,8 @@ function broadcastState(io, state) {
     handCounts,
     finishOrder:  state.finishOrder,
     connected,
-    turnDeadline: state.turnDeadline || 0
+    turnDeadline: state.turnDeadline || 0,
+    seatPlays:    state.seatPlays || {}      // 各座位最近一手（贴座位显示）
   });
 }
 
@@ -383,6 +385,7 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   state.leadSeat  = mySeat.seat;
   state.passCount = 0;
   state.firstMove = false;
+  state.seatPlays[mySeat.seat] = { cards: cards.slice(), label: playType.label };  // 该家出牌贴座位
 
   /* 出牌方位置提示"出"（跟随出牌方）*/
   io.to(state.roomCode).emit('player:played', { seat: mySeat.seat, name: mySeat.name });
@@ -422,6 +425,7 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   }
 
   state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
+  delete state.seatPlays[state.turnSeat];   // 轮到下一家，清掉其上一手
   await persistState(state);
   broadcastState(io, state);
   startTurnTimer(io, state);
@@ -436,6 +440,7 @@ async function applyPass(io, state, playerId, isAuto = false) {
 
   state.passCount++;
   state.firstMove = false;
+  state.seatPlays[mySeat.seat] = { pass: true };   // 该家"不出"贴座位
 
   /* 不出方位置提示"不出"（跟随出牌方）*/
   io.to(state.roomCode).emit('player:passed', { seat: mySeat.seat, name: mySeat.name });
@@ -452,6 +457,7 @@ async function applyPass(io, state, playerId, isAuto = false) {
   if (state.passCount >= needed) {
     state.lastPlay  = null;
     state.passCount = 0;
+    state.seatPlays = {};                 // 本墩结束，清空桌面，赢家另起一墩
     if (leaderAlive) {
       state.turnSeat = state.leadSeat;
     } else {
@@ -461,6 +467,7 @@ async function applyPass(io, state, playerId, isAuto = false) {
     io.to(state.roomCode).emit('game:trick_won', { seat: state.turnSeat });
   } else {
     state.turnSeat = nextSeat(mySeat.seat, state.seats, state.finishOrder);
+    delete state.seatPlays[state.turnSeat];   // 轮到下一家，清掉其上一手
   }
 
   await persistState(state);
