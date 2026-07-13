@@ -21,14 +21,25 @@
       background: rgba(0,0,0,0.55); flex-shrink: 0; z-index: 10;
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-    .room-info .room-tag  { font-size:.65rem; color:rgba(255,255,255,0.35); letter-spacing:2px; }
-    .room-info .room-code { font-size:.82rem; font-weight:900; color:#FFE066; letter-spacing:3px; }
-    .level-row { margin-left:auto; display:flex; gap:8px; }
-    .level-badge {
-      padding:3px 9px; border-radius:7px; font-size:.7rem; font-weight:700; letter-spacing:1px;
+    /* 当前牌局：坐庄队(左,鲜亮) / 对方队(右,暗淡)，红蓝区分 */
+    .tb-center { flex:1; text-align:center; }
+    .tb-title  { font-size:.58rem; color:rgba(255,255,255,.42); letter-spacing:3px; }
+    .room-code-sm { font-size:.76rem; font-weight:900; color:#FFE066; letter-spacing:2px; margin-top:1px; }
+    .clv-box {
+      display:flex; flex-direction:column; align-items:center;
+      padding:2px 12px; border-radius:9px; min-width:52px; line-height:1.12;
+      transition: all .2s;
     }
-    .level-badge.t1 { background:rgba(192,0,15,.22); color:#F08080; border:1px solid rgba(192,0,15,.4); }
-    .level-badge.t2 { background:rgba(0,85,187,.22); color:#80A8E8; border:1px solid rgba(0,85,187,.4); }
+    .clv-box .clv-team { font-size:.56rem; letter-spacing:1px; font-weight:700; }
+    .clv-box .clv-num  { font-size:1.22rem; font-weight:900; }
+    .clv-box.t1 { background:rgba(192,0,15,.42); border:1px solid rgba(192,0,15,.75); }
+    .clv-box.t1 .clv-team { color:#FFC2C2; }
+    .clv-box.t1 .clv-num  { color:#FF7676; text-shadow:0 1px 6px rgba(192,0,15,.7); }
+    .clv-box.t2 { background:rgba(0,85,187,.42); border:1px solid rgba(0,85,187,.75); }
+    .clv-box.t2 .clv-team { color:#B8D0FF; }
+    .clv-box.t2 .clv-num  { color:#6BA0FF; text-shadow:0 1px 6px rgba(0,85,187,.7); }
+    .clv-box.banker { box-shadow:0 0 12px rgba(255,224,102,.3); }      /* 坐庄=鲜亮+微光 */
+    .clv-box.dim    { opacity:.4; filter:saturate(.65); box-shadow:none; }  /* 对方=暗淡 */
 
     /* ═══════════════ 对家区域（上方） ═══════════════ */
     #zone-top {
@@ -279,17 +290,6 @@
     #hand-scroll { align-items: flex-end; }
     #hand-scroll-6p { align-items: flex-end; }
 
-    /* 当前牌局 */
-    .cur-level {
-      text-align: center; font-size: .58rem; letter-spacing: 1px;
-      color: rgba(255,255,255,.55); line-height: 1.25; padding: 0 6px;
-      border-left: 1px solid rgba(255,255,255,.12);
-      border-right: 1px solid rgba(255,255,255,.12);
-    }
-    .cur-level #cur-level-num {
-      font-size: 1.15rem; font-weight: 900; color: #FFE066;
-      text-shadow: 0 1px 6px rgba(212,172,13,.5); letter-spacing: 0;
-    }
     .card-top    { font-size: .92rem; font-weight: 900; line-height: 1; }
     .card-suit   { font-size: .84rem; line-height: 1; margin-top: 1px; }
     .card-center {
@@ -698,14 +698,17 @@
 
 <!-- ── 顶部状态栏 ── -->
 <div id="top-bar">
-  <div class="room-info">
-    <div class="room-tag">房间号</div>
-    <div class="room-code"><%= roomCode %></div>
+  <div class="clv-box banker t1" id="clv-left">
+    <div class="clv-team" id="clv-left-team">甲队 · 庄</div>
+    <div class="clv-num"  id="clv-left-num">2</div>
   </div>
-  <div class="cur-level" id="cur-level">当前牌局<br><span id="cur-level-num">2</span></div>
-  <div class="level-row">
-    <div class="level-badge t1" id="lvl-t1">甲队 · 2</div>
-    <div class="level-badge t2" id="lvl-t2">乙队 · 2</div>
+  <div class="tb-center">
+    <div class="tb-title">当前牌局</div>
+    <div class="room-code-sm">房间 <%= roomCode %></div>
+  </div>
+  <div class="clv-box dim t2" id="clv-right">
+    <div class="clv-team" id="clv-right-team">乙队</div>
+    <div class="clv-num"  id="clv-right-num">2</div>
   </div>
 </div>
 
@@ -879,8 +882,9 @@ socket.on('game:waiting', function(d){
   waitRoomType = d.roomType || 'random';
   waitNeed     = d.mode === '6p' ? 6 : 4;
   GAME_MODE    = d.mode || '4p';
-  document.getElementById('lvl-t1').textContent = '甲队 · ' + lvName(d.levelTeam1 || 2);
-  document.getElementById('lvl-t2').textContent = '乙队 · ' + lvName(d.levelTeam2 || 2);
+  levelTeam1   = d.levelTeam1 || 2;
+  levelTeam2   = d.levelTeam2 || 2;
+  updateCurrentLevel();
 
   if (d.roomType === 'random') {
     /* 立即随机参赛：直接在真实牌桌上等待（不再弹"等候室"遮罩）*/
@@ -1089,8 +1093,6 @@ socket.on('game:hand', function(d){
     init6pBoard(d);
   } else {
     document.body.classList.remove('mode-6p');
-    document.getElementById('lvl-t1').textContent = '甲队 · ' + lvName(d.levelTeam1);
-    document.getElementById('lvl-t2').textContent = '乙队 · ' + lvName(d.levelTeam2);
     document.getElementById('my-name').textContent = MY_NAME_LS;
     document.getElementById('my-card-count').textContent = myHand.length + '张';
     document.getElementById('my-team-dot').className = 'my-team-dot ' + (myTeam===1?'t1':'t2');
@@ -1404,9 +1406,21 @@ function getCurrentLevel(){
   var lv = (myTeam === 2) ? levelTeam2 : levelTeam1;
   return lv || 2;
 }
+/* 顶栏：坐庄队(级牌高者，平则甲队)在左·鲜亮；对方在右·暗淡 */
 function updateCurrentLevel(){
-  var el = document.getElementById('cur-level-num');
-  if (el) el.textContent = lvName(getCurrentLevel());
+  var banker = (levelTeam1 >= levelTeam2) ? 1 : 2;
+  var other  = (banker === 1) ? 2 : 1;
+  var bankerLv = (banker === 1) ? levelTeam1 : levelTeam2;
+  var otherLv  = (other  === 1) ? levelTeam1 : levelTeam2;
+  var left  = document.getElementById('clv-left');
+  var right = document.getElementById('clv-right');
+  if (!left || !right) return;
+  left.className  = 'clv-box banker t' + banker;
+  right.className = 'clv-box dim t' + other;
+  document.getElementById('clv-left-team').textContent  = (banker === 1 ? '甲队' : '乙队') + ' · 庄';
+  document.getElementById('clv-right-team').textContent = (other  === 1 ? '甲队' : '乙队');
+  document.getElementById('clv-left-num').textContent  = lvName(bankerLv);
+  document.getElementById('clv-right-num').textContent = lvName(otherLv);
 }
 function rankKeyOf(code){
   return (code === 'BJ' || code === 'LJ') ? code : code.slice(1);
@@ -1687,8 +1701,9 @@ var HEX_POS = [
 ];
 
 function init6pBoard(d) {
-  document.getElementById('lvl-t1').textContent = '甲队 · ' + lvName(d.levelTeam1);
-  document.getElementById('lvl-t2').textContent = '乙队 · ' + lvName(d.levelTeam2);
+  levelTeam1 = d.levelTeam1 || 2;
+  levelTeam2 = d.levelTeam2 || 2;
+  updateCurrentLevel();
   document.getElementById('my-name-6p').textContent = MY_NAME_LS;
   document.getElementById('my-card-count-6p').textContent = myHand.length + '张';
   document.getElementById('my-team-dot-6p').className = 'my-team-dot ' + (myTeam===1?'t1':'t2');
