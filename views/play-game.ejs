@@ -30,35 +30,45 @@
     }
     body.mode-6p #beach-table { top: 52%; height: 70vh; }
 
+    /* 竖屏 → 提示横屏（掼蛋以横屏为准）*/
+    #rotate-hint { display: none; }
+    @media (orientation: portrait) {
+      #rotate-hint {
+        display: flex; position: fixed; inset: 0; z-index: 99999;
+        background: linear-gradient(160deg, #1a0505, #3D0A0A);
+        color: #FFE066; align-items: center; justify-content: center; text-align: center;
+      }
+      .rot-inner { font-size: 1.05rem; font-weight: 800; line-height: 1.9; letter-spacing: 2px; }
+      .rot-icon { font-size: 3.2rem; margin-bottom: 14px; animation: rothint 1.6s ease-in-out infinite; }
+    }
+    @keyframes rothint { 0%,100%{ transform: rotate(0); } 55%{ transform: rotate(90deg); } }
+
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
       display: flex; align-items: center; padding: 7px 14px; gap: 10px;
       background: rgba(0,0,0,0.55); flex-shrink: 0; z-index: 10;
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-    /* 当前牌局：坐庄队(左,鲜亮) / 对方队(右,暗淡)，红蓝区分 */
-    .tb-center { flex:1; text-align:center; }
-    .tb-title  { font-size:.58rem; color:rgba(255,255,255,.42); letter-spacing:3px; }
-    .room-code-sm { font-size:.76rem; font-weight:900; color:#FFE066; letter-spacing:2px; margin-top:1px; }
-    .clv-box {
-      display:flex; flex-direction:column; align-items:center;
-      padding:2px 12px; border-radius:9px; min-width:52px; line-height:1.12;
-      transition: all .2s;
+    /* 左上：我方/对方 级牌+胜局（红蓝）；房间号右置 */
+    .side-panel {
+      display: flex; flex-direction: column; gap: 3px;
+      background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px; padding: 5px 12px;
     }
-    .clv-box .clv-team { font-size:.56rem; letter-spacing:1px; font-weight:700; }
-    .clv-box .clv-num  { font-size:1.22rem; font-weight:900; }
-    .clv-box.t1 { background:rgba(192,0,15,.42); border:1px solid rgba(192,0,15,.75); }
-    .clv-box.t1 .clv-team { color:#FFC2C2; }
-    .clv-box.t1 .clv-num  { color:#FF7676; text-shadow:0 1px 6px rgba(192,0,15,.7); }
-    .clv-box.t2 { background:rgba(0,85,187,.42); border:1px solid rgba(0,85,187,.75); }
-    .clv-box.t2 .clv-team { color:#B8D0FF; }
-    .clv-box.t2 .clv-num  { color:#6BA0FF; text-shadow:0 1px 6px rgba(0,85,187,.7); }
-    .clv-box.banker { box-shadow:0 0 12px rgba(255,224,102,.3); }      /* 坐庄=鲜亮+微光 */
-    .clv-box.dim    { opacity:.4; filter:saturate(.65); box-shadow:none; }  /* 对方=暗淡 */
+    .side-row { display: flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 800; white-space: nowrap; }
+    .side-lbl { letter-spacing: 1px; }
+    .side-lv  { font-size: 1.05rem; font-weight: 900; min-width: 15px; text-align: center; }
+    .side-win { font-size: .6rem; font-weight: 600; opacity: .82; letter-spacing: .5px; }
+    .side-win b { font-size: .82rem; }
+    .side-row.red  { color: #FF9090; }  .side-row.red  .side-lv { color: #FF6a6a; }
+    .side-row.blue { color: #8fb6f5; }  .side-row.blue .side-lv { color: #6b9aff; }
+    .tb-spacer { flex: 1; }
+    .room-box  { font-size: .62rem; color: rgba(255,255,255,.5); letter-spacing: 1px; white-space: nowrap; }
+    .room-code-sm { font-size: .82rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; }
 
     /* ═══════════════ 对家区域（上方） ═══════════════ */
     #zone-top {
-      flex-shrink: 0; display: flex; justify-content: center; padding: 8px 16px 4px;
+      flex-shrink: 0; display: flex; justify-content: center; padding: 1px 16px 0;
     }
 
     /* ═══════════════ 中央三列（左玩家 | 桌面 | 右玩家） ═══════════════ */
@@ -164,9 +174,10 @@
     .cbk-h:first-child { margin-left: 0; }
 
     /* ─── 侧边玩家竖直牌背 ─── */
-    .pbox-side { width: 56px; }
+    .pbox-side { width: 60px; min-height: 96px; justify-content: center; }
     .card-fan-v {
       display: flex; flex-direction: column; align-items: center;
+      min-height: 20px;
     }
     .cbk-v {
       width: 32px; height: 20px; border-radius: 4px; flex-shrink: 0;
@@ -302,8 +313,8 @@
     .hand-col .hand-card.stacked { margin-top: -52px; }        /* 76-52=24px 露出点数+花色 */
     body.mode-6p .hand-col .hand-card.stacked { margin-top: -40px; }
     body.mode-6p .hand-col { margin-left: 3px; }
-    #hand-scroll { align-items: flex-end; }
-    #hand-scroll-6p { align-items: flex-end; }
+    #hand-scroll { align-items: flex-end; justify-content: center; }
+    #hand-scroll-6p { align-items: flex-end; justify-content: center; }
 
     .card-top    { font-size: .92rem; font-weight: 900; line-height: 1; }
     .card-suit   { font-size: .84rem; line-height: 1; margin-top: 1px; }
@@ -633,6 +644,14 @@
 </head>
 <body>
 
+<!-- 竖屏提示：请横屏 -->
+<div id="rotate-hint">
+  <div class="rot-inner">
+    <div class="rot-icon">📱</div>
+    <div>请将手机<b>横屏</b><br>以获得最佳掼蛋赛事体验</div>
+  </div>
+</div>
+
 <!-- 沙色椭圆牌桌背景 -->
 <div id="beach-table"></div>
 
@@ -726,18 +745,18 @@
 
 <!-- ── 顶部状态栏 ── -->
 <div id="top-bar">
-  <div class="clv-box banker t1" id="clv-left">
-    <div class="clv-team" id="clv-left-team">甲队 · 庄</div>
-    <div class="clv-num"  id="clv-left-num">2</div>
+  <div class="side-panel">
+    <div class="side-row" id="side-my">
+      <span class="side-lbl">我方</span><span class="side-lv" id="my-side-lv">2</span>
+      <span class="side-win">胜局 <b id="my-side-win">0</b></span>
+    </div>
+    <div class="side-row" id="side-op">
+      <span class="side-lbl">对方</span><span class="side-lv" id="op-side-lv">2</span>
+      <span class="side-win">胜局 <b id="op-side-win">0</b></span>
+    </div>
   </div>
-  <div class="tb-center">
-    <div class="tb-title">当前牌局</div>
-    <div class="room-code-sm">房间 <%= roomCode %></div>
-  </div>
-  <div class="clv-box dim t2" id="clv-right">
-    <div class="clv-team" id="clv-right-team">乙队</div>
-    <div class="clv-num"  id="clv-right-num">2</div>
-  </div>
+  <div class="tb-spacer"></div>
+  <div class="room-box">房间号 <span class="room-code-sm"><%= roomCode %></span></div>
 </div>
 
 <!-- ── 对家（上方） ── -->
@@ -877,6 +896,8 @@ var mySeat     = 0;
 var myPlayerId = 0;
 var levelTeam1 = 2;        // 甲队级牌
 var levelTeam2 = 2;        // 乙队级牌
+var winsTeam1  = 0;        // 甲队胜局
+var winsTeam2  = 0;        // 乙队胜局
 var selected   = [];       // 已选牌 code+'_'+idx
 var isMyTurn   = false;
 var hasLastPlay = false;
@@ -1112,6 +1133,8 @@ socket.on('game:hand', function(d){
   GAME_MODE  = d.gameMode || '4p';
   levelTeam1 = d.levelTeam1 || 2;
   levelTeam2 = d.levelTeam2 || 2;
+  winsTeam1  = d.winsTeam1 || 0;
+  winsTeam2  = d.winsTeam2 || 0;
   myHand     = sortHandLevel(d.hand, getCurrentLevel());   // 级牌感知排序
   updateCurrentLevel();
 
@@ -1315,6 +1338,12 @@ socket.on('game:error', function(d){
 /* ── 局结算 ── */
 socket.on('round:result', function(d){
   stopTurnCountdown();          // 阶段九：本局结束，停止倒计时
+  /* 更新级牌 + 胜局，刷新左上面板 */
+  if (typeof d.newLv1 !== 'undefined') levelTeam1 = d.newLv1;
+  if (typeof d.newLv2 !== 'undefined') levelTeam2 = d.newLv2;
+  if (d.winnerTeam === 1) winsTeam1++;
+  else if (d.winnerTeam === 2) winsTeam2++;
+  updateCurrentLevel();
   var isWin = myTeam === d.winnerTeam;
   var el    = document.getElementById('result-type-text');
   el.textContent = d.resultType;
@@ -1485,20 +1514,23 @@ function getCurrentLevel(){
   return lv || 2;
 }
 /* 顶栏：坐庄队(级牌高者，平则甲队)在左·鲜亮；对方在右·暗淡 */
+/* 左上：我方/对方 级牌 + 胜局（我方=本队色，对方=对手色）*/
 function updateCurrentLevel(){
-  var banker = (levelTeam1 >= levelTeam2) ? 1 : 2;
-  var other  = (banker === 1) ? 2 : 1;
-  var bankerLv = (banker === 1) ? levelTeam1 : levelTeam2;
-  var otherLv  = (other  === 1) ? levelTeam1 : levelTeam2;
-  var left  = document.getElementById('clv-left');
-  var right = document.getElementById('clv-right');
-  if (!left || !right) return;
-  left.className  = 'clv-box banker t' + banker;
-  right.className = 'clv-box dim t' + other;
-  document.getElementById('clv-left-team').textContent  = (banker === 1 ? '甲队' : '乙队') + ' · 庄';
-  document.getElementById('clv-right-team').textContent = (other  === 1 ? '甲队' : '乙队');
-  document.getElementById('clv-left-num').textContent  = lvName(bankerLv);
-  document.getElementById('clv-right-num').textContent = lvName(otherLv);
+  var myLv  = (myTeam === 2) ? levelTeam2 : levelTeam1;
+  var opLv  = (myTeam === 2) ? levelTeam1 : levelTeam2;
+  var myWin = (myTeam === 2) ? winsTeam2  : winsTeam1;
+  var opWin = (myTeam === 2) ? winsTeam1  : winsTeam2;
+  var myColor = (myTeam === 1) ? 'red' : 'blue';
+  var opColor = (myTeam === 1) ? 'blue' : 'red';
+  var myRow = document.getElementById('side-my');
+  var opRow = document.getElementById('side-op');
+  if (myRow) myRow.className = 'side-row ' + myColor;
+  if (opRow) opRow.className = 'side-row ' + opColor;
+  var e;
+  e = document.getElementById('my-side-lv');  if (e) e.textContent = lvName(myLv);
+  e = document.getElementById('op-side-lv');  if (e) e.textContent = lvName(opLv);
+  e = document.getElementById('my-side-win'); if (e) e.textContent = myWin;
+  e = document.getElementById('op-side-win'); if (e) e.textContent = opWin;
 }
 function rankKeyOf(code){
   return (code === 'BJ' || code === 'LJ') ? code : code.slice(1);
@@ -1781,6 +1813,8 @@ var HEX_POS = [
 function init6pBoard(d) {
   levelTeam1 = d.levelTeam1 || 2;
   levelTeam2 = d.levelTeam2 || 2;
+  winsTeam1  = d.winsTeam1 || 0;
+  winsTeam2  = d.winsTeam2 || 0;
   updateCurrentLevel();
   document.getElementById('my-name-6p').textContent = MY_NAME_LS;
   document.getElementById('my-card-count-6p').textContent = myHand.length + '张';

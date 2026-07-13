@@ -550,6 +550,18 @@ module.exports = function(io, socket) {
         playerId:  s.playerId
       }));
 
+      /* 本房间累计胜局（按队）*/
+      const winRows = await query(
+        `SELECT winner_team, COUNT(*)::int AS c FROM gdo_rounds
+         WHERE room_id=$1 AND winner_team IS NOT NULL GROUP BY winner_team`,
+        [seat.room_id]
+      );
+      let winsTeam1 = 0, winsTeam2 = 0;
+      for (const r of winRows) {
+        if (r.winner_team === 1) winsTeam1 = r.c;
+        else if (r.winner_team === 2) winsTeam2 = r.c;
+      }
+
       socket.emit('game:hand', {
         hand: myHand, myPlayerId: player.id,
         mySeat: seat.seat, myTeam: seat.team,
@@ -557,6 +569,7 @@ module.exports = function(io, socket) {
         roundNumber: round.round_number,
         levelTeam1: state.levelTeam1,
         levelTeam2: state.levelTeam2,
+        winsTeam1, winsTeam2,
         players
       });
 
