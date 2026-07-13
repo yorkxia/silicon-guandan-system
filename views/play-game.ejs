@@ -20,15 +20,15 @@
     }
     /* 沙色椭圆牌桌（背景层）*/
     #beach-table {
-      position: fixed; left: 50%; top: 56%; transform: translate(-50%,-50%);
-      width: 94vw; height: 66vh; max-width: 1000px; border-radius: 50%;
+      position: fixed; left: 50%; top: 55%; transform: translate(-50%,-50%);
+      width: 68vw; height: 56vh; max-width: 760px; border-radius: 50%;
       background: radial-gradient(ellipse at 50% 40%, #f2e4bd 0%, #e7d09b 52%, #d3b878 100%);
-      box-shadow: 0 0 0 12px rgba(125,74,32,.5),
-                  inset 0 0 44px rgba(160,120,60,.28),
-                  0 20px 50px rgba(0,0,0,.3);
+      box-shadow: 0 0 0 10px rgba(125,74,32,.5),
+                  inset 0 0 40px rgba(160,120,60,.28),
+                  0 16px 40px rgba(0,0,0,.3);
       z-index: -1; pointer-events: none;
     }
-    body.mode-6p #beach-table { top: 52%; height: 70vh; }
+    body.mode-6p #beach-table { top: 54%; width: 76vw; height: 60vh; max-width: 880px; }
 
     /* 竖屏 → 提示横屏（掼蛋以横屏为准）*/
     #rotate-hint { display: none; }
@@ -45,7 +45,8 @@
 
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
-      display: flex; align-items: center; padding: 7px 14px; gap: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 5px 14px; gap: 10px;
       background: rgba(0,0,0,0.55); flex-shrink: 0; z-index: 10;
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
@@ -68,8 +69,12 @@
 
     /* ═══════════════ 对家区域（上方） ═══════════════ */
     #zone-top {
-      flex-shrink: 0; display: flex; justify-content: center; padding: 1px 16px 0;
+      flex: 1 1 0; min-width: 0; display: flex; justify-content: center; align-items: center;
+      padding: 0;
     }
+    /* 对家在顶栏内需紧凑：隐藏牌背、缩小内边距 */
+    #top-bar .pbox-top { padding: 2px 10px; gap: 2px; }
+    #top-bar .pbox-top .card-fan-h { display: none; }
 
     /* ═══════════════ 中央三列（左玩家 | 桌面 | 右玩家） ═══════════════ */
     #zone-mid {
@@ -227,8 +232,9 @@
     }
     .mc-top  { font-size: .72rem; font-weight: 900; line-height: 1.1; }
     .mc-suit { font-size: .65rem; line-height: 1; }
-    .mc.joker-big   { background: linear-gradient(145deg,#FFF3C0,#FFE066); }
-    .mc.joker-small { background: linear-gradient(145deg,#F0F0F0,#E0E0E0); }
+    .mc.joker-big   { background: #fff url('/img/joker-big.png')   center top / cover no-repeat; }
+    .mc.joker-small { background: #fff url('/img/joker-small.png') center top / cover no-repeat; }
+    .mc-joker-lbl { display: none; }
     .mc-joker-lbl {
       font-size: .58rem; font-weight: 900; text-align: center; width: 100%;
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); letter-spacing: 1px;
@@ -322,12 +328,9 @@
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       font-size: 1.2rem; opacity: .07;
     }
-    .hand-card.joker-big   { background: linear-gradient(145deg,#FFF3C0,#FFE066); }
-    .hand-card.joker-small { background: linear-gradient(145deg,#F5F5F5,#E0E0E0); }
-    .joker-label {
-      font-size: .68rem; font-weight: 900; text-align: center; width: 100%;
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); letter-spacing: 1px;
-    }
+    .hand-card.joker-big   { background: #fff url('/img/joker-big.png')   center top / cover no-repeat; }
+    .hand-card.joker-small { background: #fff url('/img/joker-small.png') center top / cover no-repeat; }
+    .joker-label { display: none; }   /* 用真实王牌图片，不再显示文字 */
 
     /* 手牌区边缘渐隐提示有更多牌 */
     #hand-scroll-wrap { position: relative; }
@@ -337,15 +340,15 @@
       pointer-events: none;
     }
 
-    /* ═══════════════ 操作区 ═══════════════ */
+    /* ═══════════════ 操作区（屏幕上方·顶栏正下方）═══════════════ */
     #action-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 6px 14px 8px;
-      background: rgba(0,0,0,.3); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; gap: 14px;
+      padding: 6px 14px; background: transparent; flex-shrink: 0; z-index: 8;
     }
     #action-hint {
-      flex: 1; font-size: .72rem; color: rgba(255,255,255,.38); letter-spacing: 1px;
-      line-height: 1.4;
+      order: -1; max-width: 30vw; font-size: .72rem; color: rgba(255,255,255,.6);
+      letter-spacing: 1px; line-height: 1.3; text-align: right;
+      text-shadow: 0 1px 3px rgba(0,0,0,.6);
     }
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
@@ -755,22 +758,27 @@
       <span class="side-win">胜局 <b id="op-side-win">0</b></span>
     </div>
   </div>
-  <div class="tb-spacer"></div>
+  <!-- 对家：置于顶栏中央，与我方/房间号同一水平线 -->
+  <div id="zone-top">
+    <div class="pbox pbox-top team1" id="box-top" style="display:none">
+      <div style="display:flex;align-items:center;gap:6px;justify-content:center">
+        <div class="pbox-avatar team1" id="top-avatar">?</div>
+        <div class="pbox-name" id="top-name">—</div>
+        <span class="buddy-tag" id="top-buddy" style="display:none">队友</span>
+        <span class="card-count-badge" id="top-ccount">0张</span>
+        <span class="finish-badge" id="top-finish" style="display:none"></span>
+      </div>
+      <div class="card-fan-h" id="top-cards"></div>
+    </div>
+  </div>
   <div class="room-box">房间号 <span class="room-code-sm"><%= roomCode %></span></div>
 </div>
 
-<!-- ── 对家（上方） ── -->
-<div id="zone-top">
-  <div class="pbox pbox-top team1" id="box-top" style="display:none">
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center">
-      <div class="pbox-avatar team1" id="top-avatar">?</div>
-      <div class="pbox-name" id="top-name">—</div>
-      <span class="buddy-tag" id="top-buddy" style="display:none">队友</span>
-      <span class="card-count-badge" id="top-ccount">0张</span>
-      <span class="finish-badge" id="top-finish" style="display:none"></span>
-    </div>
-    <div class="card-fan-h" id="top-cards"></div>
-  </div>
+<!-- ── 操作区（屏幕上方）── -->
+<div id="action-bar">
+  <div id="action-hint">等待连接...</div>
+  <button class="action-btn pass" id="btn-pass" onclick="doPass()" disabled>不出</button>
+  <button class="action-btn play" id="btn-play" onclick="doPlay()" disabled>出牌</button>
 </div>
 
 <!-- ── 中央三列 ── -->
@@ -829,13 +837,6 @@
   <div id="hand-scroll-wrap">
     <div id="hand-scroll"></div>
   </div>
-</div>
-
-<!-- ── 操作区 ── -->
-<div id="action-bar">
-  <div id="action-hint">等待连接...</div>
-  <button class="action-btn pass" id="btn-pass" onclick="doPass()" disabled>不出</button>
-  <button class="action-btn play" id="btn-play" onclick="doPlay()" disabled>出牌</button>
 </div>
 
 <!-- ══ 六人赛事六边形游戏区 ══ -->
