@@ -10,11 +10,8 @@
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; margin: 0; }
     body {
-      /* 海滩场景：天空 → 海面 → 远岸 → 沙滩甲板 */
-      background: linear-gradient(to bottom,
-        #8ed6f2 0%, #6bc0ea 13%,
-        #3f9bd8 23%, #2c82c6 30%,
-        #7bb89e 34%, #dcc793 40%, #d2b676 100%);
+      /* 硅谷海滩实景背景 */
+      background: url('/img/bg-beach.jpg') center center / cover no-repeat fixed, #1a4a6a;
       display: flex; flex-direction: column;
       font-family: -apple-system, "PingFang SC", sans-serif;
     }
@@ -22,10 +19,12 @@
     #beach-table {
       position: fixed; left: 50%; top: 55%; transform: translate(-50%,-50%);
       width: 68vw; height: 56vh; max-width: 760px; border-radius: 50%;
-      background: radial-gradient(ellipse at 50% 40%, #f2e4bd 0%, #e7d09b 52%, #d3b878 100%);
-      box-shadow: 0 0 0 10px rgba(125,74,32,.5),
-                  inset 0 0 40px rgba(160,120,60,.28),
-                  0 16px 40px rgba(0,0,0,.3);
+      /* 与海水协调的半透明青绿毡面 */
+      background: radial-gradient(ellipse at 50% 42%,
+                  rgba(58,150,132,.60) 0%, rgba(28,104,104,.72) 55%, rgba(14,68,78,.82) 100%);
+      box-shadow: 0 0 0 7px rgba(255,255,255,.18),
+                  inset 0 0 55px rgba(0,0,0,.30),
+                  0 16px 40px rgba(0,0,0,.4);
       z-index: -1; pointer-events: none;
     }
     body.mode-6p #beach-table { top: 54%; width: 76vw; height: 60vh; max-width: 880px; }
@@ -221,7 +220,7 @@
       background: rgba(212,172,13,.15); border-radius: 10px; padding: 3px 10px;
       border: 1px solid rgba(212,172,13,.3);
     }
-    #play-hint { color: rgba(90,58,20,.6); font-size: .82rem; letter-spacing: 3px; text-align: center; font-weight: 700; }
+    #play-hint { color: rgba(255,255,255,.55); font-size: .82rem; letter-spacing: 3px; text-align: center; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
     .trick-who {
       font-size: .68rem; color: rgba(255,255,255,.7); letter-spacing: 1px; text-align: center;
       background: rgba(0,0,0,.35); border-radius: 8px; padding: 2px 9px;
