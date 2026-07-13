@@ -212,6 +212,7 @@
       <div class="ic-toolbar">
         <h2>🎴 生成赛事邀请卡</h2>
         <button class="ic-btn ic-btn-outline" onclick="window.history.back()">← 返回</button>
+        <button class="ic-btn ic-btn-outline" onclick="copyInstallLink()" id="copy-link-btn">🔗 复制安装链接</button>
         <button class="ic-btn ic-btn-red" onclick="downloadCard()" id="dl-btn">
           ⬇️ 下载邀请图片
         </button>
@@ -281,9 +282,9 @@
           <div class="ic-pc-section">
             <div class="ic-pc-icon">💻</div>
             <div class="ic-pc-info">
-              <div class="ic-pc-label">笔记本电脑 · 点击下载安装</div>
-              <a class="ic-pc-link" href="<%= installUrl %>" target="_blank" rel="noopener"><%= installUrl %></a>
-              <div class="ic-pc-hint">电脑浏览器打开此链接，即可安装赛事App</div>
+              <div class="ic-pc-label">笔记本电脑 · 点击一键安装</div>
+              <a class="ic-pc-link" href="<%= pcInstallUrl %>" target="_blank" rel="noopener"><%= pcInstallUrl %></a>
+              <div class="ic-pc-hint">电脑浏览器打开此链接 → 点「立即安装到桌面」即可</div>
             </div>
           </div>
 
@@ -304,6 +305,11 @@
           👇 长按下方图片，选择「保存图片 / 存储到相册」即可
         </div>
         <img id="ic-result-img" style="max-width:100%;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);" alt="邀请卡">
+        <div style="margin-top:16px;padding:12px 16px;background:#FFF8F0;border:1px solid rgba(212,172,13,.4);border-radius:10px;font-size:.82rem;color:#8B0000;line-height:1.8;text-align:left;">
+          💻 <strong>发给电脑好友：</strong>图片是图片、点不了，请把下面这个链接<strong>一起发过去</strong>，好友点击即可一键安装：<br>
+          <a href="<%= pcInstallUrl %>" target="_blank" rel="noopener" style="color:#1a6bd4;word-break:break-all;font-weight:700;"><%= pcInstallUrl %></a>
+          <button class="ic-btn ic-btn-outline" style="padding:4px 12px;font-size:.75rem;margin-left:8px;vertical-align:middle;" onclick="copyInstallLink()">🔗 复制链接</button>
+        </div>
       </div>
 
       <!-- 失败时显示真实错误，便于定位 -->
@@ -314,6 +320,32 @@
 </div>
 
 <script>
+var INSTALL_URL_PC = '<%= pcInstallUrl %>';
+
+/* 复制电脑一键安装链接（连同图片一起发给电脑好友）*/
+function copyInstallLink(){
+  var btn = document.getElementById('copy-link-btn');
+  var old = btn ? btn.textContent : '';
+  function done(ok){
+    if (!btn) { if(!ok) prompt('请手动复制安装链接：', INSTALL_URL_PC); return; }
+    btn.textContent = ok ? '✅ 链接已复制' : '❌ 复制失败';
+    setTimeout(function(){ btn.textContent = old; }, 2000);
+  }
+  function fallback(){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = INSTALL_URL_PC;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta); done(ok);
+    } catch(e){ prompt('请手动复制安装链接：', INSTALL_URL_PC); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(INSTALL_URL_PC).then(function(){ done(true); }).catch(fallback);
+  } else { fallback(); }
+}
+
 function icShowError(msg){
   var box = document.getElementById('ic-error');
   box.style.display = 'block';

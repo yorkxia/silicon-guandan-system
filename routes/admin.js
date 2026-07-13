@@ -673,7 +673,8 @@ router.get('/ot-staff/participants/export', requireAuth, requireSuperAdmin, asyn
 // ── 邀请卡生成页 ──────────────────────────────────────────
 router.get('/invite-card', requireAuth, async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
-  const installUrl = `${baseUrl}/play`;
+  const installUrl = `${baseUrl}/play`;         // 手机扫码入口（赛事页）
+  const pcInstallUrl = `${baseUrl}/install`;    // 电脑一键安装页（含"安装到桌面"按钮）
   const qrDataUrl = await QRCode.toDataURL(installUrl, {
     width: 300, margin: 2,
     color: { dark: '#1a0505', light: '#FFF8F0' }
@@ -682,7 +683,8 @@ router.get('/invite-card', requireAuth, async (req, res) => {
     user: req.session.user,
     activePage: 'invite-card',
     qrDataUrl,
-    installUrl
+    installUrl,
+    pcInstallUrl
   });
 });
 
