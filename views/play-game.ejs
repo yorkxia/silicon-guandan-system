@@ -311,7 +311,7 @@
     .hand-card.selected {
       transform: translateX(12px);
       box-shadow: -3px 5px 18px rgba(0,0,0,.55);
-      outline: 2px solid #FFE066;
+      outline: 3px solid #FF2626;      /* 点击过的牌用红框标记 */
       z-index: 30;
     }
 
@@ -328,6 +328,10 @@
     #hand-scroll { align-items: flex-end; justify-content: center; }
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
 
+    .card-corner { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+    /* 叠放的牌：花色移到点数右侧同一行，便于看同花顺 */
+    .hand-card.stacked .card-corner { flex-direction: row; align-items: center; gap: 2px; }
+    .hand-card.stacked .card-suit { margin-top: 0; }
     .card-top    { font-size: .92rem; font-weight: 900; line-height: 1; }
     .card-suit   { font-size: .84rem; line-height: 1; margin-top: 1px; }
     .card-center {
@@ -384,6 +388,12 @@
     .action-btn.play:disabled {
       background: linear-gradient(180deg,#cccccc,#9a9a9a); color: #eee;
       box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
+    }
+    /* 选牌无效/压不过：出牌按钮变红 */
+    .action-btn.play.invalid:not(:disabled) {
+      background: linear-gradient(180deg,#ff9a9a 0%,#e33030 55%,#c01818 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(180,0,0,.45);
+      text-shadow: 0 1px 2px rgba(80,0,0,.5);
     }
 
     /* 操作无效提示 toast */
@@ -1165,6 +1175,7 @@ socket.on('game:state', function(d){
   isMyTurn    = (d.turnSeat === mySeat);
   hasLastPlay = !!d.lastPlay;
   curFinish   = d.finishOrder || [];
+  lastPlayType = (d.lastPlay && d.lastPlay.cards) ? gdDetect(d.lastPlay.cards) : null;  // 需压过的牌型
   if (d.connected) connMap = d.connected;      // 阶段九：座位在线状态
 
   players.forEach(function(p){
@@ -1584,6 +1595,85 @@ function attachTap(el, fn){
 /* 牌数格式：开局不显示，剩 ≤10 张才显示 */
 function fmtCount(n){ return (n != null && n <= 10) ? n + '张' : ''; }
 
+/* ══════ 客户端牌型即时校验（出牌按钮红/绿提示，防"无效牌型")══════ */
+var lastPlayType = null;   // 当前需要压过的牌型（由 game:state 计算）
+function _cnt(a){ var m={}; a.forEach(function(v){ m[v]=(m[v]||0)+1; }); return m; }
+function _consec(d){ for(var i=0;i<d.length-1;i++) if(d[i]-d[i+1]!==1) return false; return true; }
+function _runTop(d){
+  if(_consec(d)) return d[0];
+  if(d[0]===14 && d[d.length-1]===2){ if(_consec(d.slice(1).concat([1]))) return d[1]; }
+  return null;
+}
+function _rv(c){ if(c==='BJ')return 16; if(c==='LJ')return 15; return RANK_ORD[c.slice(1)]||0; }
+function _fullhouse(rv){ var c=_cnt(rv); var e=Object.keys(c); if(e.length!==2)return null;
+  if(c[e[0]]===3&&c[e[1]]===2)return +e[0]; if(c[e[0]]===2&&c[e[1]]===3)return +e[1]; return null; }
+function _dbl(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(function(a,b){return b-a;});
+  if(rs.length!==3)return null; for(var k in c) if(c[k]!==2)return null; return _runTop(rs); }
+function _trip(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(function(a,b){return b-a;});
+  if(rs.length!==2)return null; for(var k in c) if(c[k]!==3)return null; return _runTop(rs); }
+function gdDetect(cards){
+  if(!cards||!cards.length) return null;
+  var n=cards.length;
+  var bj=cards.filter(function(c){return c==='BJ';}).length;
+  var lj=cards.filter(function(c){return c==='LJ';}).length;
+  if((n===4&&bj===2&&lj===2)||(n===6&&bj===3&&lj===3)) return {type:'joker_bomb',value:99999};
+  if(n===3&&bj===3) return {type:'triple_bj',value:160};
+  if(n===3&&lj===3) return {type:'triple_lj',value:150};
+  if(cards.some(function(c){return c==='LJ'||c==='BJ';})) return null;
+  var rv=cards.map(_rv).sort(function(a,b){return b-a;});
+  var suits=cards.map(function(c){return c[0];});
+  var allSame=rv.every(function(r){return r===rv[0];});
+  if(n>=4&&allSame){ return {type:(new Set(suits).size===1)?'flush_bomb':'bomb',size:n,value:rv[0]}; }
+  if(n===1) return {type:'single',value:rv[0]};
+  if(n===2&&rv[0]===rv[1]) return {type:'pair',value:rv[0]};
+  if(n===3&&allSame) return {type:'triple',value:rv[0]};
+  if(n===5){
+    var fh=_fullhouse(rv); if(fh) return {type:'fullhouse',value:fh};
+    var u=Array.from(new Set(rv)).sort(function(a,b){return b-a;});
+    if(u.length===5){ var top=_runTop(u); if(top!==null)
+      return {type:(new Set(suits).size===1)?'flush_straight':'straight',size:5,value:top}; }
+    return null;
+  }
+  if(n===6){
+    var ts=_trip(rv); if(ts!==null) return {type:'triple_straight',size:2,value:ts};
+    var ds=_dbl(rv);  if(ds!==null) return {type:'dbl_straight',size:3,value:ds};
+    return null;
+  }
+  return null;
+}
+function _isBomb(pt){ return pt && ['bomb','flush_bomb','flush_straight','joker_bomb','triple_bj','triple_lj'].indexOf(pt.type)>=0; }
+function _bombScore(pt){
+  if(pt.type==='joker_bomb') return 1e6;
+  if(pt.type==='flush_straight') return 550+pt.value;
+  if(pt.type==='triple_bj') return 460;
+  if(pt.type==='triple_lj') return 450;
+  if(pt.type==='bomb'||pt.type==='flush_bomb') return pt.size*100+pt.value;
+  return 0;
+}
+function gdCanBeat(np,cp){
+  if(!cp) return !!np; if(!np) return false;
+  if(_isBomb(np)&&!_isBomb(cp)) return true;
+  if(!_isBomb(np)&&_isBomb(cp)) return false;
+  if(_isBomb(np)&&_isBomb(cp)) return _bombScore(np)>_bombScore(cp);
+  if(np.type!==cp.type) return false;
+  if(np.size!==undefined&&np.size!==cp.size) return false;
+  return np.value>cp.value;
+}
+/* 更新出牌按钮红/绿：轮我=绿；选牌无效或压不过=红 */
+function updatePlayButtonState(){
+  var btn = document.getElementById(GAME_MODE==='6p' ? 'btn-play-6p' : 'btn-play');
+  if(!btn) return;
+  btn.classList.remove('invalid');
+  if(!isMyTurn){ btn.disabled = true; return; }
+  btn.disabled = false;
+  if(selected.length===0) return;
+  var cards = selected.map(function(k){ return k.split('_')[0]; });
+  var pt = gdDetect(cards);
+  var ok = !!pt;
+  if(ok && hasLastPlay && lastPlayType) ok = gdCanBeat(pt, lastPlayType);
+  if(!ok) btn.classList.add('invalid');
+}
+
 /* 构建单张手牌 DOM */
 function buildHandCardEl(code, idx, onClick){
   var key  = code + '_' + idx;
@@ -1603,8 +1693,7 @@ function buildHandCardEl(code, idx, onClick){
     var sym = { S:'♠', H:'♥', D:'♦', C:'♣' }[suit];
     var rd = rank === 'T' ? '10' : rank;
     card.innerHTML =
-      '<div class="card-top">' + rd + '</div>' +
-      '<div class="card-suit">' + sym + '</div>' +
+      '<div class="card-corner"><span class="card-top">' + rd + '</span><span class="card-suit">' + sym + '</span></div>' +
       '<div class="card-center">' + sym + '</div>';
   }
   attachTap(card, onClick);
@@ -1638,6 +1727,7 @@ function toggleCard(code,idx){
   renderHand(myHand);
   syncButtons();
   updateSelInfo();
+  updatePlayButtonState();
 }
 
 function clearSel(){
@@ -1651,6 +1741,7 @@ function clearSel(){
     syncButtons();
     updateSelInfo();
   }
+  updatePlayButtonState();
 }
 
 function updateSelInfo(){
@@ -1663,14 +1754,18 @@ function updateSelInfo(){
 }
 
 function syncButtons(){
-  document.getElementById('btn-play').disabled = !isMyTurn || selected.length===0;
   document.getElementById('btn-pass').disabled = !isMyTurn || !hasLastPlay;
+  updatePlayButtonState();
 }
 
 /* ── 出牌 / 不出 ── */
 function doPlay(){
-  if(!isMyTurn||selected.length===0) return;
+  if(!isMyTurn) return;
+  if(selected.length===0){ showToast('请先选牌'); return; }
   var cards = selected.map(function(key){ return key.split('_')[0]; });
+  var pt = gdDetect(cards);
+  if(!pt){ showToast('无效牌型，请重新选择'); return; }
+  if(hasLastPlay && lastPlayType && !gdCanBeat(pt, lastPlayType)){ showToast('压不过上家，请重选或不出'); return; }
   socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
 }
 
@@ -1954,8 +2049,7 @@ function build6pCardEl(code, idx){
     var sym={S:'♠',H:'♥',D:'♦',C:'♣'}[suit];
     var rd=rank==='T'?'10':rank;
     card.innerHTML =
-      '<div class="card-top" style="font-size:.65rem;">'+rd+'</div>'+
-      '<div class="card-suit" style="font-size:.7rem;">'+sym+'</div>'+
+      '<div class="card-corner"><span class="card-top" style="font-size:.62rem;">'+rd+'</span><span class="card-suit" style="font-size:.62rem;">'+sym+'</span></div>'+
       '<div class="card-center" style="font-size:.85rem;">'+sym+'</div>';
   }
   attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
@@ -1989,6 +2083,7 @@ function toggleCard6p(code, idx) {
   render6pHand(myHand);
   syncButtons6p();
   updateSelInfo6p();
+  updatePlayButtonState();
 }
 
 function updateSelInfo6p() {
@@ -2000,8 +2095,8 @@ function updateSelInfo6p() {
 }
 
 function syncButtons6p() {
-  document.getElementById('btn-play-6p').disabled = !isMyTurn || selected.length === 0;
   document.getElementById('btn-pass-6p').disabled = !isMyTurn || !hasLastPlay;
+  updatePlayButtonState();
 }
 </script>
 </body>
