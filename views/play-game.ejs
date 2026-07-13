@@ -145,6 +145,11 @@
       background: rgba(255,255,255,.1); color: rgba(255,255,255,.7);
       border: 1px solid rgba(255,255,255,.12);
     }
+    /* 剩牌 ≤10 张：高亮真实牌数 */
+    .card-count-badge.low, .h-count.low {
+      background: rgba(230,50,50,.92); color: #fff; border-color: #fff;
+      font-size: .72rem; font-weight: 900; box-shadow: 0 0 6px rgba(230,50,50,.5);
+    }
 
     /* 完成位置 */
     .finish-badge {
@@ -1432,8 +1437,11 @@ function fillPlayerBox(boxId, avatarId, nameId, buddyId, ccountId, cardsId, fini
   /* 队友标签 */
   document.getElementById(buddyId).style.display = isBuddy ? 'inline-block' : 'none';
 
-  /* 牌数 */
-  document.getElementById(ccountId).textContent = (finItem ? '0' : p.cardCount) + (dir==='h'?'张':'');
+  /* 牌数：始终显示真实牌数，≤10 张高亮 */
+  var cnt = finItem ? 0 : p.cardCount;
+  var ccEl = document.getElementById(ccountId);
+  ccEl.textContent = cnt + '张';
+  ccEl.className = 'card-count-badge' + ((!finItem && cnt <= 10) ? ' low' : '');
 
   /* 面板发光 */
   box.className = 'pbox ' + (dir==='h'?'pbox-top':'pbox-side') +
@@ -1878,7 +1886,7 @@ function render6pPlayers(pList, finOrder, turnSeat) {
       '<div class="h-pbox-name' + (offline?' offline':'') + '">' + label + (isMe?' (我)':'') + '</div>' +
       '<div class="h-pbox-info">' +
         (isBuddy && !isMe ? '<span class="h-buddy-tag">队友</span>' : '') +
-        (finBadge || ('<span style="color:rgba(255,255,255,.35);font-size:.6rem;">' + (finItem?'':'') + (p?(p.cardCount||0)+'张':'') + '</span>')) +
+        (finBadge || (p ? '<span class="h-count' + ((p.cardCount||0)<=10?' low':'') + '" style="font-size:.6rem;padding:0 5px;border-radius:7px;">' + (p.cardCount||0) + '张</span>' : '')) +
       '</div>' +
       (cardBacks ? '<div class="h-card-fan">' + cardBacks + '</div>' : '');
   }
