@@ -161,6 +161,30 @@
     }
     .ic-qr-text ul li::before { content: '✦ '; color: #D4AC0D; }
 
+    /* 电脑端点击安装区 */
+    .ic-pc-section {
+      display: flex; align-items: center; gap: 18px;
+      background: rgba(212,172,13,0.08);
+      border: 1px solid rgba(212,172,13,0.3);
+      border-radius: 16px; padding: 18px 24px;
+      margin-bottom: 24px;
+    }
+    .ic-pc-icon { font-size: 2.6rem; flex-shrink: 0; line-height: 1; }
+    .ic-pc-info { flex: 1; min-width: 0; }
+    .ic-pc-label {
+      font-size: 1rem; font-weight: 900; color: #FFE066;
+      letter-spacing: 2px; margin-bottom: 8px;
+    }
+    .ic-pc-link {
+      display: inline-block; word-break: break-all; max-width: 100%;
+      font-size: 0.9rem; font-weight: 700; letter-spacing: 1px;
+      color: #1a0505; background: linear-gradient(135deg, #FFE066, #D4AC0D);
+      padding: 9px 18px; border-radius: 10px; text-decoration: none;
+      box-shadow: 0 3px 12px rgba(212,172,13,0.4);
+    }
+    .ic-pc-link:hover { filter: brightness(1.08); }
+    .ic-pc-hint { font-size: 0.72rem; color: rgba(255,255,255,0.5); margin-top: 8px; letter-spacing: 1px; }
+
     /* 底部说明 */
     .ic-footer-text {
       text-align: center; font-size: 0.73rem;
@@ -194,10 +218,11 @@
       </div>
 
       <div class="ic-hint">
-        💡 <strong>使用方法：</strong>点击「下载邀请图片」保存PNG文件 →
+        💡 <strong>使用方法：</strong>点击「下载邀请图片」保存PNG →
         通过<strong>微信</strong>或<strong>Messenger</strong>发给朋友 →
-        朋友用微信<strong>长按图片扫二维码</strong>，或用手机相机扫码 →
-        即可打开安装页面，将掼蛋赛事App添加到手机桌面。
+        <strong>📱 手机</strong>用微信长按图片扫码 / 相机扫码；
+        <strong>💻 电脑</strong>直接打开卡片上的安装链接 →
+        即可安装掼蛋赛事App。
       </div>
 
       <!-- 邀请卡（此区域会被截图） -->
@@ -242,20 +267,29 @@
               <img src="<%= qrDataUrl %>" alt="扫码安装">
             </div>
             <div class="ic-qr-text">
-              <h3>📲 扫码安装赛事App</h3>
+              <h3>📱 手机 · 扫码安装</h3>
               <ul>
                 <li>微信：长按图片识别二维码</li>
                 <li>相机：直接扫码即可打开</li>
                 <li>安装后图标存至手机桌面</li>
-                <li>支持苹果 · 安卓 · 平板 · 电脑</li>
+                <li>支持苹果 · 安卓 · 平板</li>
               </ul>
+            </div>
+          </div>
+
+          <!-- 电脑端点击安装 -->
+          <div class="ic-pc-section">
+            <div class="ic-pc-icon">💻</div>
+            <div class="ic-pc-info">
+              <div class="ic-pc-label">笔记本电脑 · 点击下载安装</div>
+              <a class="ic-pc-link" href="<%= installUrl %>" target="_blank" rel="noopener"><%= installUrl %></a>
+              <div class="ic-pc-hint">电脑浏览器打开此链接，即可安装赛事App</div>
             </div>
           </div>
 
           <!-- 底部 -->
           <div class="ic-footer-text">
-            硅谷掼蛋协会 · Silicon Valley Guandan Association<br>
-            <%= installUrl %>
+            硅谷掼蛋协会 · Silicon Valley Guandan Association
           </div>
 
           <div class="ic-gold-bottom"></div>
