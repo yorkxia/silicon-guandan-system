@@ -264,35 +264,95 @@
 
       <div id="download-status">✅ 图片已下载！请到手机相册或下载文件夹查找「掼蛋赛事邀请卡.png」</div>
 
+      <!-- 微信/iOS 内置浏览器会拦截自动下载：同时展示图片供长按保存 -->
+      <div id="ic-result-box" style="display:none;text-align:center;margin-top:16px;">
+        <div style="font-size:.85rem;color:#8B0000;font-weight:700;margin-bottom:8px;">
+          👇 长按下方图片，选择「保存图片 / 存储到相册」即可
+        </div>
+        <img id="ic-result-img" style="max-width:100%;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);" alt="邀请卡">
+      </div>
+
+      <!-- 失败时显示真实错误，便于定位 -->
+      <div id="ic-error" style="display:none;margin-top:14px;padding:12px 16px;background:#FFF0F0;border-left:4px solid #C0000F;border-radius:0 8px 8px 0;color:#8B0000;font-size:.82rem;line-height:1.7;"></div>
+
     </div>
   </main>
 </div>
 
 <script>
+function icShowError(msg){
+  var box = document.getElementById('ic-error');
+  box.style.display = 'block';
+  box.innerHTML = '⚠️ 生成失败：' + msg +
+    '<br><span style="color:#888;">若反复失败：请截屏上方预览卡片保存，或改用 Chrome / Safari 打开本页重试。</span>';
+}
+
+/* 等待卡片内所有图片加载完成，避免渲染竞态 */
+function icPreloadImages(root){
+  var imgs = root.querySelectorAll('img');
+  return Promise.all(Array.prototype.map.call(imgs, function(img){
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(function(resolve){
+      img.addEventListener('load',  resolve, { once:true });
+      img.addEventListener('error', resolve, { once:true });
+    });
+  }));
+}
+
 async function downloadCard() {
   var btn = document.getElementById('dl-btn');
+  var oldText = btn.textContent;
   btn.textContent = '⏳ 生成中...';
   btn.disabled = true;
+  document.getElementById('ic-error').style.display = 'none';
+  document.getElementById('download-status').style.display = 'none';
 
   try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('截图库(html2canvas)未加载，请刷新页面');
+    }
     var card = document.getElementById('invite-card-capture');
+
+    /* 字体 + 图片就绪后再截图 */
+    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(_){} }
+    await icPreloadImages(card);
+
     var canvas = await html2canvas(card, {
-      scale: 2,          // 高清2倍
+      scale: 2,                    // 高清2倍
       useCORS: true,
-      backgroundColor: null,
+      allowTaint: false,
+      backgroundColor: '#1a0505',  // 实底色，避免透明背景导致的异常
+      imageTimeout: 15000,
       logging: false
     });
 
+    /* 导出（画布被跨域污染时 toDataURL 会抛 SecurityError）*/
+    var dataUrl;
+    try {
+      dataUrl = canvas.toDataURL('image/png');
+    } catch (secErr) {
+      throw new Error('图片被跨域污染，无法导出（' + (secErr.message || secErr) + '）');
+    }
+
+    /* 桌面浏览器：触发下载 */
     var link = document.createElement('a');
     link.download = '掼蛋赛事邀请卡.png';
-    link.href = canvas.toDataURL('image/png');
+    link.href = dataUrl;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
 
+    /* 微信/iOS 内置浏览器常拦截下载：同时展示图片供长按保存 */
+    var rimg = document.getElementById('ic-result-img');
+    rimg.src = dataUrl;
+    document.getElementById('ic-result-box').style.display = 'block';
     document.getElementById('download-status').style.display = 'block';
+
   } catch(e) {
-    alert('生成失败，请刷新页面重试');
+    console.error('[invite-card] 生成失败:', e);
+    icShowError((e && e.message) ? e.message : String(e));
   } finally {
-    btn.textContent = '⬇️ 下载邀请图片';
+    btn.textContent = oldText || '⬇️ 下载邀请图片';
     btn.disabled = false;
   }
 }
