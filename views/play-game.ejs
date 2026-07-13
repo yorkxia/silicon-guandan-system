@@ -10,10 +10,25 @@
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; margin: 0; }
     body {
-      background: radial-gradient(ellipse at 50% 40%, #1d5c1d 0%, #0d2d0d 55%, #061306 100%);
+      /* 海滩场景：天空 → 海面 → 远岸 → 沙滩甲板 */
+      background: linear-gradient(to bottom,
+        #8ed6f2 0%, #6bc0ea 13%,
+        #3f9bd8 23%, #2c82c6 30%,
+        #7bb89e 34%, #dcc793 40%, #d2b676 100%);
       display: flex; flex-direction: column;
       font-family: -apple-system, "PingFang SC", sans-serif;
     }
+    /* 沙色椭圆牌桌（背景层）*/
+    #beach-table {
+      position: fixed; left: 50%; top: 56%; transform: translate(-50%,-50%);
+      width: 94vw; height: 66vh; max-width: 1000px; border-radius: 50%;
+      background: radial-gradient(ellipse at 50% 40%, #f2e4bd 0%, #e7d09b 52%, #d3b878 100%);
+      box-shadow: 0 0 0 12px rgba(125,74,32,.5),
+                  inset 0 0 44px rgba(160,120,60,.28),
+                  0 20px 50px rgba(0,0,0,.3);
+      z-index: -1; pointer-events: none;
+    }
+    body.mode-6p #beach-table { top: 52%; height: 70vh; }
 
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
@@ -185,7 +200,7 @@
       background: rgba(212,172,13,.15); border-radius: 10px; padding: 3px 10px;
       border: 1px solid rgba(212,172,13,.3);
     }
-    #play-hint { color: rgba(255,255,255,.18); font-size: .82rem; letter-spacing: 3px; text-align: center; }
+    #play-hint { color: rgba(90,58,20,.6); font-size: .82rem; letter-spacing: 3px; text-align: center; font-weight: 700; }
     .trick-who {
       font-size: .68rem; color: rgba(255,255,255,.7); letter-spacing: 1px; text-align: center;
       background: rgba(0,0,0,.35); border-radius: 8px; padding: 2px 9px;
@@ -324,22 +339,32 @@
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
     .action-btn {
-      padding: 10px 16px; border-radius: 10px; border: none;
-      font-size: .82rem; font-weight: 700; letter-spacing: 1px; cursor: pointer;
-      transition: all .18s; white-space: nowrap;
+      padding: 11px 26px; border-radius: 22px; border: 1px solid rgba(255,255,255,.55);
+      font-size: .95rem; font-weight: 900; letter-spacing: 2px; cursor: pointer;
+      transition: all .15s; white-space: nowrap;
     }
+    /* 不出 = 蓝色玻璃 */
     .action-btn.pass {
-      background: rgba(255,255,255,.1); color: rgba(255,255,255,.55);
-      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg,#8fd0f7 0%,#3f9be0 55%,#2c82c6 100%); color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 9px rgba(0,60,120,.4);
+      text-shadow: 0 1px 2px rgba(0,40,80,.55);
     }
-    .action-btn.pass:hover:not(:disabled) { background: rgba(255,255,255,.18); }
-    .action-btn.pass:disabled { opacity: .35; cursor: default; }
+    .action-btn.pass:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    .action-btn.pass:disabled {
+      background: linear-gradient(180deg,#cccccc,#9a9a9a); color: #eee;
+      box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
+    }
+    /* 出牌 = 绿色玻璃 */
     .action-btn.play {
-      background: linear-gradient(135deg,#C0000F,#8B0000); color: #fff;
-      box-shadow: 0 3px 12px rgba(192,0,15,.45);
+      background: linear-gradient(180deg,#8be06a 0%,#43b52a 55%,#2f9418 100%); color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 3px 10px rgba(20,110,0,.4);
+      text-shadow: 0 1px 2px rgba(0,60,0,.5);
     }
-    .action-btn.play:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(192,0,15,.5); }
-    .action-btn.play:disabled { background: #444; box-shadow: none; cursor: default; }
+    .action-btn.play:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); }
+    .action-btn.play:disabled {
+      background: linear-gradient(180deg,#cccccc,#9a9a9a); color: #eee;
+      box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
+    }
 
     /* 操作无效提示 toast */
     #err-toast {
@@ -607,6 +632,9 @@
   </style>
 </head>
 <body>
+
+<!-- 沙色椭圆牌桌背景 -->
+<div id="beach-table"></div>
 
 <!-- 加载层 -->
 <div id="loading-overlay">
