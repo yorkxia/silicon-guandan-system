@@ -10,8 +10,9 @@ const gameStates = require('./gameState');
 /* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
    在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
 */
-const TURN_SECONDS    = 30;
-const DC_TURN_SECONDS = 12;
+const TURN_SECONDS       = 20;   // 常规回合
+const FIRST_TURN_SECONDS = 40;   // 开局第一手（留时间看牌）
+const DC_TURN_SECONDS    = 12;   // 掉线托管
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode) {
@@ -29,7 +30,8 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     tributePhase: null,   // 仅六人赛事使用
     disconnected: new Set(), // 掉线的座位号集合（阶段九）
     turnTimer:    null,   // setTimeout 句柄
-    turnDeadline: 0       // 当前回合截止时间戳（毫秒）
+    turnDeadline: 0,      // 当前回合截止时间戳（毫秒）
+    firstMove:    true    // 开局第一手（用于40秒看牌时间）
   };
   gameStates.set(roomCode, state);
   return state;
@@ -70,7 +72,7 @@ function startTurnTimer(io, state) {
   if (state.finishOrder.length >= state.totalPlayers - 1) return;
 
   const dc   = isSeatDisconnected(state, state.turnSeat);
-  const secs = dc ? DC_TURN_SECONDS : TURN_SECONDS;
+  const secs = dc ? DC_TURN_SECONDS : (state.firstMove ? FIRST_TURN_SECONDS : TURN_SECONDS);
   state.turnDeadline = Date.now() + secs * 1000;
 
   io.to(state.roomCode).emit('game:turn_timer', {
@@ -380,6 +382,10 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   state.lastPlay  = { seat: mySeat.seat, name: mySeat.name, cards, playType };
   state.leadSeat  = mySeat.seat;
   state.passCount = 0;
+  state.firstMove = false;
+
+  /* 出牌方位置提示"出"（跟随出牌方）*/
+  io.to(state.roomCode).emit('player:played', { seat: mySeat.seat, name: mySeat.name });
 
   /* 把新手牌发回该玩家（若其 socket 在线）*/
   if (mySeat.socketId) io.to(mySeat.socketId).emit('game:hand_update', { hand: sortHand(newHand) });
@@ -429,6 +435,10 @@ async function applyPass(io, state, playerId, isAuto = false) {
   if (!state.lastPlay) return { error: '先出方必须出牌，不能不出' };
 
   state.passCount++;
+  state.firstMove = false;
+
+  /* 不出方位置提示"不出"（跟随出牌方）*/
+  io.to(state.roomCode).emit('player:passed', { seat: mySeat.seat, name: mySeat.name });
 
   if (isAuto) {
     io.to(state.roomCode).emit('game:auto_passed', { seat: mySeat.seat, name: mySeat.name });

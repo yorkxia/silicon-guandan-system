@@ -1144,40 +1144,90 @@ socket.on('game:state', function(d){
 var connMap = {};              // seat -> 是否在线
 var _turnDeadline = 0, _turnInterval = null, _turnSeatCur = 0;
 
+/* 中央倒计时圆盘 + 指向出牌方的绿箭头 */
 function ensureTimerEl(){
-  var el = document.getElementById('gd-turn-timer');
+  var el = document.getElementById('gd-turn-center');
   if(!el){
     el = document.createElement('div');
-    el.id = 'gd-turn-timer';
-    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);' +
-      'z-index:9999;padding:5px 16px;border-radius:18px;font-size:15px;font-weight:700;' +
-      'color:#fff;background:rgba(0,0,0,.65);box-shadow:0 2px 10px rgba(0,0,0,.35);' +
-      'display:none;transition:background .3s;pointer-events:none;';
+    el.id = 'gd-turn-center';
+    el.style.cssText = 'position:fixed;top:41%;left:50%;transform:translate(-50%,-50%);' +
+      'z-index:70;display:none;flex-direction:column;align-items:center;gap:1px;pointer-events:none;';
+    el.innerHTML =
+      '<div id="gd-turn-num" style="width:54px;height:54px;border-radius:50%;display:flex;' +
+        'align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;' +
+        'background:rgba(0,0,0,.55);border:3px solid #35d24a;box-shadow:0 2px 12px rgba(0,0,0,.45);">20</div>' +
+      '<div id="gd-turn-arrow" style="font-size:30px;line-height:.8;color:#35d24a;' +
+        'text-shadow:0 2px 6px rgba(0,0,0,.5);transition:transform .25s;">▼</div>';
     document.body.appendChild(el);
   }
   return el;
 }
 function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
-  var el = document.getElementById('gd-turn-timer'); if(el) el.style.display = 'none';
+  var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
+}
+/* ▼默认朝下(=我/下方)，按出牌方相对位置旋转 */
+function turnArrowDeg(seat){
+  var total = (GAME_MODE === '6p') ? 6 : 4;
+  var rel = buildRelMap(mySeat, total)[seat];
+  if (rel === 'bottom') return 0;
+  if (rel === 'left')   return 90;
+  if (rel === 'top')    return 180;
+  if (rel === 'right')  return 270;
+  return 0;
 }
 function tickTurn(){
-  var el = ensureTimerEl();
+  var c = ensureTimerEl();
+  c.style.display = 'flex';
   var remain = Math.max(0, Math.ceil((_turnDeadline - Date.now())/1000));
-  var mine = (_turnSeatCur === mySeat);
-  el.style.display = 'block';
-  el.textContent = (mine ? '⏱ 该你出牌 ' : '⏱ ') + remain + 's';
-  el.style.background = remain <= 5 ? 'rgba(200,0,15,.92)'
-                      : (mine ? 'rgba(212,172,13,.95)' : 'rgba(0,0,0,.65)');
+  var numEl = document.getElementById('gd-turn-num');
+  var arrEl = document.getElementById('gd-turn-arrow');
+  var mine  = (_turnSeatCur === mySeat);
+  var col   = remain <= 5 ? '#FF5050' : (mine ? '#FFE066' : '#35d24a');
+  numEl.textContent = remain;
+  numEl.style.borderColor = col;
+  numEl.style.color = (remain <= 5) ? '#FF8080' : '#fff';
+  arrEl.style.color = col;
+  arrEl.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';
   if(remain <= 0) stopTurnCountdown();
 }
 socket.on('game:turn_timer', function(d){
-  _turnDeadline = d.deadline || (Date.now() + (d.seconds||30)*1000);
+  _turnDeadline = d.deadline || (Date.now() + (d.seconds||20)*1000);
   _turnSeatCur  = d.turnSeat;
   if(_turnInterval) clearInterval(_turnInterval);
   tickTurn();
-  _turnInterval = setInterval(tickTurn, 500);
+  _turnInterval = setInterval(tickTurn, 250);
 });
+
+/* ── 出/不出 位置气泡（跟随出牌方）── */
+function seatPanelEl(seat){
+  if (GAME_MODE === '6p') return document.getElementById('h-seat-' + seat);
+  if (seat === mySeat)    return document.getElementById('my-info-row');
+  var rel = buildRelMap(mySeat, 4)[seat];
+  var id = rel === 'top' ? 'box-top' : rel === 'left' ? 'box-left' : rel === 'right' ? 'box-right' : null;
+  return id ? document.getElementById(id) : null;
+}
+function showSeatBubble(seat, text, bg){
+  var el = seatPanelEl(seat);
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return;
+  var b = document.createElement('div');
+  b.textContent = text;
+  b.style.cssText = 'position:fixed;z-index:80;padding:3px 16px;border-radius:16px;' +
+    'font-size:17px;font-weight:900;letter-spacing:2px;color:#fff;background:' + bg + ';' +
+    'box-shadow:0 3px 12px rgba(0,0,0,.45);pointer-events:none;white-space:nowrap;' +
+    'left:' + (r.left + r.width/2) + 'px;top:' + (r.top + r.height/2) + 'px;' +
+    'transform:translate(-50%,-50%) scale(.5);opacity:0;transition:transform .18s,opacity .18s;';
+  document.body.appendChild(b);
+  requestAnimationFrame(function(){ b.style.opacity = '1'; b.style.transform = 'translate(-50%,-50%) scale(1)'; });
+  setTimeout(function(){
+    b.style.opacity = '0';
+    setTimeout(function(){ if (b.parentNode) b.parentNode.removeChild(b); }, 220);
+  }, 1200);
+}
+socket.on('player:played', function(d){ showSeatBubble(d.seat, '出',   'rgba(30,150,60,.92)'); });
+socket.on('player:passed', function(d){ showSeatBubble(d.seat, '不出', 'rgba(214,150,20,.95)'); });
 
 /* 掉线 / 重连通知 */
 socket.on('game:player_connection', function(d){
