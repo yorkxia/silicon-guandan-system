@@ -10,7 +10,7 @@ const gameStates = require('./gameState');
 /* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
    在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
 */
-const TURN_SECONDS       = 20;   // 常规回合
+const TURN_SECONDS       = 40;   // 常规回合（测试期临时40秒，之后改回20）
 const FIRST_TURN_SECONDS = 40;   // 开局第一手（留时间看牌）
 const DC_TURN_SECONDS    = 12;   // 掉线托管
 

@@ -111,14 +111,18 @@ function detectType(cards) {
   return detectRun(n, rv, suits);
 }
 
-/* ── 炸弹判断（四人）── */
+/* ── 炸弹判断（四人/六人统一）── */
 function isBomb(pt) {
-  return pt && ['bomb', 'flush_bomb', 'flush_straight', 'joker_bomb'].includes(pt.type);
+  return pt && ['bomb', 'flush_bomb', 'flush_straight', 'joker_bomb', 'triple_bj', 'triple_lj'].includes(pt.type);
 }
-/* 四人炸弹强度：4炸<5炸<同花顺<6炸<7炸<…<天王炸 */
+/* 炸弹强度（标准层级，四人六人相同）：
+   4炸 < 5炸 < 同花顺 < 6炸 < 7炸 < … < 天王炸
+   （六人特例三大/小王三炸：介于4炸与5炸之间）*/
 function bombScore(pt) {
-  if (pt.type === 'joker_bomb')     return 1e8;
-  if (pt.type === 'flush_straight') return 550 + pt.value;      // 介于5炸与6炸之间
+  if (pt.type === 'joker_bomb')     return 1e6;                 // 四大天王 / 六王
+  if (pt.type === 'flush_straight') return 550 + pt.value;      // 同花顺：介于5炸与6炸
+  if (pt.type === 'triple_bj')      return 460;                 // 六人 三大王三炸
+  if (pt.type === 'triple_lj')      return 450;                 // 六人 三小王三炸
   if (pt.type === 'bomb' || pt.type === 'flush_bomb')
     return pt.size * 100 + pt.value;                            // 4炸≈4xx,5炸≈5xx,6炸≈6xx
   return 0;
@@ -206,32 +210,10 @@ function detectType6p(cards) {
   return detectRun(n, rv, suits);
 }
 
-/* ── 6P 炸弹强度评分 ──
-   普通4炸 < 同花4炸 < 3小王 < 3大王 < 5炸 < 同花5炸 < 6炸 < … < 同花顺 < 天王炸 */
-function bombScore6p(pt) {
-  if (pt.type === 'joker_bomb')     return 1e8;
-  if (pt.type === 'flush_straight') return 1e6 + pt.size * 100 + pt.value;
-  if (pt.type === 'triple_bj')      return 160;
-  if (pt.type === 'triple_lj')      return 150;
-  if (pt.type === 'flush_bomb')     return (pt.size - 4) * 200 + 100 + pt.value;
-  if (pt.type === 'bomb')           return (pt.size - 4) * 200 + pt.value;
-  return 0;
-}
-function isBomb6p(pt) {
-  return pt && ['bomb', 'flush_bomb', 'flush_straight', 'joker_bomb', 'triple_bj', 'triple_lj'].includes(pt.type);
-}
-function canBeat6p(newPt, curPt) {
-  if (!curPt) return !!newPt;
-  if (!newPt)  return false;
-  if (isBomb6p(newPt) && !isBomb6p(curPt)) return true;
-  if (!isBomb6p(newPt) && isBomb6p(curPt)) return false;
-  if (!isBomb6p(newPt)) {
-    if (newPt.type !== curPt.type) return false;
-    if (newPt.size !== undefined && newPt.size !== curPt.size) return false;
-    return newPt.value > curPt.value;
-  }
-  return bombScore6p(newPt) > bombScore6p(curPt);
-}
+/* ── 六人压牌：与四人完全一致（牌型大小顺序四人六人相同）── */
+const isBomb6p    = isBomb;
+const bombScore6p = bombScore;
+const canBeat6p   = canBeat;
 
 /* ── 6P 结算 ── */
 function settle6p(finishOrder, lv1, lv2) {
