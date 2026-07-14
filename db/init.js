@@ -439,6 +439,83 @@ async function initDB() {
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team1 SMALLINT NOT NULL DEFAULT 0`);  // 甲队过A胜局(盘胜)
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team2 SMALLINT NOT NULL DEFAULT 0`);  // 乙队过A胜局(盘胜)
 
+  /* ══════════ 六人赛事独立表(gdo6_*，与4人完全分开；gdo_players 共用) ══════════ */
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo6_rooms (
+      id            SERIAL PRIMARY KEY,
+      room_code     VARCHAR(8) UNIQUE NOT NULL,
+      room_type     VARCHAR(16) NOT NULL DEFAULT 'random'
+                      CHECK (room_type IN ('random', 'private', 'tournament')),
+      status        VARCHAR(16) NOT NULL DEFAULT 'waiting'
+                      CHECK (status IN ('waiting', 'playing', 'finished', 'abandoned')),
+      level_team1   SMALLINT NOT NULL DEFAULT 2,
+      level_team2   SMALLINT NOT NULL DEFAULT 2,
+      round_count   INT NOT NULL DEFAULT 0,
+      a_fails_team1 SMALLINT NOT NULL DEFAULT 0,
+      a_fails_team2 SMALLINT NOT NULL DEFAULT 0,
+      tribute_json  JSONB,
+      banker_team   SMALLINT,
+      is_full       BOOLEAN NOT NULL DEFAULT FALSE,
+      wins_team1    SMALLINT NOT NULL DEFAULT 0,
+      wins_team2    SMALLINT NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      started_at    TIMESTAMPTZ,
+      finished_at   TIMESTAMPTZ
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo6_seats (
+      id            SERIAL PRIMARY KEY,
+      room_id       INT NOT NULL REFERENCES gdo6_rooms(id) ON DELETE CASCADE,
+      player_id     INT NOT NULL REFERENCES gdo_players(id),
+      seat          SMALLINT NOT NULL,
+      team          SMALLINT NOT NULL CHECK (team IN (1, 2)),
+      socket_id     VARCHAR(48),
+      is_ready      BOOLEAN NOT NULL DEFAULT FALSE,
+      is_connected  BOOLEAN NOT NULL DEFAULT TRUE,
+      joined_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (room_id, seat),
+      UNIQUE (room_id, player_id)
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo6_rounds (
+      id                SERIAL PRIMARY KEY,
+      room_id           INT NOT NULL REFERENCES gdo6_rooms(id) ON DELETE CASCADE,
+      round_number      SMALLINT NOT NULL,
+      finish_order      INT[] NOT NULL DEFAULT '{}',
+      winner_team       SMALLINT CHECK (winner_team IN (1, 2)),
+      result_type       VARCHAR(8),
+      level_delta       SMALLINT,
+      level_team1_after SMALLINT,
+      level_team2_after SMALLINT,
+      hands_json        JSONB,
+      current_hands_json JSONB,
+      turn_state_json   JSONB,
+      started_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      finished_at       TIMESTAMPTZ
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo6_queue (
+      id            SERIAL PRIMARY KEY,
+      player_id     INT NOT NULL REFERENCES gdo_players(id),
+      player_token  VARCHAR(64) NOT NULL,
+      socket_id     VARCHAR(48),
+      status        VARCHAR(16) NOT NULL DEFAULT 'waiting'
+                      CHECK (status IN ('waiting', 'matched', 'cancelled', 'timeout')),
+      queued_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      matched_at    TIMESTAMPTZ,
+      room_id       INT REFERENCES gdo6_rooms(id)
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo6_rooms_status ON gdo6_rooms(status)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo6_seats_room   ON gdo6_seats(room_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo6_rounds_room  ON gdo6_rounds(room_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo6_queue_status ON gdo6_queue(status)`);
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team1 SMALLINT NOT NULL DEFAULT 0`);  // 甲队过A胜局(盘胜)
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team2 SMALLINT NOT NULL DEFAULT 0`);  // 乙队过A胜局(盘胜)
+
   console.log('✅ Database initialized');
 }
 

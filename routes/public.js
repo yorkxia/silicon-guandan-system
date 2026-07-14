@@ -431,6 +431,13 @@ router.get('/play/game/:code', (req, res) => {
   res.render('play-game', { roomCode });
 });
 
+/* 六人赛事大屏（独立页面 + /g6 命名空间 + gdo6_ 表）*/
+router.get('/play/game6/:code', (req, res) => {
+  const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  if (!roomCode) return res.redirect('/play/6p');
+  res.render('play-game-6p', { roomCode });
+});
+
 router.get('/play/lobby/:code', (req, res) => {
   const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) return res.redirect('/play');

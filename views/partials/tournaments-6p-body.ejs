@@ -475,6 +475,10 @@
 <script src="/js/gd-socket.js"></script>
 <script>
 var GD_MODE = '6p';
+/* 六人赛事：独立连接 /g6 命名空间（与四人默认命名空间隔离）*/
+var G6 = io('/g6', { transports:['websocket','polling'] });
+G6.on('connect', function(){ try{ G6.emit('player:join', { token: window.gdGetToken(), name: window.gdGetName() }); }catch(e){} });
+G6.on('lobby:online_count', function(c){ var el=document.getElementById('gd-online-count'); if(el) el.textContent=c; });
 var qTimer = null, qSec = 0;
 var spinners = ['⏳','🔄','⚡','🎲'];
 var gdRoomAction = null;
@@ -491,8 +495,8 @@ function openQueue() {
     document.getElementById('q-spinner').textContent = spinners[qSec % spinners.length];
   }, 1000);
   function tryJoin() {
-    if (window.gdSocket && window.gdSocket.connected) {
-      window.gdSocket.emit('queue:join', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
+    if (G6 && G6.connected) {
+      G6.emit('queue:join', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
     } else { setTimeout(tryJoin, 300); }
   }
   tryJoin();
@@ -500,7 +504,7 @@ function openQueue() {
 function cancelQueue() {
   clearInterval(qTimer);
   document.getElementById('overlay-queue').style.display = 'none';
-  if (window.gdSocket) window.gdSocket.emit('queue:cancel', { token: window.gdGetToken() });
+  if (G6) G6.emit('queue:cancel', { token: window.gdGetToken() });
 }
 function openRoom() { document.getElementById('overlay-room').style.display = 'flex'; }
 function closeRoom() { document.getElementById('overlay-room').style.display = 'none'; }
@@ -509,8 +513,8 @@ function doCreateRoom() {
   gdRoomAction = 'create';
   setRoomMsg('创建中...');
   function tryCreate() {
-    if (window.gdSocket && window.gdSocket.connected) {
-      window.gdSocket.emit('room:create', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
+    if (G6 && G6.connected) {
+      G6.emit('room:create', { token: window.gdGetToken(), name: window.gdGetName(), mode: GD_MODE });
     } else { setTimeout(tryCreate, 300); }
   }
   tryCreate();
@@ -519,8 +523,8 @@ function doJoinRoom() {
   var code = document.getElementById('room-code-input').value.trim().toUpperCase();
   if (code.length < 4) return setRoomMsg('请输入正确的房间号');
   gdRoomAction = 'join';
-  if (window.gdSocket && window.gdSocket.connected) {
-    window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
+  if (G6 && G6.connected) {
+    G6.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
   } else { setRoomMsg('连接中，请稍候重试'); }
 }
 function setRoomMsg(msg) { document.getElementById('room-msg').textContent = msg; }
@@ -564,7 +568,7 @@ function doReady() {
   if (!gdInviteCode) return;
   document.getElementById('ready-btn').textContent = '正在进入...';
   document.getElementById('ready-btn').disabled = true;
-  location.href = '/play/game/' + gdInviteCode;
+  location.href = '/play/game6/' + gdInviteCode;
 }
 
 function initScanJoin() {
@@ -586,8 +590,8 @@ function doScanJoin() {
   document.getElementById('scan-join-btn').disabled = true;
   gdRoomAction = 'join';
   function tryJoin() {
-    if (window.gdSocket && window.gdSocket.connected) {
-      window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
+    if (G6 && G6.connected) {
+      G6.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
     } else { setTimeout(tryJoin, 300); }
   }
   tryJoin();
@@ -597,27 +601,27 @@ document.addEventListener('DOMContentLoaded', function() {
   initScanJoin();
 
   function attachEvents() {
-    if (!window.gdSocket) { setTimeout(attachEvents, 300); return; }
+    if (!G6) { setTimeout(attachEvents, 300); return; }
 
-    window.gdSocket.on('queue:joined', function(d) {
+    G6.on('queue:joined', function(d) {
       clearInterval(qTimer);
       document.getElementById('q-msg').textContent = '✅ 已进入房间，跳转中...';
-      setTimeout(function(){ location.href = '/play/game/' + d.roomCode; }, 400);
+      setTimeout(function(){ location.href = '/play/game6/' + d.roomCode; }, 400);
     });
-    window.gdSocket.on('queue:error', function(d) {
+    G6.on('queue:error', function(d) {
       clearInterval(qTimer);
       document.getElementById('q-msg').textContent = '❌ ' + d.message;
     });
 
-    window.gdSocket.on('room:joined', function(d) {
+    G6.on('room:joined', function(d) {
       document.getElementById('overlay-scan-join').style.display = 'none';
       if (gdRoomAction === 'create') {
         showInviteOverlay(d.roomCode);
       } else {
-        location.href = '/play/game/' + d.roomCode;
+        location.href = '/play/game6/' + d.roomCode;
       }
     });
-    window.gdSocket.on('room:error', function(d) {
+    G6.on('room:error', function(d) {
       document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').disabled = false);
       document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').textContent = '立即加入游戏');
       setRoomMsg('❌ ' + d.message);
