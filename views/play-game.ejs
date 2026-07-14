@@ -1663,7 +1663,29 @@ function _dbl(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(functi
 function _trip(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(function(a,b){return b-a;});
   if(rs.length!==2)return null; for(var k in c) if(c[k]!==3)return null; return _runTop(rs); }
 function _lvVal(r, level){ return (level && r===level) ? 14.5 : r; }  /* 级牌>A提升 */
-function gdDetect(cards, level){
+function _rankChar(l){ return ({10:'T',11:'J',12:'Q',13:'K',14:'A'})[l] || String(l); }
+function _betterPt(a,b){ if(!b)return true; if(!a)return false;
+  var sa=_isBomb(a)?1e9+_bombScore(a):(a.value||0), sb=_isBomb(b)?1e9+_bombScore(b):(b.value||0); return sa>sb; }
+/* 红桃级牌逢人配：替换成任意非王牌取最强牌型（与服务端一致）*/
+function _withWild(cards, level, core){
+  if(!level) return core(cards,0);
+  var wild='H'+_rankChar(level), idx=[];
+  cards.forEach(function(c,i){ if(c===wild) idx.push(i); });
+  var w=idx.length; if(w===0) return core(cards,level);
+  var suits=Array.from(new Set(cards.filter(function(c){return c!==wild&&c!=='BJ'&&c!=='LJ';}).map(function(c){return c[0];})));
+  if(suits.indexOf('S')<0) suits.push('S');
+  var ranks=['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+  var cands=[wild]; for(var ri=0;ri<ranks.length;ri++) for(var si=0;si<suits.length;si++) cands.push(suits[si]+ranks[ri]);
+  var best=null, combo=new Array(w);
+  (function rec(k){
+    if(k===w){ var sub=cards.slice(); for(var i=0;i<w;i++) sub[idx[i]]=combo[i];
+      var pt=core(sub,level); if(pt&&_betterPt(pt,best)) best=pt; return; }
+    for(var ci=0;ci<cands.length;ci++){ combo[k]=cands[ci]; rec(k+1); }
+  })(0);
+  return best;
+}
+function gdDetect(cards, level){ return _withWild(cards, level||0, gdCore); }
+function gdCore(cards, level){
   level = level || 0;
   if(!cards||!cards.length) return null;
   var n=cards.length;

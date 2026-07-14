@@ -55,6 +55,47 @@ function findTripleStraight(rv) {
    仅用于按点比大小的牌型(单张/对子/三张/三带/炸弹)，顺子/连对/钢板仍用自然点 */
 function lvVal(r, level) { return (level && r === level) ? 14.5 : r; }
 
+/* 级数 → 牌点字符 */
+function rankChar(level) {
+  const m = { 10: 'T', 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+  return m[level] || String(level);
+}
+/* 两个牌型谁"更强"（炸弹优先，其次点数）——逢人配取最强组合 */
+function betterPt(a, b) {
+  if (!b) return true;
+  if (!a) return false;
+  const sa = isBomb(a) ? 1e9 + bombScore(a) : (a.value || 0);
+  const sb = isBomb(b) ? 1e9 + bombScore(b) : (b.value || 0);
+  return sa > sb;
+}
+/* 红桃级牌"逢人配/百搭"：把红桃(级)替换成任意非王牌，返回能组成的最强牌型 */
+function withWild(cards, level, core) {
+  if (!level) return core(cards, 0);
+  const wild = 'H' + rankChar(level);
+  const idx = [];
+  cards.forEach((c, i) => { if (c === wild) idx.push(i); });
+  const w = idx.length;
+  if (w === 0) return core(cards, level);
+  const suits = Array.from(new Set(cards.filter(c => c !== wild && c !== 'BJ' && c !== 'LJ').map(c => c[0])));
+  if (suits.indexOf('S') < 0) suits.push('S');
+  const ranks = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+  const cands = [wild];              // 红桃级牌也可当级牌本身用
+  for (const r of ranks) for (const s of suits) cands.push(s + r);
+  let best = null;
+  const combo = new Array(w);
+  (function rec(k) {
+    if (k === w) {
+      const sub = cards.slice();
+      for (let i = 0; i < w; i++) sub[idx[i]] = combo[i];
+      const pt = core(sub, level);
+      if (pt && betterPt(pt, best)) best = pt;
+      return;
+    }
+    for (const c of cands) { combo[k] = c; rec(k + 1); }
+  })(0);
+  return best;
+}
+
 /* 识别组合牌型（三带二 / 顺子 / 三连对 / 钢板），四人六人共用 */
 function detectRun(n, rv, suits, level) {
   if (n === 5) {
@@ -86,8 +127,11 @@ function detectRun(n, rv, suits, level) {
   return null;
 }
 
-/* ── 四人牌型识别（level=当前级数，用于级牌>A 提升）── */
-function detectType(cards, level = 0) {
+/* ── 四人牌型识别（含红桃级牌逢人配）── */
+function detectType(cards, level = 0) { return withWild(cards, level, detectCore4); }
+
+/* 四人核心识别（level=当前级数，用于级牌>A 提升）*/
+function detectCore4(cards, level = 0) {
   if (!cards || cards.length === 0) return null;
   const n     = cards.length;
   const rv    = cards.map(rankVal).sort((a, b) => b - a);
@@ -184,7 +228,9 @@ function removeCards(hand, played) {
 /* ══════════════════════════════════════════════════════
  * 六人掼蛋 · 扩展牌型体系（三副牌）
  * ══════════════════════════════════════════════════════ */
-function detectType6p(cards, level = 0) {
+function detectType6p(cards, level = 0) { return withWild(cards, level, detectCore6); }
+
+function detectCore6(cards, level = 0) {
   if (!cards || cards.length === 0) return null;
   const n  = cards.length;
   const bj = cards.filter(c => c === 'BJ').length;
