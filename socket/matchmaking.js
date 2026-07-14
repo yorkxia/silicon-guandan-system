@@ -32,7 +32,7 @@ async function dealAndStart(io, roomCode, state) {
   }
 
   await query(
-    `UPDATE gdo_rooms SET status='playing',started_at=NOW(),round_count=$1 WHERE room_code=$2`,
+    `UPDATE gdo_rooms SET status='playing',started_at=NOW(),round_count=$1,is_full=TRUE WHERE room_code=$2`,
     [newRound, roomCode]
   );
 

@@ -140,12 +140,13 @@ async function findOrCreateOpenRoom(mode) {
   const existing = await queryOne(`
     SELECT r.room_code FROM gdo_rooms r
     WHERE r.game_mode=$1 AND r.status='waiting' AND r.room_type='random'
+      AND r.is_full=FALSE
       AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id) < $2
     ORDER BY r.created_at ASC
     LIMIT 1
   `, [mode, maxSeats]);
   if (existing) return existing.room_code;
-  const room = await createRoom(mode, 'random');
+  const room = await createRoom(mode, 'random');   // 无空位则立即新建
   return room.room_code;
 }
 
