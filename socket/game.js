@@ -421,8 +421,8 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   }
 
   /* 终局判断：只剩1人，或头游整队已全部出完(双下/三下，胜负已定即时结束) */
-  const headTeam  = state.finishOrder[0].team;
-  const headDone  = state.finishOrder.filter(f => f.team === headTeam).length;
+  const headTeam  = state.finishOrder.length ? state.finishOrder[0].team : 0;
+  const headDone  = headTeam ? state.finishOrder.filter(f => f.team === headTeam).length : 0;
   const teamSize  = Math.floor(state.totalPlayers / 2);
   if (headDone >= teamSize || state.finishOrder.length >= state.totalPlayers - 1) {
     /* 剩余玩家(负方)按当前顺序补入名次 */
