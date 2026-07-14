@@ -145,6 +145,9 @@ function detectCore4(cards, level = 0) {
   // 单张大/小王：大王(16) > 小王(15) > 级牌 > A …
   if (n === 1 && (cards[0] === 'BJ' || cards[0] === 'LJ'))
     return { type: 'single', value: cards[0] === 'BJ' ? 16 : 15, label: '单张' };
+  // 对王：一对大王(16)=最大对子，一对小王(15)=次大对子
+  if (n === 2 && cards[0] === 'BJ' && cards[1] === 'BJ') return { type: 'pair', value: 16, label: '对子' };
+  if (n === 2 && cards[0] === 'LJ' && cards[1] === 'LJ') return { type: 'pair', value: 15, label: '对子' };
   // 其余含王(与普通牌混合)→ 不能组成牌型
   if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
 
@@ -248,6 +251,9 @@ function detectCore6(cards, level = 0) {
   /* 单张大/小王 */
   if (n === 1 && (cards[0] === 'BJ' || cards[0] === 'LJ'))
     return { type: 'single', value: cards[0] === 'BJ' ? 16 : 15, label: '单张' };
+  /* 对王 */
+  if (n === 2 && cards[0] === 'BJ' && cards[1] === 'BJ') return { type: 'pair', value: 16, label: '对子' };
+  if (n === 2 && cards[0] === 'LJ' && cards[1] === 'LJ') return { type: 'pair', value: 15, label: '对子' };
   /* 其余含王 → 不能组成牌型 */
   if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
 

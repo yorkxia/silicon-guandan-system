@@ -420,13 +420,18 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
     });
   }
 
-  if (state.finishOrder.length >= state.totalPlayers - 1) {
-    const doneSet  = new Set(state.finishOrder.map(f => f.seat));
-    const lastSeat = state.seats.find(s => !doneSet.has(s.seat));
-    if (lastSeat) {
+  /* 终局判断：只剩1人，或头游整队已全部出完(双下/三下，胜负已定即时结束) */
+  const headTeam  = state.finishOrder[0].team;
+  const headDone  = state.finishOrder.filter(f => f.team === headTeam).length;
+  const teamSize  = Math.floor(state.totalPlayers / 2);
+  if (headDone >= teamSize || state.finishOrder.length >= state.totalPlayers - 1) {
+    /* 剩余玩家(负方)按当前顺序补入名次 */
+    const doneSet   = new Set(state.finishOrder.map(f => f.seat));
+    const remaining = state.seats.filter(s => !doneSet.has(s.seat));
+    for (const s of remaining) {
       state.finishOrder.push({
-        position: state.totalPlayers, seat: lastSeat.seat,
-        playerId: lastSeat.playerId, name: lastSeat.name, team: lastSeat.team
+        position: state.finishOrder.length + 1,
+        seat: s.seat, playerId: s.playerId, name: s.name, team: s.team
       });
     }
     if (state.gameMode === '6p') await finishRound6p(io, state);

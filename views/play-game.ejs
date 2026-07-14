@@ -1711,6 +1711,8 @@ function gdCore(cards, level){
   if(n===3&&bj===3) return {type:'triple_bj',value:160};
   if(n===3&&lj===3) return {type:'triple_lj',value:150};
   if(n===1&&(cards[0]==='BJ'||cards[0]==='LJ')) return {type:'single',value:cards[0]==='BJ'?16:15};
+  if(n===2&&cards[0]==='BJ'&&cards[1]==='BJ') return {type:'pair',value:16};
+  if(n===2&&cards[0]==='LJ'&&cards[1]==='LJ') return {type:'pair',value:15};
   if(cards.some(function(c){return c==='LJ'||c==='BJ';})) return null;
   var rv=cards.map(_rv).sort(function(a,b){return b-a;});
   var suits=cards.map(function(c){return c[0];});
