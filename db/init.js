@@ -434,6 +434,7 @@ async function initDB() {
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS a_fails_team1 SMALLINT NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS a_fails_team2 SMALLINT NOT NULL DEFAULT 0`);
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS tribute_json JSONB`);
+  await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS banker_team SMALLINT`);  -- 坐庄队(级牌=其级数)
 
   console.log('✅ Database initialized');
 }

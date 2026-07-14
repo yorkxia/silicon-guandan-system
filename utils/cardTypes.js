@@ -51,12 +51,16 @@ function findTripleStraight(rv) {
   return runTop(rs);
 }
 
+/* 级牌点值：打某级时该级牌点提升到 A(14) 之上、小王(15)之下 = 14.5
+   仅用于按点比大小的牌型(单张/对子/三张/三带/炸弹)，顺子/连对/钢板仍用自然点 */
+function lvVal(r, level) { return (level && r === level) ? 14.5 : r; }
+
 /* 识别组合牌型（三带二 / 顺子 / 三连对 / 钢板），四人六人共用 */
-function detectRun(n, rv, suits) {
+function detectRun(n, rv, suits, level) {
   if (n === 5) {
-    // 三带二
+    // 三带二（三张点数比大小，级牌提升）
     const fh = findFullHouse(rv);
-    if (fh) return { type: 'fullhouse', value: fh, label: '三带二' };
+    if (fh) return { type: 'fullhouse', value: lvVal(fh, level), label: '三带二' };
     // 顺子（5 张不同点数连续，A 可高可低）
     const u = [...new Set(rv)].sort((a, b) => b - a);
     if (u.length === 5) {
@@ -82,8 +86,8 @@ function detectRun(n, rv, suits) {
   return null;
 }
 
-/* ── 四人牌型识别 ── */
-function detectType(cards) {
+/* ── 四人牌型识别（level=当前级数，用于级牌>A 提升）── */
+function detectType(cards, level = 0) {
   if (!cards || cards.length === 0) return null;
   const n     = cards.length;
   const rv    = cards.map(rankVal).sort((a, b) => b - a);
@@ -97,18 +101,19 @@ function detectType(cards) {
   // 含王且非天王炸 → 不能组成其他牌型
   if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
 
-  // 炸弹：4 张及以上相同点数
+  // 炸弹：4 张及以上相同点数（级牌提升）
   if (n >= 4 && rv.every(r => r === rv[0])) {
     const oneSuit = new Set(suits).size === 1;
+    const v = lvVal(rv[0], level);
     return oneSuit
-      ? { type: 'flush_bomb', size: n, value: rv[0], label: `${n}张同花炸` }
-      : { type: 'bomb',       size: n, value: rv[0], label: `${n}张炸弹` };
+      ? { type: 'flush_bomb', size: n, value: v, label: `${n}张同花炸` }
+      : { type: 'bomb',       size: n, value: v, label: `${n}张炸弹` };
   }
-  if (n === 1) return { type: 'single', value: rv[0], label: '单张' };
-  if (n === 2 && rv[0] === rv[1]) return { type: 'pair', value: rv[0], label: '对子' };
-  if (n === 3 && rv.every(r => r === rv[0])) return { type: 'triple', value: rv[0], label: '三张' };
+  if (n === 1) return { type: 'single', value: lvVal(rv[0], level), label: '单张' };
+  if (n === 2 && rv[0] === rv[1]) return { type: 'pair', value: lvVal(rv[0], level), label: '对子' };
+  if (n === 3 && rv.every(r => r === rv[0])) return { type: 'triple', value: lvVal(rv[0], level), label: '三张' };
 
-  return detectRun(n, rv, suits);
+  return detectRun(n, rv, suits, level);
 }
 
 /* ── 炸弹判断（四人/六人统一）── */
@@ -179,7 +184,7 @@ function removeCards(hand, played) {
 /* ══════════════════════════════════════════════════════
  * 六人掼蛋 · 扩展牌型体系（三副牌）
  * ══════════════════════════════════════════════════════ */
-function detectType6p(cards) {
+function detectType6p(cards, level = 0) {
   if (!cards || cards.length === 0) return null;
   const n  = cards.length;
   const bj = cards.filter(c => c === 'BJ').length;
@@ -199,15 +204,16 @@ function detectType6p(cards) {
 
   if (n >= 4 && rv.every(r => r === rv[0])) {
     const oneSuit = new Set(suits).size === 1;
+    const v = lvVal(rv[0], level);
     return oneSuit
-      ? { type: 'flush_bomb', size: n, value: rv[0], label: `${n}张同花炸` }
-      : { type: 'bomb',       size: n, value: rv[0], label: `${n}张炸弹` };
+      ? { type: 'flush_bomb', size: n, value: v, label: `${n}张同花炸` }
+      : { type: 'bomb',       size: n, value: v, label: `${n}张炸弹` };
   }
-  if (n === 1) return { type: 'single', value: rv[0], label: '单张' };
-  if (n === 2 && rv[0] === rv[1]) return { type: 'pair', value: rv[0], label: '对子' };
-  if (n === 3 && rv.every(r => r === rv[0])) return { type: 'triple', value: rv[0], label: '三张' };
+  if (n === 1) return { type: 'single', value: lvVal(rv[0], level), label: '单张' };
+  if (n === 2 && rv[0] === rv[1]) return { type: 'pair', value: lvVal(rv[0], level), label: '对子' };
+  if (n === 3 && rv.every(r => r === rv[0])) return { type: 'triple', value: lvVal(rv[0], level), label: '三张' };
 
-  return detectRun(n, rv, suits);
+  return detectRun(n, rv, suits, level);
 }
 
 /* ── 六人压牌：与四人完全一致（牌型大小顺序四人六人相同）── */

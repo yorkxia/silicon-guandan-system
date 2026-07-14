@@ -923,8 +923,9 @@ var myHand     = [];
 var myTeam     = 1;
 var mySeat     = 0;
 var myPlayerId = 0;
-var levelTeam1 = 2;        // 甲队级牌
-var levelTeam2 = 2;        // 乙队级牌
+var levelTeam1 = 2;        // 甲队级数
+var levelTeam2 = 2;        // 乙队级数
+var levelCard  = 0;        // 当前级牌(坐庄方级数)，用于级牌>A提升 + 排序
 var winsTeam1  = 0;        // 甲队胜局
 var winsTeam2  = 0;        // 乙队胜局
 var selected   = [];       // 已选牌 code+'_'+idx
@@ -1162,9 +1163,10 @@ socket.on('game:hand', function(d){
   GAME_MODE  = d.gameMode || '4p';
   levelTeam1 = d.levelTeam1 || 2;
   levelTeam2 = d.levelTeam2 || 2;
+  levelCard  = d.levelCard || 0;                           // 当前级牌(坐庄方级数)
   winsTeam1  = d.winsTeam1 || 0;
   winsTeam2  = d.winsTeam2 || 0;
-  myHand     = sortHandLevel(d.hand, getCurrentLevel());   // 级牌感知排序
+  myHand     = sortHandLevel(d.hand, levelCard);           // 级牌感知排序
   updateCurrentLevel();
 
   /* 切换布局 */
@@ -1187,7 +1189,7 @@ socket.on('game:state', function(d){
   isMyTurn    = (d.turnSeat === mySeat);
   hasLastPlay = !!d.lastPlay;
   curFinish   = d.finishOrder || [];
-  lastPlayType = (d.lastPlay && d.lastPlay.cards) ? gdDetect(d.lastPlay.cards) : null;  // 需压过的牌型
+  lastPlayType = (d.lastPlay && d.lastPlay.cards) ? gdDetect(d.lastPlay.cards, levelCard) : null;  // 需压过的牌型
   if (d.connected) connMap = d.connected;      // 阶段九：座位在线状态
 
   players.forEach(function(p){
@@ -1360,7 +1362,7 @@ socket.on('game:auto_passed', function(d){ showToast((d.name||'玩家') + ' 超�
 
 /* ── 我出牌后更新手牌 ── */
 socket.on('game:hand_update', function(d){
-  myHand   = sortHandLevel(d.hand, getCurrentLevel());   // 级牌感知排序
+  myHand   = sortHandLevel(d.hand, levelCard);   // 级牌感知排序
   selected = [];
   if (GAME_MODE === '6p') {
     render6pHand(myHand);
@@ -1659,7 +1661,9 @@ function _dbl(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(functi
   if(rs.length!==3)return null; for(var k in c) if(c[k]!==2)return null; return _runTop(rs); }
 function _trip(rv){ var c=_cnt(rv); var rs=Object.keys(c).map(Number).sort(function(a,b){return b-a;});
   if(rs.length!==2)return null; for(var k in c) if(c[k]!==3)return null; return _runTop(rs); }
-function gdDetect(cards){
+function _lvVal(r, level){ return (level && r===level) ? 14.5 : r; }  /* 级牌>A提升 */
+function gdDetect(cards, level){
+  level = level || 0;
   if(!cards||!cards.length) return null;
   var n=cards.length;
   var bj=cards.filter(function(c){return c==='BJ';}).length;
@@ -1671,12 +1675,12 @@ function gdDetect(cards){
   var rv=cards.map(_rv).sort(function(a,b){return b-a;});
   var suits=cards.map(function(c){return c[0];});
   var allSame=rv.every(function(r){return r===rv[0];});
-  if(n>=4&&allSame){ return {type:(new Set(suits).size===1)?'flush_bomb':'bomb',size:n,value:rv[0]}; }
-  if(n===1) return {type:'single',value:rv[0]};
-  if(n===2&&rv[0]===rv[1]) return {type:'pair',value:rv[0]};
-  if(n===3&&allSame) return {type:'triple',value:rv[0]};
+  if(n>=4&&allSame){ return {type:(new Set(suits).size===1)?'flush_bomb':'bomb',size:n,value:_lvVal(rv[0],level)}; }
+  if(n===1) return {type:'single',value:_lvVal(rv[0],level)};
+  if(n===2&&rv[0]===rv[1]) return {type:'pair',value:_lvVal(rv[0],level)};
+  if(n===3&&allSame) return {type:'triple',value:_lvVal(rv[0],level)};
   if(n===5){
-    var fh=_fullhouse(rv); if(fh) return {type:'fullhouse',value:fh};
+    var fh=_fullhouse(rv); if(fh) return {type:'fullhouse',value:_lvVal(fh,level)};
     var u=Array.from(new Set(rv)).sort(function(a,b){return b-a;});
     if(u.length===5){ var top=_runTop(u); if(top!==null)
       return {type:(new Set(suits).size===1)?'flush_straight':'straight',size:5,value:top}; }
@@ -1716,7 +1720,7 @@ function updatePlayButtonState(){
   btn.disabled = false;
   if(selected.length===0) return;
   var cards = selected.map(function(k){ return k.split('_')[0]; });
-  var pt = gdDetect(cards);
+  var pt = gdDetect(cards, levelCard);
   var ok = !!pt;
   if(ok && hasLastPlay && lastPlayType) ok = gdCanBeat(pt, lastPlayType);
   if(!ok) btn.classList.add('invalid');
@@ -1811,7 +1815,7 @@ function doPlay(){
   if(!isMyTurn) return;
   if(selected.length===0){ showToast('请先选牌'); return; }
   var cards = selected.map(function(key){ return key.split('_')[0]; });
-  var pt = gdDetect(cards);
+  var pt = gdDetect(cards, levelCard);
   if(!pt){ showToast('无效牌型，请重新选择'); return; }
   if(hasLastPlay && lastPlayType && !gdCanBeat(pt, lastPlayType)){ showToast('压不过上家，请重选或不出'); return; }
   socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });

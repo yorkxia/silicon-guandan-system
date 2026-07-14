@@ -24,6 +24,13 @@ async function dealAndStart(io, roomCode, state) {
   );
   const roundId = rows[0].id;
 
+  /* 坐庄：首局随机产生，之后 = 上局胜方(settle 时已写入 banker_team) */
+  let bankerTeam = state.room.banker_team;
+  if (!bankerTeam) {
+    bankerTeam = Math.random() < 0.5 ? 1 : 2;
+    await query(`UPDATE gdo_rooms SET banker_team=$1 WHERE room_code=$2`, [bankerTeam, roomCode]);
+  }
+
   await query(
     `UPDATE gdo_rooms SET status='playing',started_at=NOW(),round_count=$1 WHERE room_code=$2`,
     [newRound, roomCode]
@@ -36,7 +43,7 @@ async function dealAndStart(io, roomCode, state) {
       playerId: s.player_id, name: s.display_name
     })),
     hands,
-    state.room.level_team1, state.room.level_team2, state.room.game_mode
+    state.room.level_team1, state.room.level_team2, state.room.game_mode, bankerTeam
   );
 
   console.log(`[掼蛋] 🃏 发牌 · ${roomCode} · 第${newRound}局 · 每人27张`);

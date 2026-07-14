@@ -15,10 +15,12 @@ const FIRST_TURN_SECONDS = 40;   // 开局第一手（留时间看牌）
 const DC_TURN_SECONDS    = 12;   // 掉线托管
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
-function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode) {
+function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode, bankerTeam) {
+  bankerTeam = bankerTeam || 1;
+  const levelCard = bankerTeam === 2 ? levelTeam2 : levelTeam1;   // 级牌=坐庄方级数
   const state = {
     roomCode, roundId, roomId, gameMode,
-    levelTeam1, levelTeam2,
+    levelTeam1, levelTeam2, bankerTeam, levelCard,
     seats,           // [{ seat, team, playerId, name, socketId? }]
     hands: Object.assign({}, hands),
     turnSeat:     seats[0].seat,
@@ -170,7 +172,7 @@ async function rebuildState(roomCode, seat, round) {
 
   const state = initGameState(
     roomCode, round.id, seat.room_id, allSeats, hands,
-    seat.level_team1, seat.level_team2, seat.game_mode
+    seat.level_team1, seat.level_team2, seat.game_mode, seat.banker_team
   );
   if (ts.turnSeat)    state.turnSeat    = ts.turnSeat;
   if (ts.leadSeat)    state.leadSeat    = ts.leadSeat;
@@ -251,9 +253,9 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
   await query(`
     UPDATE gdo_rooms
     SET level_team1=$1, level_team2=$2, status='waiting',
-        a_fails_team1=$3, a_fails_team2=$4, tribute_json=$5
-    WHERE room_code=$6
-  `, [result.newLv1, result.newLv2, new1, new2, tributeJson, state.roomCode]);
+        a_fails_team1=$3, a_fails_team2=$4, tribute_json=$5, banker_team=$6
+    WHERE room_code=$7
+  `, [result.newLv1, result.newLv2, new1, new2, tributeJson, result.winnerTeam, state.roomCode]);
 
   await query(`UPDATE gdo_seats SET is_ready=FALSE WHERE room_id=$1`, [state.roomId]);
 
@@ -373,7 +375,7 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   if (!newHand) return { error: '您没有选中的这些牌' };
 
   const detect6p  = state.gameMode === '6p';
-  const playType  = detect6p ? detectType6p(cards) : detectType(cards);
+  const playType  = detect6p ? detectType6p(cards, state.levelCard) : detectType(cards, state.levelCard);
   if (!playType) return { error: '无效牌型，请重新选择' };
 
   const beatFn = detect6p ? canBeat6p : canBeat;
@@ -493,7 +495,7 @@ module.exports = function(io, socket) {
 
       const seat = await queryOne(`
         SELECT s.*, r.game_mode, r.status, r.id AS room_id,
-               r.level_team1, r.level_team2, r.round_count
+               r.level_team1, r.level_team2, r.round_count, r.banker_team
         FROM gdo_seats s JOIN gdo_rooms r ON r.id = s.room_id
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
@@ -576,6 +578,7 @@ module.exports = function(io, socket) {
         roundNumber: round.round_number,
         levelTeam1: state.levelTeam1,
         levelTeam2: state.levelTeam2,
+        levelCard:  state.levelCard,
         winsTeam1, winsTeam2,
         players
       });
