@@ -349,16 +349,14 @@
       pointer-events: none;
     }
 
-    /* ═══════════════ 操作区（屏幕上方·顶栏正下方）═══════════════ */
+    /* ═══════════════ 操作区（不出=中心左侧，出牌=中心右侧，避开对家出牌）═══════════════ */
     #action-bar {
-      display: flex; align-items: center; justify-content: center; gap: 14px;
-      padding: 6px 14px; background: transparent; flex-shrink: 0; z-index: 8;
+      position: fixed; top: 14%; left: 0; right: 0; z-index: 55;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 5vw; background: transparent; pointer-events: none;
     }
-    #action-hint {
-      order: -1; max-width: 30vw; font-size: .72rem; color: rgba(255,255,255,.6);
-      letter-spacing: 1px; line-height: 1.3; text-align: right;
-      text-shadow: 0 1px 3px rgba(0,0,0,.6);
-    }
+    #action-bar .action-btn { pointer-events: auto; }
+    #action-hint { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
     .action-btn {
@@ -1694,6 +1692,7 @@ function gdCore(cards, level){
   if((n===4&&bj===2&&lj===2)||(n===6&&bj===3&&lj===3)) return {type:'joker_bomb',value:99999};
   if(n===3&&bj===3) return {type:'triple_bj',value:160};
   if(n===3&&lj===3) return {type:'triple_lj',value:150};
+  if(n===1&&(cards[0]==='BJ'||cards[0]==='LJ')) return {type:'single',value:cards[0]==='BJ'?16:15};
   if(cards.some(function(c){return c==='LJ'||c==='BJ';})) return null;
   var rv=cards.map(_rv).sort(function(a,b){return b-a;});
   var suits=cards.map(function(c){return c[0];});

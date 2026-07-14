@@ -142,7 +142,10 @@ function detectCore4(cards, level = 0) {
   // 天王炸：2大王 + 2小王
   if (n === 4 && bj === 2 && lj === 2)
     return { type: 'joker_bomb', value: 99999, label: '天王炸' };
-  // 含王且非天王炸 → 不能组成其他牌型
+  // 单张大/小王：大王(16) > 小王(15) > 级牌 > A …
+  if (n === 1 && (cards[0] === 'BJ' || cards[0] === 'LJ'))
+    return { type: 'single', value: cards[0] === 'BJ' ? 16 : 15, label: '单张' };
+  // 其余含王(与普通牌混合)→ 不能组成牌型
   if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
 
   // 炸弹：4 张及以上相同点数（级牌提升）
@@ -242,7 +245,10 @@ function detectCore6(cards, level = 0) {
   /* 大/小王三炸 */
   if (n === 3 && bj === 3) return { type: 'triple_bj', value: 160, label: '大王三炸' };
   if (n === 3 && lj === 3) return { type: 'triple_lj', value: 150, label: '小王三炸' };
-  /* 含王且非上述 → 不能组成其他牌型 */
+  /* 单张大/小王 */
+  if (n === 1 && (cards[0] === 'BJ' || cards[0] === 'LJ'))
+    return { type: 'single', value: cards[0] === 'BJ' ? 16 : 15, label: '单张' };
+  /* 其余含王 → 不能组成牌型 */
   if (cards.some(c => c === 'LJ' || c === 'BJ')) return null;
 
   const rv    = cards.map(rankVal).sort((a, b) => b - a);
