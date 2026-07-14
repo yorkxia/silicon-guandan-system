@@ -727,8 +727,8 @@
     <div class="result-level-line" id="result-level-line"></div>
     <div class="result-order" id="result-order"></div>
     <div class="result-btns">
-      <button class="result-btn secondary" onclick="location.href='/play'">返回大厅</button>
-      <button class="result-btn primary"   onclick="replayRoom()">再来一局</button>
+      <button class="result-btn secondary" onclick="location.href='/play'">退出赛事</button>
+      <button class="result-btn primary" id="result-continue-btn" onclick="continueNext()">继续发牌</button>
     </div>
   </div>
 </div>
@@ -990,8 +990,11 @@ socket.on('game:seat_update', function(d){
 socket.on('game:starting', function(){
   document.getElementById('wait-overlay').style.display    = 'none';
   document.getElementById('tribute-overlay').style.display = 'none';
+  document.getElementById('result-overlay').style.display  = 'none';   // 隐藏上一局结算弹框
+  var cbtn = document.getElementById('result-continue-btn');
+  if (cbtn) { cbtn.disabled = false; cbtn.textContent = '继续发牌'; }
   document.getElementById('loading-overlay').style.display = 'flex';
-  document.querySelector('#loading-overlay p').textContent = '满员！正在发牌...';
+  document.querySelector('#loading-overlay p').textContent = '正在发牌...';
   setTimeout(function(){
     socket.emit('game:request_hand', { token:MY_TOKEN, roomCode:ROOM_CODE });
   }, 600);
@@ -1144,9 +1147,11 @@ function copyWaitCode() {
   }).catch(function(){ prompt('请复制房间号：', code); });
 }
 
-/* ── 再来一局：刷新游戏页，服务端 room:ready 机制启动下一局 ── */
-function replayRoom() {
-  location.href = '/play';
+/* ── 继续发牌：留在同一赛事大屏，服务端 room:ready 机制发下一局 ── */
+function continueNext() {
+  var btn = document.getElementById('result-continue-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '等待其他玩家...'; }
+  socket.emit('room:ready', { token: MY_TOKEN, roomCode: ROOM_CODE });
 }
 
 /* ── 初始化手牌 ── */
@@ -1274,7 +1279,8 @@ function tickTurn(){
   if(remain <= 0) stopTurnCountdown();
 }
 socket.on('game:turn_timer', function(d){
-  _turnDeadline = d.deadline || (Date.now() + (d.seconds||20)*1000);
+  /* 用本地时钟从 seconds 倒数，避免各设备时钟偏差导致时间不一致 */
+  _turnDeadline = Date.now() + (d.seconds || 40) * 1000;
   _turnSeatCur  = d.turnSeat;
   if(_turnInterval) clearInterval(_turnInterval);
   tickTurn();
@@ -1407,18 +1413,29 @@ socket.on('round:result', function(d){
   /* 更新级牌 + 胜局，刷新左上面板 */
   if (typeof d.newLv1 !== 'undefined') levelTeam1 = d.newLv1;
   if (typeof d.newLv2 !== 'undefined') levelTeam2 = d.newLv2;
-  if (d.winnerTeam === 1) winsTeam1++;
-  else if (d.winnerTeam === 2) winsTeam2++;
+  if (typeof d.winsTeam1 !== 'undefined') winsTeam1 = d.winsTeam1;   // 胜局=过A盘胜(服务端权威)
+  if (typeof d.winsTeam2 !== 'undefined') winsTeam2 = d.winsTeam2;
   updateCurrentLevel();
   var isWin = myTeam === d.winnerTeam;
   var el    = document.getElementById('result-type-text');
-  el.textContent = d.resultType;
-  el.className   = 'result-type ' + (isWin?'win':'lose');
+  el.className = 'result-type ' + (isWin?'win':'lose');
 
   var wTeam = d.winnerTeam===1 ? '甲队' : '乙队';
-  document.getElementById('result-level-line').innerHTML = d.guoA
-    ? '<strong style="color:#FFE066;">🏆 ' + wTeam + ' 过A！整盘胜利 · 重新从2打起</strong>'
-    : '<strong>' + wTeam + '升' + d.delta + '级 · 甲' + lvName(d.newLv1) + ' 乙' + lvName(d.newLv2) + '</strong>';
+  if (d.guoA) {
+    /* 过A：一轮(整盘)结束 */
+    el.textContent = '🏆 ' + wTeam + ' 过A！';
+    var lun = winsTeam1 + winsTeam2;   // 已完成的轮数
+    document.getElementById('result-level-line').innerHTML =
+      '<strong style="color:#FFE066;">第 ' + lun + ' 轮结束 · 成绩：甲队胜局 ' + winsTeam1 + ' / 乙队胜局 ' + winsTeam2 + '</strong>' +
+      '<br><span style="font-size:.8rem;color:rgba(255,255,255,.7);">是否继续下一轮？（从打2开始）</span>';
+  } else {
+    el.textContent = d.resultType;
+    document.getElementById('result-level-line').innerHTML =
+      '<strong>' + wTeam + '升' + d.delta + '级 · 甲' + lvName(d.newLv1) + ' 乙' + lvName(d.newLv2) + '</strong>';
+  }
+  /* 按钮文案：过A→继续下一轮；普通→继续发牌 */
+  var pbtn = document.getElementById('result-continue-btn');
+  if (pbtn) pbtn.textContent = d.guoA ? '继续下一轮' : '继续发牌';
 
   var html = '';
   d.finishOrder.forEach(function(f){

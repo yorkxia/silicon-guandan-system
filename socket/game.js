@@ -251,12 +251,15 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     result.newLv1, result.newLv2, state.roundId
   ]);
 
+  const guoAWin1 = (result.guoA && result.winnerTeam === 1) ? 1 : 0;
+  const guoAWin2 = (result.guoA && result.winnerTeam === 2) ? 1 : 0;
   await query(`
     UPDATE gdo_rooms
     SET level_team1=$1, level_team2=$2, status='waiting',
-        a_fails_team1=$3, a_fails_team2=$4, tribute_json=$5, banker_team=$6
-    WHERE room_code=$7
-  `, [result.newLv1, result.newLv2, new1, new2, tributeJson, result.winnerTeam, state.roomCode]);
+        a_fails_team1=$3, a_fails_team2=$4, tribute_json=$5, banker_team=$6,
+        wins_team1=wins_team1+$7, wins_team2=wins_team2+$8
+    WHERE room_code=$9
+  `, [result.newLv1, result.newLv2, new1, new2, tributeJson, result.winnerTeam, guoAWin1, guoAWin2, state.roomCode]);
 
   await query(`UPDATE gdo_seats SET is_ready=FALSE WHERE room_id=$1`, [state.roomId]);
 
@@ -266,6 +269,7 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
   for (const f of winners)
     await query(`UPDATE gdo_players SET games_won=games_won+1 WHERE id=$1`, [f.playerId]);
 
+  const wrow = await queryOne('SELECT wins_team1, wins_team2 FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
   io.to(state.roomCode).emit('round:result', {
     finishOrder:  state.finishOrder,
     resultType:   result.resultType,
@@ -274,6 +278,8 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     newLv1:       result.newLv1,
     newLv2:       result.newLv2,
     guoA:         !!result.guoA,
+    winsTeam1:    parseInt(wrow ? wrow.wins_team1 || 0 : 0),
+    winsTeam2:    parseInt(wrow ? wrow.wins_team2 || 0 : 0),
     tributePending: !!tributeJson
   });
 
@@ -497,7 +503,8 @@ module.exports = function(io, socket) {
 
       const seat = await queryOne(`
         SELECT s.*, r.game_mode, r.status, r.id AS room_id,
-               r.level_team1, r.level_team2, r.round_count, r.banker_team
+               r.level_team1, r.level_team2, r.round_count, r.banker_team,
+               r.wins_team1, r.wins_team2
         FROM gdo_seats s JOIN gdo_rooms r ON r.id = s.room_id
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
@@ -561,17 +568,9 @@ module.exports = function(io, socket) {
         playerId:  s.playerId
       }));
 
-      /* 本房间累计胜局（按队）*/
-      const winRows = await query(
-        `SELECT winner_team, COUNT(*)::int AS c FROM gdo_rounds
-         WHERE room_id=$1 AND winner_team IS NOT NULL GROUP BY winner_team`,
-        [seat.room_id]
-      );
-      let winsTeam1 = 0, winsTeam2 = 0;
-      for (const r of winRows) {
-        if (r.winner_team === 1) winsTeam1 = r.c;
-        else if (r.winner_team === 2) winsTeam2 = r.c;
-      }
+      /* 胜局(盘胜)=过A次数，存于房间 */
+      const winsTeam1 = parseInt(seat.wins_team1 || 0);
+      const winsTeam2 = parseInt(seat.wins_team2 || 0);
 
       socket.emit('game:hand', {
         hand: myHand, myPlayerId: player.id,
