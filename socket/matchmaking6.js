@@ -80,11 +80,11 @@ module.exports = function(io, socket) {
       const { token, name, mode } = data;
       const player = await getOrCreatePlayer(token, name);
 
-      /* 若玩家已在进行中的六人房间，直接回原房间（gdo6_ 表本就只有六人）*/
+      /* 随机参赛的"回原房"只认【随机房】，避免残留的私人房把随机参赛劫持进等候室 */
       const activeRow = await query(`
         SELECT r.room_code FROM gdo6_rooms r
         JOIN gdo6_seats s ON s.room_id=r.id
-        WHERE s.player_id=$1 AND r.status IN ('waiting','playing')
+        WHERE s.player_id=$1 AND r.room_type='random' AND r.status IN ('waiting','playing')
         LIMIT 1
       `, [player.id]);
       if (activeRow.length) {
