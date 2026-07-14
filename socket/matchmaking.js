@@ -80,13 +80,13 @@ module.exports = function(io, socket) {
       const { token, name, mode } = data;
       const player = await getOrCreatePlayer(token, name);
 
-      /* 若玩家已在进行中的房间，直接回原房间 */
+      /* 若玩家已在【同赛制】进行中的房间，直接回原房间（不同赛制不回，避免4人/6人串台）*/
       const activeRow = await query(`
         SELECT r.room_code FROM gdo_rooms r
         JOIN gdo_seats s ON s.room_id=r.id
-        WHERE s.player_id=$1 AND r.status IN ('waiting','playing')
+        WHERE s.player_id=$1 AND r.game_mode=$2 AND r.status IN ('waiting','playing')
         LIMIT 1
-      `, [player.id]);
+      `, [player.id, mode]);
       if (activeRow.length) {
         socket.join(activeRow[0].room_code);
         socket.emit('queue:joined', { roomCode: activeRow[0].room_code });
