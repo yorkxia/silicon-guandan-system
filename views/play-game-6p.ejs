@@ -27,7 +27,7 @@
                   0 16px 40px rgba(0,0,0,.4);
       z-index: -1; pointer-events: none;
     }
-    body.mode-6p #beach-table { top: 54%; width: 76vw; height: 60vh; max-width: 880px; }
+    body.mode-6p #beach-table { top: 54%; width: 94vw; height: 66vh; max-width: 1200px; }
 
     /* 竖屏 → 提示横屏（掼蛋以横屏为准）*/
     #rotate-hint { display: none; }
@@ -496,11 +496,11 @@
       overflow: hidden;
     }
 
-    /* 六边形主板（玩家围坐）*/
+    /* 六边形主板（玩家围坐）—— 放开到接近满屏，六家拉到最大间距 */
     #hex-board {
       position: relative;
       width: 100%;
-      max-width: 680px;
+      max-width: 1180px;
       margin: 0 auto;
       flex: 1;
       min-height: 280px;
@@ -511,7 +511,7 @@
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%,-50%);
-      width: 200px; height: 160px;
+      width: 240px; height: 184px;
       background: radial-gradient(ellipse, #0a2e0a 0%, #061506 100%);
       border-radius: 50%;
       border: 2px solid rgba(212,172,13,.2);
@@ -2017,13 +2017,13 @@ function cardEmoji(code) {
    4=top-center, 5=top-left, 6=bottom-left
 */
 var HEX_POS = [
-  null,                      // placeholder index 0
-  { left:'50%', top:'82%' },  // seat 1 = bottom-center (me)
-  { left:'82%', top:'62%' },  // seat 2 = bottom-right
-  { left:'82%', top:'22%' },  // seat 3 = top-right
-  { left:'50%', top:'5%'  },  // seat 4 = top-center
-  { left:'18%', top:'22%' },  // seat 5 = top-left
-  { left:'18%', top:'62%' },  // seat 6 = bottom-left
+  null,                        // placeholder index 0
+  { left:'50%', top:'85%' },   // seat 1 = bottom-center (me)
+  { left:'92%', top:'60%' },   // seat 2 = bottom-right
+  { left:'92%', top:'22%' },   // seat 3 = top-right
+  { left:'50%', top:'6%'  },   // seat 4 = top-center
+  { left:'8%',  top:'22%' },   // seat 5 = top-left
+  { left:'8%',  top:'60%' },   // seat 6 = bottom-left
 ];
 
 function init6pBoard(d) {
