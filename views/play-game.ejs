@@ -353,7 +353,8 @@
     #action-bar {
       position: fixed; top: 14%; left: 0; right: 0; z-index: 55;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 5vw; background: transparent; pointer-events: none;
+      padding: 0 calc(5vw + 92px);   /* 向中心各移约一个按钮长度，避免遮挡左上记分牌 */
+      background: transparent; pointer-events: none;
     }
     #action-bar .action-btn { pointer-events: auto; }
     #action-hint { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
