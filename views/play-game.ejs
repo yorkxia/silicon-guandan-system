@@ -1418,8 +1418,9 @@ socket.on('round:result', function(d){
   el.className   = 'result-type ' + (isWin?'win':'lose');
 
   var wTeam = d.winnerTeam===1 ? '甲队' : '乙队';
-  document.getElementById('result-level-line').innerHTML =
-    '<strong>' + wTeam + '升' + d.delta + '级 · 甲' + lvName(d.newLv1) + ' 乙' + lvName(d.newLv2) + '</strong>';
+  document.getElementById('result-level-line').innerHTML = d.guoA
+    ? '<strong style="color:#FFE066;">🏆 ' + wTeam + ' 过A！整盘胜利 · 重新从2打起</strong>'
+    : '<strong>' + wTeam + '升' + d.delta + '级 · 甲' + lvName(d.newLv1) + ' 乙' + lvName(d.newLv2) + '</strong>';
 
   var html = '';
   d.finishOrder.forEach(function(f){

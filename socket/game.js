@@ -186,53 +186,54 @@ async function rebuildState(roomCode, seat, round) {
    若队友（非头游）是末游，则该队累计"A级不过"次数+1
    连续3次后：对方头游→退2级；己方头游+1→退3级
 */
-function calcAFail(currentFails, headTeam, delta, thisTeam, endLevel) {
-  if (endLevel < 14) return 0; // 不在A级，清零
-  const teamHasTerminalMate = (delta === 1 && headTeam === thisTeam)  // 己方头游+1（队友末游）
-                           || (delta !== 4 && headTeam !== thisTeam); // 对方头游（己方输）
-  if (teamHasTerminalMate) return currentFails + 1;
-  return 0; // 这局赢得好或满足其他条件，清零
+/* ─── 过A / A级不过 规则（四人六人统一）────────────
+   · 胜方本局开始时已在A(级14)且获胜 = 过A → 整盘完成，两队从2重开
+   · 输方本局开始时在A且没赢 → A级失败+1；连续3次退回2
+   返回 { newLv1, newLv2, aFail1, aFail2, guoA }
+*/
+function applyAWinRule(state, result, a1, a2) {
+  const preLv = { 1: state.levelTeam1, 2: state.levelTeam2 };
+  const winner = result.winnerTeam;
+  const loser  = winner === 1 ? 2 : 1;
+  const newLv  = { 1: result.newLv1, 2: result.newLv2 };
+  const aFail  = { 1: 0, 2: 0 };
+  let guoA = false;
+
+  if (preLv[winner] === 14) {
+    /* 过A → 整盘完成，两队从2重开 */
+    guoA = true; newLv[1] = 2; newLv[2] = 2;
+  } else if (preLv[loser] === 14) {
+    /* 输方在A：A级失败累积，满3退回2 */
+    let f = (loser === 1 ? a1 : a2) + 1;
+    if (f >= 3) { newLv[loser] = 2; f = 0; }
+    aFail[loser] = f;
+  }
+  return { newLv1: newLv[1], newLv2: newLv[2], aFail1: aFail[1], aFail2: aFail[2], guoA };
 }
 
 /* ─── 四人赛事结算 ──────────────────────────────── */
 async function finishRound(io, state) {
   const result = settle(state.finishOrder, state.levelTeam1, state.levelTeam2);
-  await _writeRoundResult(io, state, result, false);
+  const room = await queryOne('SELECT a_fails_team1, a_fails_team2 FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
+  const adj = applyAWinRule(state, result, parseInt(room.a_fails_team1 || 0), parseInt(room.a_fails_team2 || 0));
+  result.newLv1 = adj.newLv1; result.newLv2 = adj.newLv2; result.guoA = adj.guoA;
+  await _writeRoundResult(io, state, result, false, adj.aFail1, adj.aFail2, null);
 }
 
 /* ─── 六人赛事结算 ──────────────────────────────── */
 async function finishRound6p(io, state) {
   const result = settle6p(state.finishOrder, state.levelTeam1, state.levelTeam2);
-
-  /* A级回退检测 */
   const room = await queryOne('SELECT a_fails_team1, a_fails_team2 FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
-  const a1 = parseInt(room.a_fails_team1 || 0);
-  const a2 = parseInt(room.a_fails_team2 || 0);
+  const adj = applyAWinRule(state, result, parseInt(room.a_fails_team1 || 0), parseInt(room.a_fails_team2 || 0));
+  result.newLv1 = adj.newLv1; result.newLv2 = adj.newLv2; result.guoA = adj.guoA;
 
-  /* 计算本局后的A失败计数 */
-  let new1 = calcAFail(a1, result.winnerTeam, result.delta, 1, result.newLv1);
-  let new2 = calcAFail(a2, result.winnerTeam, result.delta, 2, result.newLv2);
-
-  /* 末游的队 */
-  const末游Team = state.finishOrder[5].team;
-
-  /* 回退触发：连续3局且每局都有本方队友末游 */
-  if (new1 >= 3 && result.newLv1 === 14) {
-    result.newLv1 = (result.winnerTeam === 2) ? 2 : 3; // 对方头游→2；己方头游+1→3
-    new1 = 0;
-  }
-  if (new2 >= 3 && result.newLv2 === 14) {
-    result.newLv2 = (result.winnerTeam === 1) ? 2 : 3;
-    new2 = 0;
-  }
-
-  /* 进贡信息（写入下局使用） */
-  const tributeInfo = computeTribute6p(state.finishOrder, result.winnerTeam);
+  /* 进贡信息（写入下局使用；过A重开则不进贡）*/
+  const tributeInfo = adj.guoA ? { exchanges: [] } : computeTribute6p(state.finishOrder, result.winnerTeam);
   const tributeJson = tributeInfo.exchanges.length > 0
     ? JSON.stringify({ ...tributeInfo, delta: result.delta })
     : null;
 
-  await _writeRoundResult(io, state, result, true, new1, new2, tributeJson);
+  await _writeRoundResult(io, state, result, true, adj.aFail1, adj.aFail2, tributeJson);
 }
 
 /* ─── 公共写库逻辑 ──────────────────────────────── */
@@ -272,6 +273,7 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     delta:        result.delta,
     newLv1:       result.newLv1,
     newLv2:       result.newLv2,
+    guoA:         !!result.guoA,
     tributePending: !!tributeJson
   });
 
