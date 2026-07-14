@@ -325,8 +325,35 @@ function computeTribute6p(finishOrder, headTeam) {
   };
 }
 
+/* ── 4P 进贡计算 ──
+   四人：teamSize=2，下游=后两名(名次 index 2,3)中的输方玩家。
+   · 双下(输方占3、4名)→ 两名输家分别向两名赢家(头游/二游)进贡；
+   · 单下(输方仅一人落入后两名)→ 该输家(通常末游)向头游进贡。
+   receiver 与 6P 一致：按头游队完成顺序对应。 */
+function computeTribute4p(finishOrder, headTeam) {
+  const givers = [];
+  for (let i = 2; i <= 3; i++) {
+    if (finishOrder[i] && finishOrder[i].team !== headTeam) givers.push(finishOrder[i]);
+  }
+  const headTeamOrder = finishOrder.filter(f => f.team === headTeam);
+  const receivers = [];
+  for (let i = 0; i < givers.length; i++) {
+    if (headTeamOrder[i]) receivers.push(headTeamOrder[i]);
+  }
+  return {
+    headPlayerId:    headTeamOrder[0] ? headTeamOrder[0].playerId : null,
+    tributeLeaderId: givers[0] ? givers[0].playerId : null,
+    exchanges: givers.map((g, i) => ({
+      giverId:      g.playerId,
+      receiverId:   receivers[i] ? receivers[i].playerId : null,
+      giverSeat:    g.seat,
+      receiverSeat: receivers[i] ? receivers[i].seat : null
+    })).filter(e => e.receiverId)
+  };
+}
+
 module.exports = {
-  detectType, canBeat, isBomb, bombScore, settle, levelName, removeCards,
+  detectType, canBeat, isBomb, bombScore, settle, levelName, removeCards, computeTribute4p,
   detectType6p, canBeat6p, isBomb6p, bombScore6p, settle6p, computeTribute6p,
   // 供测试
   detectRun, runTop

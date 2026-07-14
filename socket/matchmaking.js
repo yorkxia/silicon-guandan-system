@@ -48,9 +48,9 @@ async function dealAndStart(io, roomCode, state) {
 
   console.log(`[掼蛋] 🃏 发牌 · ${roomCode} · 第${newRound}局 · 每人27张`);
 
-  /* 六人赛事：检查是否有上一局的进贡待处理 */
+  /* 四人赛事：检查是否有上一局的进贡待处理（第2局起） */
   const tributeRaw = state.room.tribute_json;
-  if (is6p && tributeRaw) {
+  if (tributeRaw) {
     const tributeInfo = typeof tributeRaw === 'string' ? JSON.parse(tributeRaw) : tributeRaw;
     const started = await startTributePhase(io, roomCode, tributeInfo);
     if (started) return; // startTributePhase 内部会在合适时机 emit game:starting

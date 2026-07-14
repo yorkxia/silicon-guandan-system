@@ -295,6 +295,15 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   let pendingCount  = 0;
   let tributeLeadId = null; // 给头游进贡的人（还贡后先出牌）
 
+  /* 抗贡（六人）：所有进贡者(下游/后三名，可能因名次穿插为1~3人)手中
+     「合计」持有 ≥3 张大王即整方抗贡（一人3张，或多人凑齐3张均可）。*/
+  let totalBJ = 0;
+  for (const ex of tributeInfo.exchanges) {
+    const hand = state.hands[String(ex.giverId)] || [];
+    totalBJ += hand.filter(c => c === 'BJ').length;
+  }
+  const resistAll = totalBJ >= 3;
+
   /* 按各自手牌里最大的牌排序贡者→决定谁给头游（最大的牌给头游）*/
   const giversByTop = tributeInfo.exchanges.map(ex => {
     const hand   = state.hands[String(ex.giverId)] || [];
@@ -306,15 +315,14 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     const ex = { ...giversByTop[i], receiverId: tributeInfo.exchanges[i]?.receiverId };
     if (!ex.giverId || !ex.receiverId) continue;
 
-    const hand    = state.hands[String(ex.giverId)] || [];
-    const bjCount = hand.filter(c => c === 'BJ').length;
-
-    /* 抗贡：持有全部3张大王 */
-    if (bjCount >= 3) {
+    /* 整方抗贡：全部标记为抗贡，不进贡 */
+    if (resistAll) {
       exchanges.push({ giverId: ex.giverId, receiverId: ex.receiverId,
                        tributeCard: null, returnCard: null, resisted: true, done: true });
       continue;
     }
+
+    const hand = state.hands[String(ex.giverId)] || [];
 
     /* 自动取最大牌 */
     const sorted = sortHand(hand);
@@ -338,7 +346,10 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   }
 
   if (pendingCount === 0) {
-    /* 全部抗贡或没有贡 → 直接开始 */
+    /* 全部抗贡或没有贡 → 由上局头游先出，直接开始 */
+    const headSeat = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
+    if (headSeat) { state.turnSeat = headSeat.seat; state.leadSeat = headSeat.seat; }
+    await persistState(state);
     await query(`UPDATE gdo6_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
     io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
     startTurnTimer(io, state);

@@ -383,13 +383,32 @@ async function downloadCard() {
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(_){} }
     await icPreloadImages(card);
 
+    /* 检出加载失败(0尺寸)的图片：二维码必须成功；装饰图(如Logo)失败则从截图中剔除，
+       否则 html2canvas 会对 0 尺寸图执行 createPattern 抛「width or height of 0」错误 */
+    var brokenSrcs = [];
+    var imgList = card.querySelectorAll('img');
+    for (var i = 0; i < imgList.length; i++) {
+      var im0 = imgList[i];
+      if (im0.naturalWidth > 0 && im0.naturalHeight > 0) continue;
+      if (im0.closest('.ic-qr-box')) throw new Error('二维码未能加载，请刷新页面后重试');
+      brokenSrcs.push(im0.currentSrc || im0.src);
+    }
+
     var canvas = await html2canvas(card, {
       scale: 2,                    // 高清2倍
       useCORS: true,
       allowTaint: false,
       backgroundColor: '#1a0505',  // 实底色，避免透明背景导致的异常
       imageTimeout: 15000,
-      logging: false
+      logging: false,
+      onclone: function(doc){
+        /* 剔除加载失败的装饰图，规避 createPattern 0 尺寸报错 */
+        var cimgs = doc.querySelectorAll('#invite-card-capture img');
+        for (var j = 0; j < cimgs.length; j++) {
+          var s = cimgs[j].currentSrc || cimgs[j].src;
+          if (brokenSrcs.indexOf(s) >= 0 && cimgs[j].parentNode) cimgs[j].parentNode.removeChild(cimgs[j]);
+        }
+      }
     });
 
     /* 导出（画布被跨域污染时 toDataURL 会抛 SecurityError）*/

@@ -2,7 +2,7 @@
 const { query, queryOne } = require('../db/init');
 const { sortHand }        = require('../utils/cards');
 const {
-  detectType, canBeat, settle, removeCards,
+  detectType, canBeat, settle, removeCards, computeTribute4p,
   detectType6p, canBeat6p, settle6p, computeTribute6p
 } = require('../utils/cardTypes');
 const gameStates = require('./gameState');
@@ -217,7 +217,14 @@ async function finishRound(io, state) {
   const room = await queryOne('SELECT a_fails_team1, a_fails_team2 FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
   const adj = applyAWinRule(state, result, parseInt(room.a_fails_team1 || 0), parseInt(room.a_fails_team2 || 0));
   result.newLv1 = adj.newLv1; result.newLv2 = adj.newLv2; result.guoA = adj.guoA;
-  await _writeRoundResult(io, state, result, false, adj.aFail1, adj.aFail2, null);
+
+  /* 四人进贡（写入下局使用；过A重开则不进贡）*/
+  const tributeInfo = adj.guoA ? { exchanges: [] } : computeTribute4p(state.finishOrder, result.winnerTeam);
+  const tributeJson = tributeInfo.exchanges.length > 0
+    ? JSON.stringify({ ...tributeInfo, delta: result.delta })
+    : null;
+
+  await _writeRoundResult(io, state, result, false, adj.aFail1, adj.aFail2, tributeJson);
 }
 
 /* ─── 六人赛事结算 ──────────────────────────────── */
@@ -286,7 +293,7 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
   gameStates.delete(state.roomCode);
 }
 
-/* ─── 六人进贡阶段初始化（由 matchmaking 调用）──── */
+/* ─── 四人进贡阶段初始化（由 matchmaking 调用）──── */
 async function startTributePhase(io, roomCode, tributeInfo) {
   const state = gameStates.get(roomCode);
   if (!state) return false;
@@ -294,6 +301,15 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   const exchanges   = [];
   let pendingCount  = 0;
   let tributeLeadId = null; // 给头游进贡的人（还贡后先出牌）
+
+  /* 抗贡（四人）：所有进贡者(下游)手中「合计」持有 ≥2 张大王即整方抗贡
+     （双下时两名输家合计2张，或单下时该输家自己拿到2张均可）。*/
+  let totalBJ = 0;
+  for (const ex of tributeInfo.exchanges) {
+    const hand = state.hands[String(ex.giverId)] || [];
+    totalBJ += hand.filter(c => c === 'BJ').length;
+  }
+  const resistAll = totalBJ >= 2;
 
   /* 按各自手牌里最大的牌排序贡者→决定谁给头游（最大的牌给头游）*/
   const giversByTop = tributeInfo.exchanges.map(ex => {
@@ -306,15 +322,14 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     const ex = { ...giversByTop[i], receiverId: tributeInfo.exchanges[i]?.receiverId };
     if (!ex.giverId || !ex.receiverId) continue;
 
-    const hand    = state.hands[String(ex.giverId)] || [];
-    const bjCount = hand.filter(c => c === 'BJ').length;
-
-    /* 抗贡：持有全部3张大王 */
-    if (bjCount >= 3) {
+    /* 整方抗贡：全部标记为抗贡，不进贡 */
+    if (resistAll) {
       exchanges.push({ giverId: ex.giverId, receiverId: ex.receiverId,
                        tributeCard: null, returnCard: null, resisted: true, done: true });
       continue;
     }
+
+    const hand = state.hands[String(ex.giverId)] || [];
 
     /* 自动取最大牌 */
     const sorted = sortHand(hand);
@@ -338,7 +353,10 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   }
 
   if (pendingCount === 0) {
-    /* 全部抗贡或没有贡 → 直接开始 */
+    /* 全部抗贡或没有贡 → 由上局头游先出，直接开始 */
+    const headSeat = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
+    if (headSeat) { state.turnSeat = headSeat.seat; state.leadSeat = headSeat.seat; }
+    await persistState(state);
     await query(`UPDATE gdo_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
     io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
     startTurnTimer(io, state);
