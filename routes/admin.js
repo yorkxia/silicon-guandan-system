@@ -673,8 +673,14 @@ router.get('/ot-staff/participants/export', requireAuth, requireSuperAdmin, asyn
 // ── 邀请卡生成页 ──────────────────────────────────────────
 router.get('/invite-card', requireAuth, async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
-  const installUrl = `${baseUrl}/play`;         // 手机扫码入口（赛事页）
-  const pcInstallUrl = `${baseUrl}/install`;    // 电脑一键安装页（含"安装到桌面"按钮）
+  const installUrl = `${baseUrl}/install`;      // 智能安装落地页（自动识别微信/iOS/安卓/电脑）
+  const pcInstallUrl = installUrl;              // 手机、电脑统一入口
+  // 可粘贴到微信/Messenger 的现成邀请文案（链接会自动生成富预览卡片）
+  const shareText =
+    '🎴 硅谷掼蛋协会 · 网上掼蛋赛事\n' +
+    '四人 / 六人掼蛋 · 随机参赛 · 全球对战\n' +
+    '👇 点开链接，按提示一步装到手机/电脑桌面（免商店、免下载）：\n' +
+    installUrl;
   const qrDataUrl = await QRCode.toDataURL(installUrl, {
     width: 300, margin: 2,
     color: { dark: '#1a0505', light: '#FFF8F0' }
@@ -684,7 +690,8 @@ router.get('/invite-card', requireAuth, async (req, res) => {
     activePage: 'invite-card',
     qrDataUrl,
     installUrl,
-    pcInstallUrl
+    pcInstallUrl,
+    shareText
   });
 });
 

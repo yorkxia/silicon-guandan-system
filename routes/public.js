@@ -405,8 +405,12 @@ h2{color:#27AE60;}p{color:#555;}small{color:#aaa;}</style></head><body>
 
 // ── PWA 安装落地页 ──────────────────────────────────────────
 router.get('/install', (req, res) => {
-  res.render('install');
+  const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  res.render('install', { baseUrl });
 });
+
+// 短链：方便粘贴到微信/Messenger（/i → /install）
+router.get('/i', (req, res) => res.redirect(301, '/install'));
 
 // ── 公开赛事页（无需登录，朋友扫码后直接进入） ──────────────
 router.get('/play', (req, res) => {

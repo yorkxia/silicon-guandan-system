@@ -212,18 +212,17 @@
       <div class="ic-toolbar">
         <h2>🎴 生成赛事邀请卡</h2>
         <button class="ic-btn ic-btn-outline" onclick="window.history.back()">← 返回</button>
-        <button class="ic-btn ic-btn-outline" onclick="copyInstallLink()" id="copy-link-btn">🔗 复制安装链接</button>
-        <button class="ic-btn ic-btn-red" onclick="downloadCard()" id="dl-btn">
-          ⬇️ 下载邀请图片
+        <button class="ic-btn ic-btn-outline" onclick="downloadCard()" id="dl-btn">⬇️ 下载图片</button>
+        <button class="ic-btn ic-btn-red" onclick="copyShareText()" id="copy-share-btn">
+          📋 复制邀请文案（推荐）
         </button>
       </div>
 
       <div class="ic-hint">
-        💡 <strong>使用方法：</strong>点击「下载邀请图片」保存PNG →
-        通过<strong>微信</strong>或<strong>Messenger</strong>发给朋友 →
-        <strong>📱 手机</strong>用微信长按图片扫码 / 相机扫码；
-        <strong>💻 电脑</strong>直接打开卡片上的安装链接 →
-        即可安装掼蛋赛事App。
+        💡 <strong>最省事用法：</strong>点「📋 复制邀请文案」→ 直接粘贴到<strong>微信</strong>或<strong>Messenger</strong>发给朋友。
+        朋友看到的是一张<strong>可点击的链接卡片</strong>，点开后页面会<strong>自动识别</strong>他用的是
+        苹果 / 安卓 / 鸿蒙手机还是电脑，一步步教他装到桌面 —— 无需扫码、无需敲网址。<br>
+        <span style="color:#B8860B;">（下方精美图片可选：喜欢发图的可点「下载图片」，但图片点不动，建议连同文案一起发。）</span>
       </div>
 
       <!-- 邀请卡（此区域会被截图） -->
@@ -321,6 +320,31 @@
 
 <script>
 var INSTALL_URL_PC = '<%= pcInstallUrl %>';
+var SHARE_TEXT = <%- JSON.stringify(shareText) %>;
+
+/* 复制整段邀请文案（含链接）— 直接粘贴进微信/Messenger 即可 */
+function copyShareText(){
+  var btn = document.getElementById('copy-share-btn');
+  var old = btn ? btn.textContent : '';
+  function done(ok){
+    if (!btn) { if(!ok) prompt('请手动复制邀请文案：', SHARE_TEXT); return; }
+    btn.textContent = ok ? '✅ 已复制！去微信/Messenger 粘贴' : '❌ 复制失败';
+    setTimeout(function(){ btn.textContent = old; }, 2400);
+  }
+  function fallback(){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = SHARE_TEXT;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta); done(ok);
+    } catch(e){ prompt('请手动复制邀请文案：', SHARE_TEXT); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(SHARE_TEXT).then(function(){ done(true); }).catch(fallback);
+  } else { fallback(); }
+}
 
 /* 复制电脑一键安装链接（连同图片一起发给电脑好友）*/
 function copyInstallLink(){

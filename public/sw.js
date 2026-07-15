@@ -1,5 +1,5 @@
-/* 硅谷掼蛋协会 · Service Worker v3 · 网上赛事版 */
-var CACHE = 'gd-pwa-v3';
+/* 硅谷掼蛋协会 · Service Worker v4 · 网上赛事版 */
+var CACHE = 'gd-pwa-v4';
 
 var PRECACHE = [
   '/manifest.json',

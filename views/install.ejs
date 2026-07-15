@@ -4,6 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>安装掼蛋赛事 App · 硅谷掼蛋协会</title>
+
+  <%# ── 富链接预览（微信/Messenger 粘贴链接时自动生成卡片） ── %>
+  <% var _base = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : 'https://silicon-guandan-system.onrender.com'; %>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="硅谷掼蛋协会">
+  <meta property="og:title" content="🎴 掼蛋赛事 · 点开一步装到桌面">
+  <meta property="og:description" content="硅谷掼蛋协会网上赛事 · 四人/六人掼蛋 · 随机参赛 · 全球对战。免商店免下载，点开按提示装到手机/电脑桌面。">
+  <meta property="og:image" content="<%= _base %>/img/assoc-logo.png">
+  <meta property="og:url" content="<%= _base %>/install">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="🎴 掼蛋赛事 · 点开一步装到桌面">
+  <meta name="twitter:description" content="免商店免下载，点开按提示装到手机/电脑桌面。">
+  <meta name="twitter:image" content="<%= _base %>/img/assoc-logo.png">
+
   <link rel="stylesheet" href="/css/style.css">
   <%- include('partials/pwa-head') %>
   <style>
@@ -15,154 +29,118 @@
       color: #fff;
     }
 
-    .inst-page {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 40px 24px 100px;
-      text-align: center;
-    }
+    .inst-page { max-width: 480px; margin: 0 auto; padding: 40px 24px 100px; text-align: center; }
 
-    /* Logo */
     .inst-logo {
-      width: 100px; height: 100px;
-      border-radius: 24px;
+      width: 100px; height: 100px; border-radius: 24px;
       border: 3px solid rgba(212,172,13,0.7);
       box-shadow: 0 0 32px rgba(212,172,13,0.3), 0 8px 32px rgba(0,0,0,0.4);
       object-fit: cover; background: #fff; padding: 3px;
-      margin: 0 auto 20px;
-      display: block;
+      margin: 0 auto 20px; display: block;
     }
-
     .inst-app-name {
-      font-size: 1.6rem; font-weight: 900;
-      color: #FFE066; letter-spacing: 3px;
-      margin-bottom: 6px;
-      text-shadow: 0 2px 12px rgba(212,172,13,0.4);
+      font-size: 1.6rem; font-weight: 900; color: #FFE066; letter-spacing: 3px;
+      margin-bottom: 6px; text-shadow: 0 2px 12px rgba(212,172,13,0.4);
     }
-    .inst-app-sub {
-      font-size: 0.78rem; color: rgba(255,255,255,0.5);
-      letter-spacing: 4px; margin-bottom: 32px;
-    }
+    .inst-app-sub { font-size: 0.78rem; color: rgba(255,255,255,0.5); letter-spacing: 4px; margin-bottom: 32px; }
+    .inst-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(212,172,13,0.5), transparent); margin: 0 auto 28px; }
 
-    /* 金色分割线 */
-    .inst-divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(212,172,13,0.5), transparent);
-      margin: 0 auto 28px;
-    }
-
-    /* 功能标签 */
-    .inst-tags {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      justify-content: center; margin-bottom: 32px;
-    }
+    .inst-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 32px; }
     .inst-tag {
-      padding: 5px 14px; border-radius: 20px;
-      font-size: 0.78rem; font-weight: 600;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(212,172,13,0.3);
-      color: rgba(255,255,255,0.85);
+      padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(212,172,13,0.3); color: rgba(255,255,255,0.85);
     }
 
-    /* Android/桌面 安装按钮区 */
-    #android-install-section { display: none; margin-bottom: 24px; }
+    /* 各平台区块默认隐藏，JS 按环境显示其一 */
+    #android-install-section, #ios-steps, #desktop-steps, #harmony-steps { display: none; }
+
     .inst-install-btn {
-      display: block; width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, #C0000F, #8B0000);
-      color: #fff; border: none; border-radius: 14px;
-      font-size: 1.1rem; font-weight: 900;
-      letter-spacing: 2px; cursor: pointer;
-      box-shadow: 0 6px 24px rgba(192,0,15,0.45);
-      transition: all 0.25s;
+      display: block; width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #C0000F, #8B0000); color: #fff; border: none; border-radius: 14px;
+      font-size: 1.1rem; font-weight: 900; letter-spacing: 2px; cursor: pointer;
+      box-shadow: 0 6px 24px rgba(192,0,15,0.45); transition: all 0.25s;
     }
-    .inst-install-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 30px rgba(192,0,15,0.6);
-    }
+    .inst-install-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(192,0,15,0.6); }
 
-    /* 步骤卡片 */
     .inst-steps-card {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(212,172,13,0.2);
-      border-radius: 18px;
-      padding: 24px 20px;
-      margin-bottom: 24px;
-      text-align: left;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(212,172,13,0.2);
+      border-radius: 18px; padding: 24px 20px; margin-bottom: 24px; text-align: left;
     }
-    .inst-steps-title {
-      font-size: 0.85rem; font-weight: 700;
-      color: #FFE066; letter-spacing: 2px;
-      margin-bottom: 18px; text-align: center;
-    }
-    .inst-step {
-      display: flex; align-items: flex-start;
-      gap: 14px; margin-bottom: 16px;
-    }
+    .inst-steps-title { font-size: 0.9rem; font-weight: 700; color: #FFE066; letter-spacing: 2px; margin-bottom: 18px; text-align: center; }
+    .inst-step { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
     .inst-step:last-child { margin-bottom: 0; }
     .inst-step-num {
       width: 28px; height: 28px; flex-shrink: 0;
-      background: linear-gradient(135deg, #C0000F, #8B0000);
-      border-radius: 50%;
-      font-size: 0.78rem; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #C0000F, #8B0000); border-radius: 50%;
+      font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
     }
     .inst-step-body { flex: 1; }
-    .inst-step-label {
-      font-size: 0.88rem; font-weight: 700;
-      color: #fff; margin-bottom: 3px;
-    }
-    .inst-step-desc {
-      font-size: 0.78rem; color: rgba(255,255,255,0.6);
-      line-height: 1.6;
-    }
+    .inst-step-label { font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .inst-step-desc { font-size: 0.8rem; color: rgba(255,255,255,0.65); line-height: 1.6; }
     .inst-step-desc .badge {
-      display: inline-block;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 5px; padding: 1px 7px;
-      font-size: 0.8rem;
+      display: inline-block; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 5px; padding: 1px 7px; font-size: 0.82rem;
     }
 
-    /* 已安装提示 */
     #standalone-msg {
-      display: none;
-      background: rgba(39,174,96,0.15);
-      border: 1px solid rgba(39,174,96,0.4);
-      border-radius: 14px; padding: 20px;
-      margin-bottom: 24px;
-      font-size: 0.9rem; color: #6EE89A;
-      line-height: 1.8;
+      display: none; background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4);
+      border-radius: 14px; padding: 20px; margin-bottom: 24px; font-size: 0.92rem; color: #6EE89A; line-height: 1.8;
     }
 
-    /* 进入赛事按钮 */
     .inst-enter-btn {
-      display: block; width: 100%;
-      padding: 15px;
-      background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.85);
-      border: 1px solid rgba(212,172,13,0.3);
-      border-radius: 14px;
-      font-size: 0.95rem; font-weight: 700;
-      letter-spacing: 2px; cursor: pointer;
-      text-decoration: none;
-      transition: all 0.2s;
+      display: block; width: 100%; padding: 15px;
+      background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(212,172,13,0.3); border-radius: 14px;
+      font-size: 0.95rem; font-weight: 700; letter-spacing: 2px; cursor: pointer; text-decoration: none; transition: all 0.2s;
     }
-    .inst-enter-btn:hover {
-      background: rgba(255,255,255,0.14);
-      color: #fff; text-decoration: none;
-    }
+    .inst-enter-btn:hover { background: rgba(255,255,255,0.14); color: #fff; text-decoration: none; }
 
-    /* 底部 */
-    .inst-footer {
-      margin-top: 32px;
-      font-size: 0.7rem; color: rgba(255,255,255,0.25);
-      letter-spacing: 2px; line-height: 2;
+    .inst-footer { margin-top: 32px; font-size: 0.7rem; color: rgba(255,255,255,0.25); letter-spacing: 2px; line-height: 2; }
+
+    /* ── 微信/Messenger 内置浏览器：全屏"去浏览器打开"引导 ── */
+    #inapp-guide {
+      display: none; position: fixed; inset: 0; z-index: 100000;
+      background: rgba(0,0,0,0.82); backdrop-filter: blur(2px);
     }
+    #inapp-guide .iag-arrow {
+      position: absolute; top: 8px; right: 14px;
+      font-size: 3.4rem; line-height: 1; color: #FFE066;
+      animation: iagBounce 1s ease-in-out infinite;
+      text-shadow: 0 0 18px rgba(212,172,13,0.7);
+    }
+    @keyframes iagBounce { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-8px);} }
+    #inapp-guide .iag-body {
+      position: absolute; top: 92px; left: 50%; transform: translateX(-50%);
+      width: calc(100% - 44px); max-width: 420px;
+      background: linear-gradient(175deg, #2C0A0A 0%, #1a0505 100%);
+      border: 2px solid rgba(212,172,13,0.5); border-radius: 20px; padding: 24px 22px; text-align: center;
+    }
+    #inapp-guide .iag-title { font-size: 1.15rem; font-weight: 900; color: #FFE066; margin-bottom: 14px; letter-spacing: 1px; }
+    #inapp-guide .iag-line { font-size: 0.95rem; color: #fff; line-height: 1.9; }
+    #inapp-guide .iag-line .badge {
+      display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 6px; padding: 2px 10px; font-weight: 700; margin: 0 2px;
+    }
+    #inapp-guide .iag-sub { margin-top: 14px; font-size: 0.78rem; color: rgba(255,255,255,0.5); line-height: 1.7; }
   </style>
 </head>
 <body>
 <%- include('partials/pwa-install-banner') %>
+
+<!-- 微信 / Messenger 内置浏览器：引导去系统浏览器打开（这里无法安装） -->
+<div id="inapp-guide">
+  <div class="iag-arrow">☝️</div>
+  <div class="iag-body">
+    <div class="iag-title">📲 请在浏览器中打开</div>
+    <div class="iag-line" id="iag-line">
+      点击右上角 <span class="badge">···</span> 菜单<br>
+      选择 <span class="badge" id="iag-open-label">在浏览器中打开</span>
+    </div>
+    <div class="iag-sub" id="iag-sub">
+      在微信/Messenger 内无法安装到桌面，<br>用系统浏览器（Safari / Chrome）打开本页即可安装。
+    </div>
+  </div>
+</div>
 
 <div class="inst-page">
 
@@ -180,58 +158,86 @@
     <span class="inst-tag">📱 免费安装</span>
   </div>
 
-  <!-- 已安装为PWA时显示 -->
+  <!-- 已安装为 PWA 时显示 -->
   <div id="standalone-msg">
     ✅ 已成功安装！<br>
     掼蛋赛事 App 已在您的桌面上。<br>
     点击下方按钮立即进入赛事！
   </div>
 
-  <!-- Android/桌面：一键安装按钮 -->
+  <!-- 安卓 / 鸿蒙 / 桌面：一键安装按钮 -->
   <div id="android-install-section">
-    <button class="inst-install-btn" onclick="pwaInstall()">
-      📲 立即安装到桌面
-    </button>
-    <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:10px;">
-      点击后按提示操作，图标将出现在您的桌面
+    <button class="inst-install-btn" onclick="pwaInstall()">📲 立即安装到桌面</button>
+    <p style="font-size:0.75rem;color:rgba(255,255,255,0.45);margin-top:10px;">
+      点击后在弹出的系统提示里选「安装」，图标即出现在桌面
     </p>
   </div>
 
-  <!-- iOS：手动步骤说明 -->
+  <!-- iOS：分享→添加到主屏幕（3步） -->
   <div class="inst-steps-card" id="ios-steps">
-    <div class="inst-steps-title">📲 安装到手机桌面（3步完成）</div>
+    <div class="inst-steps-title">📲 装到 iPhone 桌面（3 步完成）</div>
     <div class="inst-step">
       <div class="inst-step-num">1</div>
       <div class="inst-step-body">
-        <div class="inst-step-label">点击底部分享按钮</div>
-        <div class="inst-step-desc">
-          点击 Safari 底部工具栏的 <span class="badge">⬆️ 分享</span> 按钮
-        </div>
+        <div class="inst-step-label">点击底部「分享」按钮</div>
+        <div class="inst-step-desc">Safari 底部中间那个 <span class="badge">⬆️ 方框加向上箭头</span> 的图标</div>
       </div>
     </div>
     <div class="inst-step">
       <div class="inst-step-num">2</div>
       <div class="inst-step-body">
         <div class="inst-step-label">选择「添加到主屏幕」</div>
-        <div class="inst-step-desc">
-          在弹出菜单中找到并点击 <span class="badge">➕ 添加到主屏幕</span>
-        </div>
+        <div class="inst-step-desc">在弹出菜单里向下滑，找到 <span class="badge">➕ 添加到主屏幕</span></div>
       </div>
     </div>
     <div class="inst-step">
       <div class="inst-step-num">3</div>
       <div class="inst-step-body">
-        <div class="inst-step-label">点击右上角「添加」</div>
-        <div class="inst-step-desc">
-          掼蛋赛事图标出现在桌面，以后直接点击图标即可进入赛事！
-        </div>
+        <div class="inst-step-label">点右上角「添加」</div>
+        <div class="inst-step-desc">掼蛋赛事图标出现在桌面，以后直接点图标进入赛事！</div>
       </div>
     </div>
   </div>
 
-  <a href="/ot-staff/tournaments-online" class="inst-enter-btn">
-    🎴 直接进入赛事 →
-  </a>
+  <!-- 鸿蒙/其它安卓浏览器无自动安装时：菜单→添加到主屏幕 -->
+  <div class="inst-steps-card" id="harmony-steps">
+    <div class="inst-steps-title">📲 装到手机桌面（3 步完成）</div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">点击浏览器菜单</div>
+        <div class="inst-step-desc">点右上角或底部的 <span class="badge">⋮ / ≡</span> 菜单按钮</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">2</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">选择「添加到主屏幕」</div>
+        <div class="inst-step-desc">找到 <span class="badge">添加到主屏幕 / 添加到桌面</span> 一项</div>
+      </div>
+    </div>
+    <div class="inst-step">
+      <div class="inst-step-num">3</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">确认添加</div>
+        <div class="inst-step-desc">图标出现在桌面，以后直接点图标进入赛事！</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 电脑浏览器：地址栏安装图标 -->
+  <div class="inst-steps-card" id="desktop-steps">
+    <div class="inst-steps-title">💻 装到电脑桌面（1 步完成）</div>
+    <div class="inst-step">
+      <div class="inst-step-num">1</div>
+      <div class="inst-step-body">
+        <div class="inst-step-label">点击地址栏右侧的安装图标</div>
+        <div class="inst-step-desc">Chrome / Edge 地址栏右侧有个 <span class="badge">⊕ 安装</span> 图标，点它 →「安装」即可（或点上方红色「立即安装」按钮）</div>
+      </div>
+    </div>
+  </div>
+
+  <a href="/play" class="inst-enter-btn">🎴 先直接进入赛事 →</a>
 
   <div class="inst-footer">
     硅谷掼蛋协会 · Silicon Valley Guandan Association<br>
@@ -242,28 +248,56 @@
 
 <script>
 (function() {
+  var ua = navigator.userAgent || '';
   var isStandalone = window.navigator.standalone ||
                      window.matchMedia('(display-mode: standalone)').matches;
-  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isIOS = /iphone|ipad|ipod/i.test(ua) ||
+              (/Macintosh/i.test(ua) && 'ontouchend' in document); // iPadOS 伪装 Mac
+  var isWeChat   = /MicroMessenger/i.test(ua);
+  var isMessenger= /FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram/i.test(ua);
+  var isInApp    = isWeChat || isMessenger || /MQQBrowser\/|QQ\/|Weibo|DingTalk|Lark/i.test(ua);
+  var isHarmony  = /HarmonyOS|ArkWeb|HuaweiBrowser/i.test(ua);
 
+  function show(id){ var el = document.getElementById(id); if (el) el.style.display = 'block'; }
+  function hide(id){ var el = document.getElementById(id); if (el) el.style.display = 'none'; }
+
+  // 已安装：只显示"进入赛事"
   if (isStandalone) {
-    document.getElementById('standalone-msg').style.display = 'block';
-    document.getElementById('ios-steps').style.display = 'none';
+    show('standalone-msg');
     return;
   }
 
-  /* Android/桌面：监听安装事件，显示安装按钮 */
-  window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault();
-    window._pwaPrompt = e;
-    document.getElementById('android-install-section').style.display = 'block';
-    document.getElementById('ios-steps').style.display = 'none';
+  // ① 微信 / Messenger 等内置浏览器：无法安装，引导去系统浏览器打开
+  if (isInApp) {
+    var openLabel = isIOS ? (isWeChat ? '在 Safari 中打开' : '在系统浏览器打开') : '在浏览器中打开';
+    var lbl = document.getElementById('iag-open-label');
+    if (lbl) lbl.textContent = openLabel;
+    show('inapp-guide');
+    return; // 引导层盖住页面，其余安装区不显示
+  }
+
+  // ② 安卓 / 鸿蒙 / 桌面 Chrome：监听系统安装事件，显示一键安装按钮
+  var gotPrompt = false;
+  window.addEventListener('beforeinstallprompt', function() {
+    gotPrompt = true;
+    show('android-install-section');
+    hide('ios-steps'); hide('harmony-steps'); hide('desktop-steps');
   });
 
-  /* iOS：直接显示步骤，底部弹窗已由pwa-head.ejs处理 */
-  if (!isIOS) {
-    /* 非iOS且没有install事件（桌面Firefox等）：显示通用说明 */
+  // ③ iOS Safari：直接显示分享→添加到主屏幕
+  if (isIOS) {
+    show('ios-steps');
+    return;
   }
+
+  // ④ 兜底：等一小会儿看有没有 beforeinstallprompt，没有则按平台给手动说明
+  setTimeout(function() {
+    if (gotPrompt) return;
+    var isDesktop = !/Android|Mobile/i.test(ua);
+    if (isHarmony || /Android/i.test(ua)) show('harmony-steps');
+    else if (isDesktop) show('desktop-steps');
+    else show('harmony-steps');
+  }, 1200);
 })();
 </script>
 </body>
