@@ -96,8 +96,8 @@
       transition: border-color .3s, box-shadow .3s;
       min-width: 0;
     }
-    .pbox.team1 { border-color: rgba(192,0,15,.35); }
-    .pbox.team2 { border-color: rgba(0,85,187,.35); }
+    .pbox.team1 { border-color: rgba(255,59,78,.6); }
+    .pbox.team2 { border-color: rgba(59,155,255,.6); }
     /* 出牌中：发光边框 + 脉冲 */
     .pbox.active {
       border-color: #FFE066 !important;
@@ -115,8 +115,8 @@
       display: flex; align-items: center; justify-content: center;
       font-size: .72rem; font-weight: 900; color: #fff; letter-spacing: 0;
     }
-    .pbox-avatar.team1 { background: rgba(192,0,15,.6); }
-    .pbox-avatar.team2 { background: rgba(0,85,187,.6); }
+    .pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
+    .pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .pbox-avatar.active { background: #D4AC0D; color: #1a1a2e; }
 
     /* 名字 */
@@ -270,8 +270,8 @@
     .my-team-dot {
       width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
     }
-    .my-team-dot.t1 { background: #C0000F; box-shadow: 0 0 5px #C0000F; }
-    .my-team-dot.t2 { background: #0055BB; box-shadow: 0 0 5px #0055BB; }
+    .my-team-dot.t1 { background: #FF2A3A; box-shadow: 0 0 6px #FF2A3A; }
+    .my-team-dot.t2 { background: #1470FF; box-shadow: 0 0 6px #1470FF; }
     #my-name      { font-size: .78rem; color: #fff; font-weight: 700; letter-spacing: 1px; }
     #sel-info     { font-size: .7rem; color: #FFE066; letter-spacing: 1px; display: none; }
     #my-card-count { margin-left: auto; font-size: .65rem; color: rgba(255,255,255,.38); }
@@ -533,8 +533,8 @@
       font-size: .85rem; font-weight: 900; color: #fff;
       transition: all .3s;
     }
-    .h-pbox-avatar.team1 { background: linear-gradient(135deg,#C0000F,#8B0000); }
-    .h-pbox-avatar.team2 { background: linear-gradient(135deg,#1a4ba8,#0d2d5c); }
+    .h-pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
+    .h-pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
     .h-pbox-name { font-size: .68rem; color: rgba(255,255,255,.8); font-weight: 700; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .h-pbox-info { font-size: .6rem; color: rgba(255,255,255,.4); text-align: center; }

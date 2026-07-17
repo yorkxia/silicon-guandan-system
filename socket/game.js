@@ -5,14 +5,15 @@ const {
   detectType, canBeat, settle, removeCards, computeTribute4p,
   detectType6p, canBeat6p, settle6p, computeTribute6p
 } = require('../utils/cardTypes');
+const { pickBotPlay } = require('../utils/bot');
 const gameStates = require('./gameState');
 
 /* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
    在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
 */
-const TURN_SECONDS       = 40;   // 常规回合（测试期临时40秒，之后改回20）
-const FIRST_TURN_SECONDS = 40;   // 开局第一手（留时间看牌）
-const DC_TURN_SECONDS    = 12;   // 掉线托管
+const TURN_SECONDS       = 30;   // 常规回合：第一家出牌后每回合 30 秒
+const FIRST_TURN_SECONDS = 50;   // 开局第一手：留 50 秒看牌
+const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode, bankerTeam) {
@@ -89,12 +90,26 @@ function startTurnTimer(io, state) {
   }, secs * 1000);
 }
 
-/* 超时自动托管 */
+/* 超时处理：托管座位→AI 接替出牌选择；在线玩家挂机→有上家牌自动不出、先出自动最小单张 */
 async function onTurnTimeout(io, state) {
   /* 防止对已被替换/结束的旧 state 触发 */
   if (gameStates.get(state.roomCode) !== state) return;
   const seatObj = state.seats.find(s => s.seat === state.turnSeat);
   if (!seatObj) return;
+
+  /* 托管（掉线）座位：规则机器人接替 */
+  if (isSeatDisconnected(state, state.turnSeat)) {
+    const botCards = pickBotPlay(state, seatObj);
+    if (botCards && botCards.length) {
+      const r = await applyPlay(io, state, seatObj.playerId, botCards, true);
+      if (r && r.error) {                       // 兜底：AI 出牌意外失败
+        if (state.lastPlay) await applyPass(io, state, seatObj.playerId, true);
+      }
+    } else if (state.lastPlay) {
+      await applyPass(io, state, seatObj.playerId, true);  // 压不过 → 不出
+    }
+    return;
+  }
 
   if (state.lastPlay) {
     /* 有上家牌 → 自动不出 */
