@@ -296,11 +296,11 @@
 
     /* 单张手牌（放大字号，适老化） */
     .hand-card {
-      flex-shrink: 0; width: 78px; height: 112px; border-radius: 9px;
+      flex-shrink: 0; width: 58.5px; height: 84px; border-radius: 6.75px;
       background: #fff; border: 1px solid #ddd;
       box-shadow: 2px 3px 8px rgba(0,0,0,.45);
       margin-left: -18px;
-      display: flex; flex-direction: column; align-items: flex-start; padding: 6px 8px;
+      display: flex; flex-direction: column; align-items: flex-start; padding: 4.5px 6px;
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
@@ -308,7 +308,7 @@
     }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
-      transform: translateX(12px);
+      transform: translateX(9px);
       box-shadow: -3px 5px 18px rgba(0,0,0,.55);
       outline: 3px solid #FF2626;      /* 点击过的牌用红框标记 */
       z-index: 30;
@@ -317,25 +317,25 @@
     /* 按点数竖排成列 */
     .hand-col {
       display: flex; flex-direction: column; align-items: flex-start;
-      flex-shrink: 0; position: relative; margin-left: 7px;
+      flex-shrink: 0; position: relative; margin-left: 5.25px;
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -78px; }        /* 112-78=34px 露出点数+花色 */
+    .hand-col .hand-card.stacked { margin-top: -58.5px; }        /* 84-58.5=25.5px 露出点数+花色 */
     body.mode-6p .hand-col .hand-card.stacked { margin-top: -44px; }
     body.mode-6p .hand-col { margin-left: 3px; }
     #hand-scroll { align-items: flex-end; justify-content: center; }
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
 
     /* 点数 + 花色：花色 100% 在点数右侧同一行、不换行（放大，便于老年人辨认）*/
-    .card-corner { display: flex; flex-direction: row; align-items: center; gap: 3px;
+    .card-corner { display: flex; flex-direction: row; align-items: center; gap: 2.25px;
       line-height: 1; flex-wrap: nowrap; white-space: nowrap; }
-    .card-top    { font-size: 1.95rem; font-weight: 900; line-height: 1; }
-    .card-suit   { font-size: 1.75rem; line-height: 1; }
+    .card-top    { font-size: 1.4625rem; font-weight: 900; line-height: 1; }
+    .card-suit   { font-size: 1.3125rem; line-height: 1; }
     /* 牌心大花色：彩色、醒目，竖排叠牌时也能透出花色（颜色继承本牌红/黑）*/
     .card-center {
       position: absolute; top: 56%; left: 50%; transform: translate(-50%,-50%);
-      font-size: 4.6rem; opacity: .55; font-weight: 900;
+      font-size: 3.45rem; opacity: .55; font-weight: 900;
     }
     .hand-card.joker-big   { background: #fff url('/img/joker-big.png')   center top / cover no-repeat; }
     .hand-card.joker-small { background: #fff url('/img/joker-small.png') center top / cover no-repeat; }
