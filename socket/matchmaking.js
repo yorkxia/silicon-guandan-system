@@ -7,8 +7,54 @@ const {
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
 const { initGameState, startTributePhase } = require('./game');
 
+/* ══════════════════════════════════════════════════════
+ * 房间生命周期：赛事大屏不满员 → 等待 5 分钟 → 警告 40 秒 → 永久关闭
+ * ══════════════════════════════════════════════════════ */
+const WAIT_MS  = 5 * 60 * 1000;   // 不满员等待上限
+const CLOSE_MS = 40 * 1000;       // 关闭前倒计时
+const roomTimers = new Map();     // roomCode -> { warn?, close? }
+
+function cancelRoomTimer(roomCode) {
+  const t = roomTimers.get(roomCode);
+  if (t) { clearTimeout(t.warn); clearTimeout(t.close); roomTimers.delete(roomCode); }
+}
+
+async function closeRoomPermanently(io, roomCode) {
+  cancelRoomTimer(roomCode);
+  const st = await getRoomState(roomCode);
+  if (!st) return;
+  if (st.room.room_type !== 'random') return;  // 仅赛事大屏(随机)房超时关闭，私人亲友房不关
+  const need = st.room.game_mode === '6p' ? 6 : 4;
+  if (st.room.status === 'playing' || st.seats.length >= need) return;  // 已开赛/已满则不关
+  await query(`UPDATE gdo_rooms SET status='abandoned', is_full=FALSE WHERE room_code=$1`, [roomCode]);
+  await query(`DELETE FROM gdo_seats WHERE room_id=$1`, [st.room.id]);
+  io.to(roomCode).emit('room:closed', {});
+  console.log(`[掼蛋] 🚪 房间永久关闭（不满员超时）· ${roomCode}`);
+}
+
+/* 房间处于"等候且不满员"时开始计时；满员/开赛/关闭时取消 */
+async function armRoomTimer(io, roomCode) {
+  cancelRoomTimer(roomCode);
+  const st = await getRoomState(roomCode);
+  if (!st) return;
+  if (st.room.room_type !== 'random') return;  // 仅赛事大屏(随机)房超时关闭，私人亲友房不关
+  const need = st.room.game_mode === '6p' ? 6 : 4;
+  if (st.room.status === 'playing' || st.seats.length >= need) return;
+  const warn = setTimeout(async function() {
+    const s2 = await getRoomState(roomCode);
+    if (!s2) return;
+    const need2 = s2.room.game_mode === '6p' ? 6 : 4;
+    if (s2.room.status === 'playing' || s2.seats.length >= need2) return;
+    io.to(roomCode).emit('room:closing', { seconds: CLOSE_MS / 1000 });
+    const close = setTimeout(function() { closeRoomPermanently(io, roomCode); }, CLOSE_MS);
+    roomTimers.set(roomCode, { close });
+  }, WAIT_MS);
+  roomTimers.set(roomCode, { warn });
+}
+
 /* ─── 发牌并启动游戏（满员后调用）──────────────── */
 async function dealAndStart(io, roomCode, state) {
+  cancelRoomTimer(roomCode);   // 满员开赛，停止关闭计时
   const is6p = state.room.game_mode === '6p';
   const deck  = shuffle(is6p ? createTripleDeck() : createDoubleDeck());
   const halves = is6p ? deal6(deck) : deal4(deck);
@@ -36,7 +82,7 @@ async function dealAndStart(io, roomCode, state) {
     [newRound, roomCode]
   );
 
-  initGameState(
+  const gs = initGameState(
     roomCode, roundId, state.room.id,
     sortedSeats.map(s => ({
       seat: s.seat, team: s.team,
@@ -45,6 +91,12 @@ async function dealAndStart(io, roomCode, state) {
     hands,
     state.room.level_team1, state.room.level_team2, state.room.game_mode, bankerTeam
   );
+
+  /* 首局翻牌定首抓（PDF 2.1）：用 CSPRNG 随机抽一名玩家先出 */
+  if (newRound === 1 && gs) {
+    const startSeat = sortedSeats[require('crypto').randomInt(sortedSeats.length)].seat;
+    gs.turnSeat = startSeat; gs.leadSeat = startSeat;
+  }
 
   console.log(`[掼蛋] 🃏 发牌 · ${roomCode} · 第${newRound}局 · 每人27张`);
 
@@ -108,6 +160,8 @@ module.exports = function(io, socket) {
         await dealAndStart(io, roomCode, state);
         /* 为下一批玩家自动建新房间 */
         findOrCreateOpenRoom(mode).catch(e => console.error('[auto-room]', e.message));
+      } else {
+        await armRoomTimer(io, roomCode);   // 不满员：启动"等待5分钟→警告40秒→永久关闭"计时
       }
     } catch (e) {
       console.error('[queue:join]', e.message);

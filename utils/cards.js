@@ -1,5 +1,13 @@
 /* 掼蛋发牌引擎 · 108张两副牌 */
 
+const crypto = require('crypto');
+
+/* 密码学安全随机整数 [0, max)（底层：Windows=CryptGenRandom / Linux=/dev/urandom）
+   规范要求禁用 Math.random()，改用操作系统 CSPRNG 保证发牌不可预测。 */
+function secureRandomInt(max) {
+  return crypto.randomInt(max);
+}
+
 const SUITS = ['S', 'H', 'D', 'C']; // ♠♥♦♣
 const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
 
@@ -22,11 +30,13 @@ function createTripleDeck() {
   return [...createDeck(), ...createDeck(), ...createDeck()];
 }
 
-/* Fisher-Yates 洗牌 */
+/* Fisher-Yates 洗牌（CSPRNG 版）
+   倒序遍历 107→1，每步在 [0,i] 内用 CSPRNG 取随机索引交换，
+   保证 108 张牌所有排列等概率、且序列不可预测。 */
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = secureRandomInt(i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;

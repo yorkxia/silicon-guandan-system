@@ -34,6 +34,7 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
   if (!room) return { error: '房间不存在' };
   if (room.status === 'playing') return { error: '对局已开始' };
   if (room.status === 'finished') return { error: '房间已结束' };
+  if (room.status === 'abandoned') return { error: '房间已关闭' };
 
   const seats = await query('SELECT * FROM gdo6_seats WHERE room_id=$1 ORDER BY seat', [room.id]);
 
@@ -45,7 +46,9 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
 
   if (seats.length >= MAX_SEAT) return { error: '房间已满（6人）' };
 
-  const nextSeat = seats.length + 1;
+  /* 取最小空缺座位号（有人退出后座位可能不连续，需补空位而非追加）*/
+  const used = new Set(seats.map(s => s.seat));
+  let nextSeat = 1; while (used.has(nextSeat)) nextSeat++;
   const team = nextSeat % 2 === 1 ? 1 : 2;
   const rows = await query(
     `INSERT INTO gdo6_seats(room_id,player_id,seat,team,socket_id)

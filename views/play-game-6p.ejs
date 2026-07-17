@@ -321,21 +321,21 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -52px; }        /* 76-52=24px 露出点数+花色 */
-    body.mode-6p .hand-col .hand-card.stacked { margin-top: -40px; }
+    .hand-col .hand-card.stacked { margin-top: -52px; }
+    body.mode-6p .hand-col .hand-card.stacked { margin-top: -64px; }   /* 92-64=28px 露出点数+花色 */
     body.mode-6p .hand-col { margin-left: 3px; }
     #hand-scroll { align-items: flex-end; justify-content: center; }
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
 
-    .card-corner { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
-    /* 叠放的牌：花色移到点数右侧同一行，便于看同花顺 */
-    .hand-card.stacked .card-corner { flex-direction: row; align-items: center; gap: 2px; }
-    .hand-card.stacked .card-suit { margin-top: 0; }
-    .card-top    { font-size: .92rem; font-weight: 900; line-height: 1; }
-    .card-suit   { font-size: .84rem; line-height: 1; margin-top: 1px; }
+    /* 点数 + 花色：花色 100% 在点数右侧同一行、不换行（放大，便于老年人辨认）*/
+    .card-corner { display: flex; flex-direction: row; align-items: center; gap: 3px;
+      line-height: 1; flex-wrap: nowrap; white-space: nowrap; }
+    .card-top    { font-size: 1.5rem; font-weight: 900; line-height: 1; }
+    .card-suit   { font-size: 1.4rem; line-height: 1; }
+    /* 牌心大花色：彩色、醒目，竖排叠牌时也能透出花色（颜色继承本牌红/黑）*/
     .card-center {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      font-size: 1.2rem; opacity: .07;
+      position: absolute; top: 56%; left: 50%; transform: translate(-50%,-50%);
+      font-size: 3.4rem; opacity: .5; font-weight: 900;
     }
     .hand-card.joker-big   { background: #fff url('/img/joker-big.png')   center top / cover no-repeat; }
     .hand-card.joker-small { background: #fff url('/img/joker-small.png') center top / cover no-repeat; }
@@ -597,6 +597,33 @@
     .tribute-giver-info .tgi-card { font-size: 1.6rem; margin-bottom: 6px; }
     .tribute-giver-info .tgi-text { font-size: .78rem; color: rgba(255,255,255,.55); }
     .tribute-resisted { font-size: 1rem; color: #FFE066; letter-spacing: 2px; }
+    /* 进贡方手牌（点最大牌进贡） */
+    #tribute-give-hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+      max-height: 210px; overflow-y: auto; max-width: 420px; }
+    #tribute-give-hand .card, #tribute-return-hand .card {
+      cursor: pointer; border-radius: 6px; border: 2px solid transparent; transition: all .2s;
+      transform-origin: bottom center; }
+    #tribute-give-hand .card.selected { border-color: #FFE066; transform: translateY(-6px); }
+    #tribute-give-hand .card.disabled, #tribute-return-hand .card.disabled {
+      opacity: .32; cursor: not-allowed; filter: grayscale(.5); }
+    #tribute-give-btn {
+      display: block; width: 100%; max-width: 200px; margin: 14px auto 0;
+      padding: 12px; border-radius: 12px; border: none; cursor: pointer;
+      background: linear-gradient(135deg,#C0000F,#8B0000); color: #fff;
+      font-size: .9rem; font-weight: 900; letter-spacing: 3px; }
+    #tribute-give-btn:disabled { opacity: .4; cursor: not-allowed; }
+    #tribute-notice {
+      display: none; position: fixed; inset: 0; z-index: 300;
+      align-items: center; justify-content: center; pointer-events: none; }
+    #tribute-notice-text {
+      background: rgba(20,20,35,.96); border: 2px solid #FFE066; border-radius: 16px;
+      padding: 20px 30px; color: #FFE066; font-size: 1.1rem; font-weight: 900; letter-spacing: 3px;
+      text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+    #tribute-fly-layer { position: fixed; inset: 0; z-index: 290; pointer-events: none; }
+    .tribute-fly-card {
+      position: fixed; width: 46px; height: 64px; border-radius: 6px; background: #fff;
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.1rem;
+      box-shadow: 0 6px 20px rgba(0,0,0,.5); transition: transform .8s cubic-bezier(.4,.1,.3,1), opacity .8s; }
     /* 进贡记录列表 */
     #tribute-log { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 6px; }
     .tribute-log-item { background: rgba(255,255,255,.05); border-radius: 8px; padding: 8px 12px; font-size: .75rem; color: rgba(255,255,255,.6); text-align: center; }
@@ -742,36 +769,40 @@
     <div class="tribute-sub">进贡交换中，请稍候...</div>
     <div id="tribute-log"></div>
   </div>
-  <!-- 进贡方（自动进贡，等待结果） -->
+  <!-- 进贡方：手动点最大牌 -->
   <div id="tribute-giver-panel" style="display:none">
-    <div class="tribute-title">进 贡</div>
-    <div class="tribute-giver-info">
-      <div class="tgi-card" id="tribute-given-card"></div>
-      <div class="tgi-text" id="tribute-given-text"></div>
-    </div>
-    <div class="tribute-waiting-text">等待对方还贡...</div>
+    <div class="tribute-title">请 供 牌</div>
+    <div class="tr-label" id="tribute-give-hint">请点击你手中最大的一张牌进贡给对方</div>
+    <div id="tribute-give-hand"></div>
+    <button id="tribute-give-btn" disabled onclick="doTributeGive()">进 贡</button>
+    <div class="tribute-waiting-text" id="tribute-give-waiting" style="display:none">已进贡，等待对方还贡...</div>
   </div>
   <!-- 抗贡方 -->
   <div id="tribute-resist-panel" style="display:none">
     <div class="tribute-title">抗 贡</div>
-    <div class="tribute-resisted">您手持3张大王，抗贡成功！</div>
+    <div class="tribute-resisted" id="tribute-resist-text">抗贡成功！</div>
     <div class="tribute-waiting-text" style="margin-top:10px">等待其他进贡完成...</div>
   </div>
   <!-- 接收方：选择还贡 -->
   <div id="tribute-receiver-panel" style="display:none">
-    <div class="tribute-title">选择还贡</div>
+    <div class="tribute-title">请 还 供</div>
     <div class="tribute-card-display">
       <div class="tc-label">您收到的进贡</div>
       <div class="tc-card" id="tribute-received-display"></div>
       <div style="font-size:.68rem;color:rgba(255,255,255,.4);margin-top:4px" id="tribute-from-name"></div>
     </div>
     <div class="tribute-return-area">
-      <div class="tr-label">请从手牌中选择一张还贡：</div>
+      <div class="tr-label">请选择一张点数≤10的牌还贡（红桃级牌不可）：</div>
       <div id="tribute-return-hand"></div>
     </div>
     <button id="tribute-return-btn" disabled onclick="doTributeReturn()">还 贡</button>
   </div>
 </div>
+
+<!-- 抗贡提示浮层 -->
+<div id="tribute-notice"><div id="tribute-notice-text"></div></div>
+<!-- 飞牌动画层 -->
+<div id="tribute-fly-layer"></div>
 
 <!-- ── 顶部状态栏 ── -->
 <div id="top-bar">
@@ -1391,6 +1422,12 @@ socket.on('player:finished', function(d){
   showToast('🎉 ' + esc(d.name) + ' · ' + lbl + '！', '#4CAF50');
 });
 
+/* ── 报牌（≤10张）── */
+socket.on('game:baopai', function(d){
+  var who = (d.seat === mySeat) ? '您' : esc(d.name);
+  flashWon('📢 ' + who + ' 报牌：剩 ' + d.count + ' 张');
+});
+
 /* ── 赢回出牌权 ── */
 socket.on('game:trick_won', function(d){
   if(d.seat === mySeat) flashWon('您赢回出牌权！');
@@ -1899,50 +1936,85 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 /* ════════════════════════════════════════════════
  * 进贡 (Tribute) 事件处理
  * ════════════════════════════════════════════════ */
+/* 逢人配(红桃级牌)代码 + 还贡合法(点数≤10且非逢人配) */
+function tributeWildCode(){ return levelCard ? ('H'+_rankChar(levelCard)) : null; }
+function canReturnCard(code){ return code !== tributeWildCode() && _rv(code) <= 10; }
+
 socket.on('tribute:phase', function(d) {
   var exchanges = d.exchanges || [];
   var overlay   = document.getElementById('tribute-overlay');
   overlay.style.display = 'flex';
 
-  /* 判断我在进贡中的角色 */
-  var myEx    = exchanges.find(function(e){ return e.giverId   === myPlayerId; });
-  var recvEx  = exchanges.find(function(e){ return e.receiverId=== myPlayerId; });
-  var resisted= myEx && myEx.resisted;
+  var myEx   = exchanges.find(function(e){ return e.giverId    === myPlayerId; });
+  var recvEx = exchanges.find(function(e){ return e.receiverId === myPlayerId; });
 
-  /* 先全隐藏所有面板 */
   ['tribute-spectator','tribute-giver-panel','tribute-resist-panel','tribute-receiver-panel']
     .forEach(function(id){ document.getElementById(id).style.display='none'; });
 
-  if (resisted) {
-    document.getElementById('tribute-resist-panel').style.display = 'flex';
-  } else if (myEx && !recvEx) {
-    /* 我是进贡方（系统已自动选好牌并发给接收方，等还贡） */
+  if (myEx && myEx.stage === 'return') {
     document.getElementById('tribute-giver-panel').style.display = 'flex';
-    document.getElementById('tribute-given-card').textContent  = cardEmoji(myEx.tributeCard);
-    document.getElementById('tribute-given-text').textContent  = '已自动进贡最大牌';
-  } else if (recvEx && !recvEx.resisted) {
-    /* 我是接收方：需要选一张还贡 */
+    document.getElementById('tribute-give-hand').style.display  = 'none';
+    document.getElementById('tribute-give-btn').style.display   = 'none';
+    document.getElementById('tribute-give-hint').style.display  = 'none';
+    document.getElementById('tribute-give-waiting').style.display = 'block';
+  } else if (myEx) {
+    showTributeGivePanel(myEx);
+  } else if (recvEx && recvEx.stage === 'return') {
     showTributeReceiverPanel(recvEx);
   } else {
-    /* 旁观（本局不涉及进贡或角色待定）*/
-    document.getElementById('tribute-spectator').style.display  = 'flex';
+    document.getElementById('tribute-spectator').style.display = 'flex';
     buildTributeLog(exchanges);
   }
 });
 
+socket.on('tribute:resisted', function(d) {
+  document.getElementById('tribute-overlay').style.display = 'none';
+  showTributeNotice('本局已抗贡，请头游先出牌', 2600);
+});
+
+/* ── 房间不满员超时：40秒关闭警告 + 永久关闭 ── */
+var _closingTimer = null;
+socket.on('room:closing', function(d) {
+  var secs = (d && d.seconds) || 40;
+  clearInterval(_closingTimer);
+  var tick = function() {
+    showToast('人数不足，' + secs + ' 秒后自动关闭房间…', 'rgba(192,0,15,.95)');
+    if (secs <= 0) { clearInterval(_closingTimer); return; }
+    secs--;
+  };
+  tick();
+  _closingTimer = setInterval(tick, 1000);
+});
+socket.on('room:closed', function() {
+  clearInterval(_closingTimer);
+  alert('人数不足，房间已关闭，返回参赛大厅。');
+  location.href = '/play';
+});
+
+socket.on('tribute:card_flew', function(d) {
+  flyTributeCard(d.tributeCard);
+  if (d.giverId === myPlayerId) {
+    document.getElementById('tribute-give-hand').style.display  = 'none';
+    document.getElementById('tribute-give-btn').style.display   = 'none';
+    document.getElementById('tribute-give-hint').style.display  = 'none';
+    document.getElementById('tribute-give-waiting').style.display = 'block';
+  }
+  if (d.receiverId === myPlayerId) {
+    setTimeout(function(){ showTributeReceiverPanel({ tributeCard: d.tributeCard }); }, 850);
+  }
+});
+
 socket.on('tribute:exchange_done', function(d) {
-  /* 更新进贡日志（旁观者 / 抗贡方显示） */
   var logEl = document.getElementById('tribute-log');
-  if (!logEl) return;
-  var item = document.createElement('div');
-  item.className = 'tribute-log-item done';
-  item.textContent = '✅ 进贡 ' + cardEmoji(d.tributeCard) + ' ↔ 还贡 ' + cardEmoji(d.returnCard);
-  logEl.appendChild(item);
-  /* 若我是进贡方且已收到还贡，可关闭进贡面板 */
+  if (logEl) {
+    var item = document.createElement('div');
+    item.className = 'tribute-log-item done';
+    item.textContent = '✅ 进贡 ' + cardEmoji(d.tributeCard) + ' ↔ 还贡 ' + cardEmoji(d.returnCard);
+    logEl.appendChild(item);
+  }
   if (d.giverId === myPlayerId) {
     document.getElementById('tribute-giver-panel').style.display = 'none';
-    var spec = document.getElementById('tribute-spectator');
-    spec.style.display = 'flex';
+    document.getElementById('tribute-spectator').style.display = 'flex';
     buildTributeLog([{ done: true, tributeCard: d.tributeCard, returnCard: d.returnCard }]);
   }
 });
@@ -1952,28 +2024,71 @@ socket.on('tribute:done', function() {
   tributeSelectedCard = null;
 });
 
+/* ── 进贡方：显示手牌，仅最大牌可点 ── */
+function showTributeGivePanel(ex) {
+  document.getElementById('tribute-giver-panel').style.display = 'flex';
+  document.getElementById('tribute-give-waiting').style.display = 'none';
+  var hint = document.getElementById('tribute-give-hint');
+  hint.style.display = 'block';
+  var giveBtn = document.getElementById('tribute-give-btn');
+  giveBtn.style.display = 'block';
+  giveBtn.disabled = true;
+
+  var handEl = document.getElementById('tribute-give-hand');
+  handEl.style.display = 'flex';
+  handEl.innerHTML = '';
+  tributeSelectedCard = null;
+
+  myHand.forEach(function(code) {
+    var card = document.createElement('div');
+    var isMax = (code === ex.mustGiveCard);
+    card.className = 'card' + (isMax ? '' : ' disabled');
+    card.innerHTML = miniCardHtml(code);
+    if (isMax) {
+      card.addEventListener('click', function() {
+        document.querySelectorAll('#tribute-give-hand .card').forEach(function(c){ c.classList.remove('selected'); });
+        card.classList.add('selected');
+        tributeSelectedCard = code;
+        giveBtn.disabled = false;
+      });
+    }
+    handEl.appendChild(card);
+  });
+}
+
+function doTributeGive() {
+  if (!tributeSelectedCard) return;
+  socket.emit('tribute:give', { token: MY_TOKEN, roomCode: ROOM_CODE, card: tributeSelectedCard });
+  document.getElementById('tribute-give-btn').disabled = true;
+  tributeSelectedCard = null;
+}
+
 function showTributeReceiverPanel(ex) {
+  ['tribute-spectator','tribute-giver-panel','tribute-resist-panel']
+    .forEach(function(id){ document.getElementById(id).style.display='none'; });
+  document.getElementById('tribute-overlay').style.display = 'flex';
   document.getElementById('tribute-receiver-panel').style.display = 'flex';
   document.getElementById('tribute-received-display').textContent = cardEmoji(ex.tributeCard);
-  /* 从哪里进贡的提示（可选） */
   document.getElementById('tribute-from-name').textContent = '';
 
-  /* 渲染我的手牌供选择（不含已进贡的牌） */
   var handEl = document.getElementById('tribute-return-hand');
   handEl.innerHTML = '';
   tributeSelectedCard = null;
   document.getElementById('tribute-return-btn').disabled = true;
 
-  myHand.forEach(function(code, idx) {
+  myHand.forEach(function(code) {
     var card = document.createElement('div');
-    card.className = 'card';
+    var ok   = canReturnCard(code);
+    card.className = 'card' + (ok ? '' : ' disabled');
     card.innerHTML = miniCardHtml(code);
-    card.addEventListener('click', function() {
-      document.querySelectorAll('#tribute-return-hand .card').forEach(function(c){ c.classList.remove('selected'); });
-      card.classList.add('selected');
-      tributeSelectedCard = code;
-      document.getElementById('tribute-return-btn').disabled = false;
-    });
+    if (ok) {
+      card.addEventListener('click', function() {
+        document.querySelectorAll('#tribute-return-hand .card').forEach(function(c){ c.classList.remove('selected'); });
+        card.classList.add('selected');
+        tributeSelectedCard = code;
+        document.getElementById('tribute-return-btn').disabled = false;
+      });
+    }
     handEl.appendChild(card);
   });
 }
@@ -1990,12 +2105,37 @@ function buildTributeLog(exchanges) {
   logEl.innerHTML = '';
   exchanges.forEach(function(e) {
     var item = document.createElement('div');
-    item.className = 'tribute-log-item' + (e.done ? ' done' : '');
-    if (e.resisted) item.textContent = '🛡️ 持3大王，抗贡';
-    else if (e.done) item.textContent = '✅ 进贡 ' + cardEmoji(e.tributeCard) + ' ↔ 还 ' + cardEmoji(e.returnCard);
-    else item.textContent = '⏳ 等待还贡中...';
+    item.className = 'tribute-log-item' + ((e.done || e.stage === 'done') ? ' done' : '');
+    if (e.resisted) item.textContent = '🛡️ 抗贡';
+    else if (e.done || e.stage === 'done') item.textContent = '✅ 进贡 ' + cardEmoji(e.tributeCard) + ' ↔ 还 ' + cardEmoji(e.returnCard);
+    else item.textContent = '⏳ 进贡中...';
     logEl.appendChild(item);
   });
+}
+
+function showTributeNotice(text, ms) {
+  var n = document.getElementById('tribute-notice');
+  document.getElementById('tribute-notice-text').textContent = text;
+  n.style.display = 'flex';
+  setTimeout(function(){ n.style.display = 'none'; }, ms || 2500);
+}
+
+function flyTributeCard(code) {
+  var layer = document.getElementById('tribute-fly-layer');
+  if (!layer) return;
+  var el = document.createElement('div');
+  el.className = 'tribute-fly-card';
+  el.textContent = cardEmoji(code);
+  var c = code && code[0];
+  el.style.color = (c === 'H' || c === 'D') ? '#C0000F' : '#1a1a2e';
+  el.style.left = (window.innerWidth / 2 - 23) + 'px';
+  el.style.top  = (window.innerHeight * 0.72) + 'px';
+  layer.appendChild(el);
+  requestAnimationFrame(function(){
+    el.style.transform = 'translateY(-' + (window.innerHeight * 0.55) + 'px) scale(1.15)';
+    el.style.opacity = '0.15';
+  });
+  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 900);
 }
 
 function cardEmoji(code) {
@@ -2127,9 +2267,9 @@ function build6pCardEl(code, idx){
   var isSel = selected.indexOf(key) >= 0;
   var card = document.createElement('div');
   card.className = 'hand-card' + (isSel ? ' selected' : '');
-  card.style.width  = '40px';
-  card.style.height = '58px';
-  card.style.fontSize = '.7rem';
+  card.style.width  = '64px';
+  card.style.height = '92px';
+  card.style.fontSize = '1.1rem';
   if (code === 'BJ') {
     card.classList.add('joker-big');
     card.innerHTML = '<div class="joker-label" style="color:#D4AC0D;font-size:.6rem;">大<br>王</div>';
@@ -2143,8 +2283,8 @@ function build6pCardEl(code, idx){
     var sym={S:'♠',H:'♥',D:'♦',C:'♣'}[suit];
     var rd=rank==='T'?'10':rank;
     card.innerHTML =
-      '<div class="card-corner"><span class="card-top" style="font-size:.62rem;">'+rd+'</span><span class="card-suit" style="font-size:.62rem;">'+sym+'</span></div>'+
-      '<div class="card-center" style="font-size:.85rem;">'+sym+'</div>';
+      '<div class="card-corner"><span class="card-top" style="font-size:1.5rem;">'+rd+'</span><span class="card-suit" style="font-size:1.4rem;">'+sym+'</span></div>'+
+      '<div class="card-center" style="font-size:3.4rem;opacity:.5;">'+sym+'</div>';
   }
   attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
   return card;

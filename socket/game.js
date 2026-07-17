@@ -293,69 +293,61 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
   gameStates.delete(state.roomCode);
 }
 
-/* ─── 四人进贡阶段初始化（由 matchmaking 调用）──── */
+/* ─── 四人进贡阶段初始化（由 matchmaking 调用）────
+   交互式：贡者手动点最大牌 → 飞向受供 → 受供还贡(≤10、非逢人配)。
+   抗贡：进贡方合计大王 ≥ 队伍人数(4人=2) → 整方抗贡，头游先出。 */
 async function startTributePhase(io, roomCode, tributeInfo) {
   const state = gameStates.get(roomCode);
   if (!state) return false;
 
-  const exchanges   = [];
-  let pendingCount  = 0;
-  let tributeLeadId = null; // 给头游进贡的人（还贡后先出牌）
+  const headSeatObj = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
+  const teamSize    = Math.floor(state.totalPlayers / 2);   // 4人=2
 
-  /* 抗贡（四人）：所有进贡者(下游)手中「合计」持有 ≥2 张大王即整方抗贡
-     （双下时两名输家合计2张，或单下时该输家自己拿到2张均可）。*/
+  /* 抗贡：进贡者手中「合计」大王 ≥ teamSize 即整方抗贡 */
   let totalBJ = 0;
   for (const ex of tributeInfo.exchanges) {
     const hand = state.hands[String(ex.giverId)] || [];
     totalBJ += hand.filter(c => c === 'BJ').length;
   }
-  const resistAll = totalBJ >= 2;
+  if (totalBJ >= teamSize) {
+    /* 整方抗贡：无需进贡，直接由头游先出 */
+    if (headSeatObj) { state.turnSeat = headSeatObj.seat; state.leadSeat = headSeatObj.seat; }
+    state.tributePhase = null;
+    await persistState(state);
+    await query(`UPDATE gdo_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
+    io.to(roomCode).emit('tribute:resisted', {
+      headPlayerId: tributeInfo.headPlayerId, threshold: teamSize
+    });
+    io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
+    startTurnTimer(io, state);
+    return true;
+  }
 
-  /* 按各自手牌里最大的牌排序贡者→决定谁给头游（最大的牌给头游）*/
+  /* 按各自最大牌(排除逢人配)排序贡者 → 最大者对应头游 */
+  const wild = _wildCard(state.levelCard);
   const giversByTop = tributeInfo.exchanges.map(ex => {
-    const hand   = state.hands[String(ex.giverId)] || [];
-    const sorted = sortHand(hand);
-    return { ...ex, topCard: sorted[0] || null, topVal: sorted[0] ? _rankVal(sorted[0]) : 0 };
-  }).sort((a, b) => b.topVal - a.topVal); // 贡最大的先对应头游（接收方排序已正确）
+    const hand     = state.hands[String(ex.giverId)] || [];
+    const mustGive = _maxGiveCard(hand, wild);
+    return { ...ex, mustGiveCard: mustGive, topVal: mustGive ? _rankVal(mustGive) : 0 };
+  }).sort((a, b) => b.topVal - a.topVal);
 
+  const exchanges = [];
+  let pendingCount = 0;
+  let tributeLeadId = null;
   for (let i = 0; i < giversByTop.length; i++) {
-    const ex = { ...giversByTop[i], receiverId: tributeInfo.exchanges[i]?.receiverId };
-    if (!ex.giverId || !ex.receiverId) continue;
-
-    /* 整方抗贡：全部标记为抗贡，不进贡 */
-    if (resistAll) {
-      exchanges.push({ giverId: ex.giverId, receiverId: ex.receiverId,
-                       tributeCard: null, returnCard: null, resisted: true, done: true });
-      continue;
-    }
-
-    const hand = state.hands[String(ex.giverId)] || [];
-
-    /* 自动取最大牌 */
-    const sorted = sortHand(hand);
-    const tributeCard = sorted[0];
-    if (!tributeCard) continue;
-
-    const newHand = [...hand];
-    newHand.splice(newHand.indexOf(tributeCard), 1);
-    state.hands[String(ex.giverId)] = newHand;
-
+    const g          = giversByTop[i];
+    const receiverId = tributeInfo.exchanges[i] ? tributeInfo.exchanges[i].receiverId : null;
+    if (!g.giverId || !receiverId || !g.mustGiveCard) continue;
     exchanges.push({
-      giverId: ex.giverId, receiverId: ex.receiverId,
-      tributeCard, returnCard: null, resisted: false, done: false
+      giverId: g.giverId, receiverId, mustGiveCard: g.mustGiveCard,
+      tributeCard: null, returnCard: null, resisted: false, stage: 'give'
     });
     pendingCount++;
-
-    /* 给头游进贡的第一个人 = tributeLeader */
-    if (!tributeLeadId && ex.receiverId === tributeInfo.headPlayerId) {
-      tributeLeadId = ex.giverId;
-    }
+    if (!tributeLeadId && receiverId === tributeInfo.headPlayerId) tributeLeadId = g.giverId;
   }
 
   if (pendingCount === 0) {
-    /* 全部抗贡或没有贡 → 由上局头游先出，直接开始 */
-    const headSeat = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
-    if (headSeat) { state.turnSeat = headSeat.seat; state.leadSeat = headSeat.seat; }
+    if (headSeatObj) { state.turnSeat = headSeatObj.seat; state.leadSeat = headSeatObj.seat; }
     await persistState(state);
     await query(`UPDATE gdo_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
     io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
@@ -363,17 +355,24 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     return true;
   }
 
-  state.tributePhase = { exchanges, pendingCount, tributeLeadId };
+  /* 首出座位（PDF 2.1）：双下→头游的下家首抓；单下→下游(唯一贡者)首抓 */
+  const isFullDown = pendingCount >= teamSize;
+  let leadSeat;
+  if (isFullDown && headSeatObj) {
+    leadSeat = nextSeat(headSeatObj.seat, state.seats, []);
+  } else {
+    const soleGiver = state.seats.find(s => s.playerId === exchanges[0].giverId);
+    leadSeat = soleGiver ? soleGiver.seat : (headSeatObj ? headSeatObj.seat : state.turnSeat);
+  }
 
-  /* 把进贡牌从手牌里移除后持久化一次 */
+  state.tributePhase = { exchanges, pendingCount, tributeLeadId, leadSeat,
+                         headPlayerId: tributeInfo.headPlayerId };
   await persistState(state);
 
   io.to(roomCode).emit('tribute:phase', {
     exchanges: exchanges.map(e => ({
-      giverId:     e.giverId,
-      receiverId:  e.receiverId,
-      tributeCard: e.tributeCard,
-      resisted:    e.resisted
+      giverId: e.giverId, receiverId: e.receiverId,
+      mustGiveCard: e.mustGiveCard, resisted: false, stage: e.stage
     }))
   });
   return true;
@@ -385,6 +384,21 @@ function _rankVal(card) {
   if (card === 'LJ') return 15;
   const m = { '2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14 };
   return m[card.slice(1)] || 0;
+}
+
+/* 级数(2-14) → 牌面字符 */
+function _rankChar(level) {
+  return ({ 10:'T', 11:'J', 12:'Q', 13:'K', 14:'A' })[level] || String(level);
+}
+/* 逢人配(红桃级牌) 代码，如级牌为2 → 'H2' */
+function _wildCard(levelCard) {
+  return levelCard ? ('H' + _rankChar(levelCard)) : null;
+}
+/* 进贡应交的牌：手中最大的一张，但排除逢人配(红桃级牌) */
+function _maxGiveCard(hand, wild) {
+  const pool = hand.filter(c => c !== wild);
+  const src  = pool.length ? pool : hand;   // 极端：全是逢人配才回退
+  return sortHand(src)[0] || null;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -420,6 +434,13 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
 
   /* 把新手牌发回该玩家（若其 socket 在线）*/
   if (mySeat.socketId) io.to(mySeat.socketId).emit('game:hand_update', { hand: sortHand(newHand) });
+
+  /* 报牌（PDF 2.4）：手中牌首次降到 ≤10 张时全场提示报牌（张数持续公示=如实回答）*/
+  if (hand.length > 10 && newHand.length <= 10 && newHand.length > 0) {
+    io.to(state.roomCode).emit('game:baopai', {
+      seat: mySeat.seat, name: mySeat.name, count: newHand.length
+    });
+  }
 
   if (isAuto) {
     io.to(state.roomCode).emit('game:auto_played', {
@@ -620,7 +641,8 @@ module.exports = function(io, socket) {
         socket.emit('tribute:phase', {
           exchanges: state.tributePhase.exchanges.map(e => ({
             giverId: e.giverId, receiverId: e.receiverId,
-            tributeCard: e.tributeCard, resisted: e.resisted
+            mustGiveCard: e.mustGiveCard, tributeCard: e.tributeCard,
+            resisted: e.resisted, stage: e.stage
           }))
         });
       }
@@ -672,7 +694,45 @@ module.exports = function(io, socket) {
     }
   });
 
-  /* ── 六人赛事：还贡（接收方选择归还的牌）── */
+  /* ── 进贡：贡者手动点最大牌交出 ── */
+  socket.on('tribute:give', async function(data) {
+    try {
+      const { token, roomCode, card } = data;
+      const state = gameStates.get(roomCode);
+      if (!state || !state.tributePhase) return;
+
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+
+      const ex = state.tributePhase.exchanges.find(
+        e => e.stage === 'give' && e.giverId === player.id
+      );
+      if (!ex) return socket.emit('tribute:invalid', { message: '您无需进贡或已完成' });
+
+      /* 只能进贡手中最大的牌（排除逢人配）*/
+      if (card !== ex.mustGiveCard)
+        return socket.emit('tribute:invalid', { message: '必须进贡您手中最大的牌' });
+      const hand = state.hands[String(player.id)] || [];
+      if (!hand.includes(card))
+        return socket.emit('tribute:invalid', { message: '牌不在手中' });
+
+      const newHand = [...hand];
+      newHand.splice(newHand.indexOf(card), 1);
+      state.hands[String(player.id)] = newHand;
+      ex.tributeCard = card;
+      ex.stage       = 'return';
+      await persistState(state);
+
+      socket.emit('game:hand_update', { hand: sortHand(newHand) });
+      io.to(roomCode).emit('tribute:card_flew', {
+        giverId: ex.giverId, receiverId: ex.receiverId, tributeCard: card
+      });
+    } catch (e) {
+      console.error('[tribute:give]', e.message);
+    }
+  });
+
+  /* ── 还贡：接收方选择归还的牌（点数≤10、非逢人配）── */
   socket.on('tribute:return', async function(data) {
     try {
       const { token, roomCode, returnCard } = data;
@@ -685,14 +745,21 @@ module.exports = function(io, socket) {
       if (!player) return;
 
       const ex = state.tributePhase.exchanges.find(
-        e => !e.done && !e.resisted && e.receiverId === player.id
+        e => e.stage === 'return' && e.receiverId === player.id
       );
-      if (!ex) return socket.emit('tribute:invalid', { message: '您不是进贡接收方或已完成' });
+      if (!ex) return socket.emit('tribute:invalid', { message: '还没轮到您还贡或已完成' });
 
       /* 验证：还贡的牌必须在接收方当前手中 */
       const receiverHand = state.hands[String(player.id)] || [];
       if (!receiverHand.includes(returnCard))
         return socket.emit('tribute:invalid', { message: '请选择手中的牌还贡' });
+
+      /* 还牌限制：不可为逢人配(红桃级牌)，且点数不得大于10 */
+      const wild = _wildCard(state.levelCard);
+      if (returnCard === wild)
+        return socket.emit('tribute:invalid', { message: '红桃级牌(逢人配)不可用于还贡' });
+      if (_rankVal(returnCard) > 10)
+        return socket.emit('tribute:invalid', { message: '还贡的牌点数不得大于10' });
 
       /* 执行交换：接收方 +tributeCard -returnCard；进贡方 +returnCard */
       const newRHand = [...receiverHand, ex.tributeCard];
@@ -701,7 +768,7 @@ module.exports = function(io, socket) {
       state.hands[String(ex.giverId)]   = [...(state.hands[String(ex.giverId)] || []), returnCard];
 
       ex.returnCard = returnCard;
-      ex.done       = true;
+      ex.stage      = 'done';
       state.tributePhase.pendingCount--;
 
       socket.emit('game:hand_update', { hand: sortHand(newRHand) });
@@ -710,17 +777,10 @@ module.exports = function(io, socket) {
         tributeCard: ex.tributeCard, returnCard
       });
 
-      /* 所有还贡完毕 */
+      /* 所有还贡完毕 → 按首抓规则开局 */
       if (state.tributePhase.pendingCount === 0) {
-        /* 还贡后由进贡给头游的人先出牌 */
-        const leadId = state.tributePhase.tributeLeadId;
-        if (leadId) {
-          const leadSeatObj = state.seats.find(s => s.playerId === leadId);
-          if (leadSeatObj) {
-            state.turnSeat = leadSeatObj.seat;
-            state.leadSeat = leadSeatObj.seat;
-          }
-        }
+        const ls = state.tributePhase.leadSeat;
+        if (ls != null) { state.turnSeat = ls; state.leadSeat = ls; }
         state.tributePhase = null;
 
         await query(
