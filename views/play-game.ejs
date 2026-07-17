@@ -127,6 +127,8 @@
     .pbox-name.active { color: #FFE066; font-weight: 700; }
     .pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
     .h-pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
+    /* 托管(掉线)座位：头像/标志变暗，示意已由 AI 接管 */
+    .pbox-avatar.offline, .h-pbox-avatar.offline { filter: grayscale(.85) brightness(.6); opacity: .5; }
     .pbox-avatar.waiting-empty, .h-pbox-avatar.waiting-empty {
       opacity: .4; border-style: dashed !important;
     }
@@ -1389,7 +1391,7 @@ function renderSeatPlays(sp){
 /* 掉线 / 重连通知 */
 socket.on('game:player_connection', function(d){
   connMap[d.seat] = d.connected;
-  showToast((d.name || ('座位'+d.seat)) + (d.connected ? ' 已重新连接 🟢' : ' 掉线了 📴'),
+  showToast((d.name || ('座位'+d.seat)) + (d.connected ? ' 已重新连接 🟢' : ' 掉线，AI 托管中 🤖'),
             d.connected ? '#2e7d32' : '#c8000f');
   if (GAME_MODE === '6p') render6pPlayers(players, curFinish, _turnSeatCur);
   else                    renderAllPlayers(players, curFinish, _turnSeatCur);
@@ -1544,13 +1546,13 @@ function fillPlayerBox(boxId, avatarId, nameId, buddyId, ccountId, cardsId, fini
   /* 头像 */
   var avEl  = document.getElementById(avatarId);
   var first = String(p.name||'?').replace(/^玩家/,'').slice(0,2);
+  var offline = (connMap[p.seat] === false);
   avEl.textContent = first;
-  avEl.className   = 'pbox-avatar ' + (isActive?'active':(p.team===1?'team1':'team2'));
+  avEl.className   = 'pbox-avatar ' + (isActive?'active':(p.team===1?'team1':'team2')) + (offline?' offline':'');
 
   /* 名字 */
   var nameEl = document.getElementById(nameId);
-  var offline = (connMap[p.seat] === false);
-  nameEl.textContent = (p.name || '—') + (offline ? ' 📴' : '');
+  nameEl.textContent = (p.name || '—') + (offline ? ' 🤖托管' : '');
   nameEl.className   = 'pbox-name' + (isActive?' active':'') + (offline?' offline':'');
 
   /* 队友标签 */
@@ -1982,22 +1984,27 @@ socket.on('tribute:resisted', function(d) {
   showTributeNotice('本局已抗贡，请头游先出牌', 2600);
 });
 
-/* ── 房间不满员超时：40秒关闭警告 + 永久关闭 ── */
+/* ── 房间关闭警告：不满员超时 / 满12h过半掉线（服务端下发 message + seconds）── */
 var _closingTimer = null;
 socket.on('room:closing', function(d) {
   var secs = (d && d.seconds) || 40;
+  var msg  = (d && d.message) || '人数不足，房间即将关闭';
   clearInterval(_closingTimer);
   var tick = function() {
-    showToast('人数不足，' + secs + ' 秒后自动关闭房间…', 'rgba(192,0,15,.95)');
+    showToast(msg + '（' + secs + '秒）', 'rgba(192,0,15,.95)');
     if (secs <= 0) { clearInterval(_closingTimer); return; }
     secs--;
   };
   tick();
   _closingTimer = setInterval(tick, 1000);
 });
+socket.on('room:closing_cancel', function() {
+  clearInterval(_closingTimer);
+  showToast('玩家已回到房间，取消关闭', 'rgba(30,140,60,.95)');
+});
 socket.on('room:closed', function() {
   clearInterval(_closingTimer);
-  alert('人数不足，房间已关闭，返回参赛大厅。');
+  alert('房间已关闭，返回参赛大厅。');
   location.href = '/play';
 });
 
