@@ -302,7 +302,9 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     guoA:         !!result.guoA,
     winsTeam1:    parseInt(wrow ? wrow.wins_team1 || 0 : 0),
     winsTeam2:    parseInt(wrow ? wrow.wins_team2 || 0 : 0),
-    tributePending: !!tributeJson
+    tributePending: !!tributeJson,
+    /* 局间续局：客户端据此起 45 秒倒计时→round:autostart；过半掉线则提示"开放纳新" */
+    majorityOffline: state.disconnected ? (state.disconnected.size * 2 > state.seats.length) : false
   });
 
   gameStates.delete(state.roomCode);

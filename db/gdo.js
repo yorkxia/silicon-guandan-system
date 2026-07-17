@@ -109,7 +109,21 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
     return { room, seat: mine.seat, reconnect: true };
   }
 
-  if (seats.length >= maxSeat) return { error: '房间已满（' + maxSeat + '人）' };
+  if (seats.length >= maxSeat) {
+    /* 房间已满：仅当「过半掉线」时，允许新玩家局间接手一个掉线空座（开放纳新）。
+       接手座号+队伍不变，下一局照常发新牌；清掉本局进贡以免按旧玩家ID查手牌错乱。*/
+    const offline = seats.filter(s => !s.is_connected);
+    if (room.status === 'waiting' && offline.length * 2 > seats.length) {
+      const takeover = offline.sort((a, b) => a.seat - b.seat)[0];
+      await query(
+        'UPDATE gdo_seats SET player_id=$1, socket_id=$2, is_connected=TRUE, is_ready=FALSE WHERE id=$3',
+        [playerId, socketId, takeover.id]
+      );
+      await query('UPDATE gdo_rooms SET tribute_json=NULL WHERE id=$1', [room.id]);
+      return { room, seat: takeover.seat, takeover: true };
+    }
+    return { error: '房间已满（' + maxSeat + '人）' };
+  }
 
   /* 取最小空缺座位号（有人退出后座位可能不连续，需补空位而非追加）*/
   const used = new Set(seats.map(s => s.seat));
@@ -153,10 +167,26 @@ async function findOrCreateOpenRoom(mode) {
   return room.room_code;
 }
 
+/* ── 找一个"待救援"的随机赛事：满员、局间(waiting)、且过半座位掉线 ──
+   随机参赛优先塞进这类房间接手掉线空座，让快抛弃的赛事被救活。*/
+async function findRevivalRoom(mode) {
+  const maxSeats = mode === '6p' ? 6 : 4;
+  const row = await queryOne(`
+    SELECT r.room_code FROM gdo_rooms r
+    WHERE r.game_mode=$1 AND r.status='waiting' AND r.room_type='random'
+      AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id) = $2
+      AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id AND s.is_connected=FALSE) * 2
+          > (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id)
+    ORDER BY r.created_at ASC LIMIT 1
+  `, [mode, maxSeats]);
+  return row ? row.room_code : null;
+}
+
 module.exports = {
   getOrCreatePlayer,
   createRoom,
   findOrCreateOpenRoom,
+  findRevivalRoom,
   joinQueue,
   tryMatch,
   createMatch,

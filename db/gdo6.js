@@ -44,7 +44,21 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
     return { room, seat: mine.seat, reconnect: true };
   }
 
-  if (seats.length >= MAX_SEAT) return { error: '房间已满（6人）' };
+  if (seats.length >= MAX_SEAT) {
+    /* 房间已满：仅当「过半掉线」时，允许新玩家局间接手一个掉线空座（开放纳新）。
+       接手座号+队伍不变，下一局照常发新牌；清掉本局进贡以免按旧玩家ID查手牌错乱。*/
+    const offline = seats.filter(s => !s.is_connected);
+    if (room.status === 'waiting' && offline.length * 2 > seats.length) {
+      const takeover = offline.sort((a, b) => a.seat - b.seat)[0];
+      await query(
+        'UPDATE gdo6_seats SET player_id=$1, socket_id=$2, is_connected=TRUE, is_ready=FALSE WHERE id=$3',
+        [playerId, socketId, takeover.id]
+      );
+      await query('UPDATE gdo6_rooms SET tribute_json=NULL WHERE id=$1', [room.id]);
+      return { room, seat: takeover.seat, takeover: true };
+    }
+    return { error: '房间已满（6人）' };
+  }
 
   /* 取最小空缺座位号（有人退出后座位可能不连续，需补空位而非追加）*/
   const used = new Set(seats.map(s => s.seat));
@@ -87,6 +101,19 @@ async function findOrCreateOpenRoom() {
   return room.room_code;
 }
 
+/* ── 找一个"待救援"的随机赛事：满员(6)、局间(waiting)、且过半座位掉线 ── */
+async function findRevivalRoom() {
+  const row = await queryOne(`
+    SELECT r.room_code FROM gdo6_rooms r
+    WHERE r.status='waiting' AND r.room_type='random'
+      AND (SELECT COUNT(*) FROM gdo6_seats s WHERE s.room_id=r.id) = ${MAX_SEAT}
+      AND (SELECT COUNT(*) FROM gdo6_seats s WHERE s.room_id=r.id AND s.is_connected=FALSE) * 2
+          > (SELECT COUNT(*) FROM gdo6_seats s WHERE s.room_id=r.id)
+    ORDER BY r.created_at ASC LIMIT 1
+  `);
+  return row ? row.room_code : null;
+}
+
 module.exports = {
   getOrCreatePlayer,     // 复用四人的玩家层（共用 gdo_players）
   levelName,
@@ -94,5 +121,6 @@ module.exports = {
   joinRoomByCode,
   getRoomState,
   findOrCreateOpenRoom,
+  findRevivalRoom,
   MAX_SEAT
 };

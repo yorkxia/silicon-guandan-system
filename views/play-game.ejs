@@ -759,6 +759,7 @@
     <div class="result-type" id="result-type-text"></div>
     <div class="result-level-line" id="result-level-line"></div>
     <div class="result-order" id="result-order"></div>
+    <div id="result-afk-note" style="display:none;margin:6px 0 2px;font-size:.78rem;color:#FFD86b;font-weight:700;">赛事人数不足，已开放，等待新玩家加入…</div>
     <div class="result-btns">
       <button class="result-btn secondary" onclick="location.href='/play'">退出赛事</button>
       <button class="result-btn primary" id="result-continue-btn" onclick="continueNext()">继续发牌</button>
@@ -1025,6 +1026,7 @@ socket.on('game:seat_update', function(d){
 
 /* ── 满员，开始发牌（或进贡完成后进入游戏）── */
 socket.on('game:starting', function(){
+  clearInterval(_continueTimer);                          // 停掉局间续局倒计时
   document.getElementById('wait-overlay').style.display    = 'none';
   document.getElementById('tribute-overlay').style.display = 'none';
   document.getElementById('result-overlay').style.display  = 'none';   // 隐藏上一局结算弹框
@@ -1189,6 +1191,25 @@ function continueNext() {
   var btn = document.getElementById('result-continue-btn');
   if (btn) { btn.disabled = true; btn.textContent = '等待其他玩家...'; }
   socket.emit('room:ready', { token: MY_TOKEN, roomCode: ROOM_CODE });
+}
+
+/* ── 局间 45 秒兜底续局：到点自动发下一局（掉线座位交给 AI）；
+      过半掉线时提示"赛事已开放，等待新玩家加入" ── */
+var _continueTimer = null;
+function startRoundContinueCountdown(majorityOffline) {
+  clearInterval(_continueTimer);
+  var left = 45;
+  var pbtn = document.getElementById('result-continue-btn');
+  var noteEl = document.getElementById('result-afk-note');
+  if (noteEl) noteEl.style.display = majorityOffline ? 'block' : 'none';
+  var base = pbtn ? (pbtn.textContent || '继续发牌') : '继续发牌';
+  var tick = function() {
+    if (pbtn && !pbtn.disabled) pbtn.textContent = base + '（' + left + 's）';
+    if (left <= 0) { clearInterval(_continueTimer); socket.emit('round:autostart', { roomCode: ROOM_CODE }); return; }
+    left--;
+  };
+  tick();
+  _continueTimer = setInterval(tick, 1000);
 }
 
 /* ── 初始化手牌 ── */
@@ -1492,6 +1513,7 @@ socket.on('round:result', function(d){
   });
   document.getElementById('result-order').innerHTML = html;
   document.getElementById('result-overlay').style.display = 'flex';
+  startRoundContinueCountdown(!!d.majorityOffline);   // 45秒兜底续局 + 过半掉线开放纳新提示
 });
 
 /* ════════════════════ 渲染函数 ════════════════════ */

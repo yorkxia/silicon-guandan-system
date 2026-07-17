@@ -1,7 +1,7 @@
 /* 网上掼蛋 · 匹配系统 Socket 事件 */
 const { query } = require('../db/init');
 const {
-  getOrCreatePlayer, createRoom, findOrCreateOpenRoom,
+  getOrCreatePlayer, createRoom, findOrCreateOpenRoom, findRevivalRoom,
   joinRoomByCode, getRoomState
 } = require('../db/gdo');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
@@ -55,6 +55,13 @@ async function armRoomTimer(io, roomCode) {
 /* ─── 发牌并启动游戏（满员后调用）──────────────── */
 async function dealAndStart(io, roomCode, state) {
   cancelRoomTimer(roomCode);   // 满员开赛，停止关闭计时
+  /* 并发锁：只有把 waiting→playing 抢到的调用才继续发牌，
+     避免多端 room:ready / round:autostart 同时触发导致重复发牌 */
+  const claimed = await query(
+    `UPDATE gdo_rooms SET status='playing' WHERE room_code=$1 AND status='waiting' RETURNING id`,
+    [roomCode]
+  );
+  if (!claimed.length) return;
   const is6p = state.room.game_mode === '6p';
   const deck  = shuffle(is6p ? createTripleDeck() : createDoubleDeck());
   const halves = is6p ? deal6(deck) : deal4(deck);
@@ -121,6 +128,24 @@ async function broadcastWaiting(io, roomCode, state) {
   });
 }
 
+/* ─── 尝试开下一局 ───────────────────────────────────
+   仅当房间 status=waiting（防重复发牌）且座位满员时才发。
+   force=false：在线座位都就绪、且未过半掉线才发（引擎正常续局）
+   force=true ：无视过半掉线直接发（客户端 45 秒兜底 / 纳新窗口结束，AI 补位掉线者）*/
+async function tryStartNextRound(io, roomCode, force) {
+  if (!roomCode) return;
+  const state = await getRoomState(roomCode);
+  if (!state || state.room.status !== 'waiting') return;
+  const need = state.room.game_mode === '6p' ? 6 : 4;
+  if (state.seats.length !== need) return;
+  const offline           = state.seats.filter(s => !s.is_connected).length;
+  const majorityOffline   = offline * 2 > state.seats.length;
+  const connectedAllReady = state.seats.every(s => s.is_ready || !s.is_connected);
+  if (force || (connectedAllReady && !majorityOffline)) {
+    await dealAndStart(io, roomCode, state);
+  }
+}
+
 /* ══════════════════════════════════════════════════
  * Socket 事件处理器
  * ══════════════════════════════════════════════════ */
@@ -143,6 +168,21 @@ module.exports = function(io, socket) {
         socket.join(activeRow[0].room_code);
         socket.emit('queue:joined', { roomCode: activeRow[0].room_code });
         return;
+      }
+
+      /* 优先救援：把随机参赛者塞进"过半掉线"的进行中赛事，接手掉线空座 */
+      const revival = await findRevivalRoom(mode);
+      if (revival) {
+        const rr = await joinRoomByCode(revival, player.id, socket.id);
+        if (!rr.error) {
+          socket.join(revival);
+          socket.emit('queue:joined', { roomCode: revival });
+          const rst = await getRoomState(revival);
+          await broadcastWaiting(io, revival, rst);
+          if (rst.seats.length >= (mode === '6p' ? 6 : 4)) await dealAndStart(io, revival, rst);
+          return;
+        }
+        /* 抢座失败（被别人先占/已开局）→ 落到普通开房流程 */
       }
 
       const roomCode = await findOrCreateOpenRoom(mode);
@@ -236,7 +276,7 @@ module.exports = function(io, socket) {
     } catch (e) { console.error('[room:leave]', e.message); }
   });
 
-  /* ── 保留 room:ready（下一局复用） ── */
+  /* ── 续局：某玩家点"继续" ── */
   socket.on('room:ready', async function(data) {
     try {
       const { roomCode } = data;
@@ -244,12 +284,15 @@ module.exports = function(io, socket) {
       const state = await getRoomState(roomCode);
       if (!state) return;
       io.to(roomCode).emit('room:update', { state });
-
-      const need = state.room.game_mode === '6p' ? 6 : 4;
-      if (state.seats.length === need && state.seats.every(s => s.is_ready)) {
-        await dealAndStart(io, roomCode, state);
-      }
+      await tryStartNextRound(io, roomCode, false);
     } catch (e) { console.error('[room:ready]', e.message); }
+  });
+
+  /* ── 续局兜底：客户端局间 45 秒倒计时到点（也是"开放纳新"窗口结束）→ 强制发下一局 ── */
+  socket.on('round:autostart', async function(data) {
+    try {
+      await tryStartNextRound(io, (data && data.roomCode), true);
+    } catch (e) { console.error('[round:autostart]', e.message); }
   });
 
   /* ── 断线处理 ── */
