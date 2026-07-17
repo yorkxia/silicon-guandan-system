@@ -27,7 +27,7 @@
                   0 16px 40px rgba(0,0,0,.4);
       z-index: -1; pointer-events: none;
     }
-    body.mode-6p #beach-table { top: 54%; width: 94vw; height: 66vh; max-width: 1200px; }
+    body.mode-6p #beach-table { top: 52%; width: 98vw; height: 76vh; max-width: 1380px; }
 
     /* 竖屏 → 提示横屏（掼蛋以横屏为准）*/
     #rotate-hint { display: none; }
@@ -45,26 +45,26 @@
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 5px 14px; gap: 10px;
+      padding: 4px 12px; gap: 8px;
       background: rgba(0,0,0,0.55); flex-shrink: 0; z-index: 10;
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
     /* 左上：我方/对方 级牌+胜局（红蓝）；房间号右置 */
     .side-panel {
-      display: flex; flex-direction: column; gap: 3px;
+      display: flex; flex-direction: column; gap: 2px;
       background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.15);
-      border-radius: 10px; padding: 5px 12px;
+      border-radius: 8px; padding: 4px 10px;
     }
-    .side-row { display: flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 800; white-space: nowrap; }
+    .side-row { display: flex; align-items: center; gap: 6px; font-size: .6rem; font-weight: 800; white-space: nowrap; }
     .side-lbl { letter-spacing: 1px; }
-    .side-lv  { font-size: 1.05rem; font-weight: 900; min-width: 15px; text-align: center; }
-    .side-win { font-size: .6rem; font-weight: 600; opacity: .82; letter-spacing: .5px; }
-    .side-win b { font-size: .82rem; }
+    .side-lv  { font-size: .85rem; font-weight: 900; min-width: 13px; text-align: center; }
+    .side-win { font-size: .5rem; font-weight: 600; opacity: .82; letter-spacing: .5px; }
+    .side-win b { font-size: .66rem; }
     .side-row.red  { color: #FF9090; }  .side-row.red  .side-lv { color: #FF6a6a; }
     .side-row.blue { color: #8fb6f5; }  .side-row.blue .side-lv { color: #6b9aff; }
     .tb-spacer { flex: 1; }
-    .room-box  { font-size: .62rem; color: rgba(255,255,255,.5); letter-spacing: 1px; white-space: nowrap; }
-    .room-code-sm { font-size: .82rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; }
+    .room-box  { font-size: .5rem; color: rgba(255,255,255,.5); letter-spacing: 1px; white-space: nowrap; }
+    .room-code-sm { font-size: .66rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; }
 
     /* ═══════════════ 对家区域（上方） ═══════════════ */
     #zone-top {
@@ -500,10 +500,10 @@
     #hex-board {
       position: relative;
       width: 100%;
-      max-width: 1180px;
+      max-width: 1360px;
       margin: 0 auto;
       flex: 1;
-      min-height: 280px;
+      min-height: 320px;
     }
 
     /* 中央牌桌区 */
@@ -511,7 +511,7 @@
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%,-50%);
-      width: 240px; height: 184px;
+      width: 276px; height: 212px;
       background: radial-gradient(ellipse, #0a2e0a 0%, #061506 100%);
       border-radius: 50%;
       border: 2px solid rgba(212,172,13,.2);
@@ -2158,12 +2158,12 @@ function cardEmoji(code) {
 */
 var HEX_POS = [
   null,                        // placeholder index 0
-  { left:'50%', top:'85%' },   // seat 1 = bottom-center (me)
-  { left:'92%', top:'60%' },   // seat 2 = bottom-right
-  { left:'92%', top:'22%' },   // seat 3 = top-right
-  { left:'50%', top:'6%'  },   // seat 4 = top-center
-  { left:'8%',  top:'22%' },   // seat 5 = top-left
-  { left:'8%',  top:'60%' },   // seat 6 = bottom-left
+  { left:'50%', top:'88%' },   // seat 1 = bottom-center (me)
+  { left:'94%', top:'64%' },   // seat 2 = bottom-right
+  { left:'94%', top:'17%' },   // seat 3 = top-right
+  { left:'50%', top:'3%'  },   // seat 4 = top-center
+  { left:'6%',  top:'17%' },   // seat 5 = top-left
+  { left:'6%',  top:'64%' },   // seat 6 = bottom-left
 ];
 
 function init6pBoard(d) {
