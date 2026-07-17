@@ -538,6 +538,15 @@
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
     .h-pbox-name { font-size: .68rem; color: rgba(255,255,255,.8); font-weight: 700; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .h-pbox-info { font-size: .6rem; color: rgba(255,255,255,.4); text-align: center; }
+    /* 顶部中央（对家）提到顶栏那一行：与左积分榜、右房号同一水平线，避免被顶栏框线切断 */
+    .h-pbox.h-top-slot {
+      position: fixed; top: 9px; left: 50%; transform: translateX(-50%);
+      flex-direction: row; align-items: center; gap: 6px;
+      width: auto; z-index: 20;
+    }
+    .h-pbox.h-top-slot .h-pbox-avatar { width: 26px; height: 26px; font-size: .6rem; }
+    .h-pbox.h-top-slot .h-pbox-name   { max-width: 130px; }
+    .h-pbox.h-top-slot .h-card-fan    { display: none; }
     .h-buddy-tag { font-size: .55rem; background: rgba(212,172,13,.25); color: #FFE066; border-radius: 6px; padding: 1px 5px; }
     .h-card-fan { display: flex; gap: -4px; }
     .h-cbk { width: 14px; height: 20px; background: #1a3a6e; border-radius: 2px; border: 1px solid rgba(255,255,255,.2); margin: 0 -2px; }
@@ -1088,8 +1097,14 @@ function enterWaitingTable(d){
       if (!el) continue;
       var pos = HEX_POS[i + 1];
       if (!pos) continue;
-      el.style.left = pos.left; el.style.top = pos.top;
-      el.style.transform = 'translate(-50%,-50%)';
+      if (i === 3) {                         // 顶部中央=对家：提到顶栏行，横排紧凑
+        el.classList.add('h-top-slot');
+        el.style.left = ''; el.style.top = ''; el.style.transform = '';
+      } else {
+        el.classList.remove('h-top-slot');
+        el.style.left = pos.left; el.style.top = pos.top;
+        el.style.transform = 'translate(-50%,-50%)';
+      }
       el.dataset.displayIdx = i + 1;
     }
   } else {
@@ -2185,9 +2200,15 @@ function init6pBoard(d) {
     if (!el) continue;
     var pos = HEX_POS[displayIdx];
     if (!pos) continue;
-    el.style.left       = pos.left;
-    el.style.top        = pos.top;
-    el.style.transform  = 'translate(-50%,-50%)';
+    if (displayIdx === 4) {                  // 顶部中央=对家：提到顶栏行，横排紧凑
+      el.classList.add('h-top-slot');
+      el.style.left = ''; el.style.top = ''; el.style.transform = '';
+    } else {
+      el.classList.remove('h-top-slot');
+      el.style.left       = pos.left;
+      el.style.top        = pos.top;
+      el.style.transform  = 'translate(-50%,-50%)';
+    }
     el.dataset.displayIdx = displayIdx;
   }
 
