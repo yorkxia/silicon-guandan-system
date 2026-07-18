@@ -979,6 +979,7 @@ var POS_CLASS  = ['','p1','p2','p3','p3','p3','p4'];
 var waitRoomType = 'random'; // 'random' | 'private'
 var waitNeed     = 4;
 var IN_WAITING   = false;     // 随机参赛：是否处于"真实牌桌上等待"状态
+var _interSeats  = [];        // 上一局结算时的各座玩家（供"继续比赛"后在大屏等待时渲染座位）
 
 /* ════════════════════ Socket ════════════════════ */
 var socket = io({ transports:['websocket','polling'] });
@@ -1186,11 +1187,14 @@ function copyWaitCode() {
   }).catch(function(){ prompt('请复制房间号：', code); });
 }
 
-/* ── 继续发牌：留在同一赛事大屏，服务端 room:ready 机制发下一局 ── */
+/* ── 继续比赛：点后立即离开结算页，进入赛事大屏等待其他玩家（服务端 room:ready 机制满员即发牌）── */
 function continueNext() {
   var btn = document.getElementById('result-continue-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '等待其他玩家...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '已就绪，等待其他玩家…'; }
   socket.emit('room:ready', { token: MY_TOKEN, roomCode: ROOM_CODE });
+  /* 收起结算弹框，把牌桌切到"等待其他玩家"态，在大屏上等待发牌 */
+  document.getElementById('result-overlay').style.display = 'none';
+  enterWaitingTable({ seats: _interSeats || [], mode: GAME_MODE, roomCode: ROOM_CODE, roomType: waitRoomType });
 }
 
 /* ── 局间 45 秒兜底续局：到点自动发下一局（掉线座位交给 AI）；
@@ -1512,6 +1516,10 @@ socket.on('round:result', function(d){
     '</div>';
   });
   document.getElementById('result-order').innerHTML = html;
+  /* 记录本局各座玩家：供"继续比赛"后在大屏上渲染等待座位 */
+  _interSeats = (d.finishOrder || []).map(function(f){
+    return { seat: f.seat, name: f.name, display_name: f.name, team: f.team };
+  });
   document.getElementById('result-overlay').style.display = 'flex';
   startRoundContinueCountdown(!!d.majorityOffline);   // 45秒兜底续局 + 过半掉线开放纳新提示
 });
