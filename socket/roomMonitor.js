@@ -18,6 +18,19 @@ function startRoomMonitor(io, io6) {
 
 /* 扫一个命名空间下满 12h 的活跃房间 */
 async function sweep(ioNs, prefix, roomsTbl, seatsTbl) {
+  /* ① 兜底：任何活跃房间只要"全部座位掉线(全AI托管)"→ 立即关闭、不再进人（不等12h、不倒计时）*/
+  const dead = await query(
+    `SELECT r.id, r.room_code FROM ${roomsTbl} r
+      WHERE r.status IN ('waiting','playing')
+        AND (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id) > 0
+        AND (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id AND s.is_connected=TRUE) = 0`
+  );
+  for (const r of dead) {
+    await query(`UPDATE ${roomsTbl} SET status='abandoned', is_full=FALSE WHERE id=$1`, [r.id]);
+    ioNs.to(r.room_code).emit('room:closed', {});
+    console.log(`[房间守护] 🚪 全部托管(无人在线)，立即关闭 · ${r.room_code}`);
+  }
+
   const rooms = await query(
     `SELECT r.id, r.room_code,
             (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id) AS total,

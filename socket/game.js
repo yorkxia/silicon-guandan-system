@@ -588,6 +588,17 @@ async function applyPass(io, state, playerId, isAuto = false) {
   return { ok: true };
 }
 
+/* 全部座位掉线(全AI托管) → 立即关闭房间、清状态、不再进人 */
+async function closeAbandonedRoom(io, state) {
+  try {
+    clearTurnTimer(state);
+    gameStates.delete(state.roomCode);
+    await query(`UPDATE gdo_rooms SET status='abandoned', is_full=FALSE WHERE room_code=$1`, [state.roomCode]);
+    io.to(state.roomCode).emit('room:closed', {});
+    console.log('[房间] 🚪 全部托管(无人在线)，立即关闭 · ' + state.roomCode);
+  } catch (e) { console.error('[closeAbandonedRoom]', e.message); }
+}
+
 /* ══════════════════════════════════════════════════════
  * Socket 事件处理器
  * ══════════════════════════════════════════════════════ */
@@ -611,6 +622,11 @@ module.exports = function(io, socket) {
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
       if (!seat) return socket.emit('game:error', { message: '您不在此房间中' });
+
+      /* 房间已因"全部托管"关闭 → 不再让任何人进入 */
+      if (seat.status === 'abandoned' || seat.status === 'closed') {
+        return socket.emit('room:closed', {});
+      }
 
       await query('UPDATE gdo_seats SET socket_id=$1, is_connected=TRUE WHERE id=$2',
         [socket.id, seat.id]);
@@ -860,21 +876,29 @@ module.exports = function(io, socket) {
 
   /* ── 断线处理（阶段九：标记掉线 + 广播 + 缩短其回合计时）── */
   socket.on('disconnect', function() {
-    try {
-      for (const state of gameStates.values()) {
-        const seatObj = state.seats.find(s => s.socketId === socket.id);
-        if (!seatObj) continue;
-        seatObj.socketId = null;
-        state.disconnected.add(seatObj.seat);
-        io.to(state.roomCode).emit('game:player_connection', {
-          seat: seatObj.seat, name: seatObj.name, connected: false
-        });
-        /* 若正轮到掉线者，缩短计时尽快托管 */
-        if (state.turnSeat === seatObj.seat && state.turnTimer) {
-          startTurnTimer(io, state);
+    (async function() {
+      try {
+        for (const state of gameStates.values()) {
+          const seatObj = state.seats.find(s => s.socketId === socket.id);
+          if (!seatObj) continue;
+          seatObj.socketId = null;
+          state.disconnected.add(seatObj.seat);
+          io.to(state.roomCode).emit('game:player_connection', {
+            seat: seatObj.seat, name: seatObj.name, connected: false
+          });
+          /* 全部座位掉线(全AI托管) → 立即关闭房间、不再进人 */
+          if (state.seats.every(s => state.disconnected.has(s.seat))) {
+            await closeAbandonedRoom(io, state);
+            break;
+          }
+          /* 若正轮到掉线者，缩短计时尽快托管 */
+          if (state.turnSeat === seatObj.seat && state.turnTimer) {
+            startTurnTimer(io, state);
+          }
+          break;   // 一个 socket 只属于一个房间
         }
-      }
-    } catch (e) { console.error('[game.disconnect]', e.message); }
+      } catch (e) { console.error('[game.disconnect]', e.message); }
+    })();
   });
 
 };
