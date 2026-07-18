@@ -349,6 +349,30 @@
     #combo-bar .cb-ball:hover .cb-tip,
     #combo-bar .cb-ball.show-tip .cb-tip { opacity: 1; }
 
+    /* ═══════════ 大屏内进贡：座位光标 + 手牌高亮（替代弹框）═══════════ */
+    #tb-cursor-layer { position: fixed; inset: 0; z-index: 240; pointer-events: none; }
+    .tb-cursor {
+      position: fixed; transform: translate(-50%, -50%);
+      padding: 4px 10px; border-radius: 13px; font-size: .78rem; font-weight: 900;
+      letter-spacing: 1px; white-space: nowrap; box-shadow: 0 3px 12px rgba(0,0,0,.45);
+      border: 2px solid rgba(255,255,255,.6);
+    }
+    .tb-cursor.give { background: #C0000F; color: #fff; border-color: #ff6b6b;
+      animation: tbPulse 1s ease-in-out infinite; }
+    .tb-cursor.wait { background: rgba(90,90,90,.92); color: rgba(255,255,255,.75); }
+    .tb-cursor.ret  { background: #1E6BE5; color: #fff; border-color: #7ab6ff;
+      animation: tbPulse 1s ease-in-out infinite; }
+    @keyframes tbPulse { 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.08);} }
+    .hand-card.tb-cand  { box-shadow: 0 0 0 3px #FFD54A, 0 0 14px 3px rgba(255,213,74,.7); border-color:#FFD54A; }
+    .hand-card.tb-retok { box-shadow: 0 0 0 3px #66D17A, 0 0 12px 2px rgba(102,209,122,.6); border-color:#66D17A; }
+    .hand-card.tb-dim   { opacity: .4; }
+    #tb-prompt {
+      display: none; position: fixed; left: 50%; bottom: 92px; transform: translateX(-50%);
+      z-index: 245; background: rgba(20,8,8,.92); color: #FFE066; border: 1px solid rgba(212,172,13,.6);
+      padding: 7px 16px; border-radius: 12px; font-size: .85rem; font-weight: 800; letter-spacing: 1px;
+      white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    }
+
     /* 按点数竖排成列 */
     .hand-col {
       display: flex; flex-direction: column; align-items: flex-start;
@@ -990,6 +1014,10 @@
   <button type="button" class="cb-ball cb-reset"   onclick="comboTapBall(this, resetCombos)" aria-label="全部重置"><span class="cb-tip">全部重置</span></button>
 </div>
 
+<!-- ── 大屏内进贡：座位光标层 + 我方提示条 ── -->
+<div id="tb-cursor-layer"></div>
+<div id="tb-prompt"></div>
+
 <div id="err-toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -1077,6 +1105,7 @@ socket.on('game:seat_update', function(d){
 /* ── 满员，开始发牌（或进贡完成后进入游戏）── */
 socket.on('game:starting', function(){
   clearInterval(_continueTimer);                          // 停掉局间续局倒计时
+  if (typeof clearTributeUI === 'function') clearTributeUI();   // 清掉进贡光标/提示
   document.getElementById('wait-overlay').style.display    = 'none';
   document.getElementById('tribute-overlay').style.display = 'none';
   document.getElementById('result-overlay').style.display  = 'none';   // 隐藏上一局结算弹框
@@ -1276,6 +1305,7 @@ function clearBlockingOverlays(){
   ['loading-overlay','tribute-overlay','result-overlay','wait-overlay','err-box'].forEach(function(id){
     var el = document.getElementById(id); if (el) el.style.display = 'none';
   });
+  if (typeof clearTributeUI === 'function') clearTributeUI();
   clearInterval(_continueTimer);
   var cbtn = document.getElementById('result-continue-btn');
   if (cbtn) { cbtn.disabled = false; cbtn.textContent = '继续发牌'; }
@@ -2042,36 +2072,89 @@ function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function tributeWildCode(){ return levelCard ? ('H'+_rankChar(levelCard)) : null; }
 function canReturnCard(code){ return code !== tributeWildCode() && _rv(code) <= 10; }
 
-socket.on('tribute:phase', function(d) {
-  var exchanges = d.exchanges || [];
-  var overlay   = document.getElementById('tribute-overlay');
-  overlay.style.display = 'flex';
+/* ══════════ 大屏内进贡（替代弹框，六人）══════════ */
+var tbEx    = [];
+var tbBusy  = false;
 
-  var myEx   = exchanges.find(function(e){ return e.giverId    === myPlayerId; });
-  var recvEx = exchanges.find(function(e){ return e.receiverId === myPlayerId; });
+function tbSeatOfPlayer(pid){ var p = players.find(function(x){ return x.playerId===pid; }); return p?p.seat:null; }
+function tbSeatEl(seat){ return seat==null ? null : document.getElementById('h-seat-'+seat); }   /* 六人：六边形座位格 */
+function tbMyGiveEx(){   return tbEx.find(function(e){ return e.stage==='give'   && e.giverId===myPlayerId; }); }
+function tbMyReturnEx(){ return tbEx.find(function(e){ return e.stage==='return' && e.receiverId===myPlayerId; }); }
+function tbGiveCandsOf(e){ return (e.giveCandidates && e.giveCandidates.length) ? e.giveCandidates : (e.mustGiveCard?[e.mustGiveCard]:[]); }
 
-  ['tribute-spectator','tribute-giver-panel','tribute-resist-panel','tribute-receiver-panel']
-    .forEach(function(id){ document.getElementById(id).style.display='none'; });
-
-  if (myEx && myEx.stage === 'return') {
-    document.getElementById('tribute-giver-panel').style.display = 'flex';
-    document.getElementById('tribute-give-hand').style.display  = 'none';
-    document.getElementById('tribute-give-btn').style.display   = 'none';
-    document.getElementById('tribute-give-hint').style.display  = 'none';
-    document.getElementById('tribute-give-waiting').style.display = 'block';
-  } else if (myEx) {
-    showTributeGivePanel(myEx);
-  } else if (recvEx && recvEx.stage === 'return') {
-    showTributeReceiverPanel(recvEx);
-  } else {
-    document.getElementById('tribute-spectator').style.display = 'flex';
-    buildTributeLog(exchanges);
+function clearTributeUI(){
+  tbEx = []; tbBusy = false;
+  var l = document.getElementById('tb-cursor-layer'); if (l) l.innerHTML = '';
+  var p = document.getElementById('tb-prompt');       if (p) p.style.display = 'none';
+}
+function tbPlaceCursor(seat, text, cls){
+  var el = tbSeatEl(seat); if (!el) return;
+  var r = el.getBoundingClientRect(); if (!r.width) return;
+  var b = document.createElement('div');
+  b.className = 'tb-cursor ' + cls; b.textContent = text;
+  b.style.left = (r.left + r.width/2) + 'px';
+  b.style.top  = (Math.max(r.top, 30) - 4) + 'px';
+  document.getElementById('tb-cursor-layer').appendChild(b);
+}
+function renderTributeUI(){
+  var layer = document.getElementById('tb-cursor-layer'); if (layer) layer.innerHTML = '';
+  var prompt = document.getElementById('tb-prompt');      if (prompt) prompt.style.display = 'none';
+  if (!tbEx.length){ render6pHand(myHand); return; }
+  tbEx.forEach(function(e){
+    if (e.stage === 'give'){
+      tbPlaceCursor(e.giverSeat,    '🔴 请点击供牌', 'give');
+      tbPlaceCursor(e.receiverSeat, '⚪ 请点击还供', 'wait');
+    } else if (e.stage === 'return'){
+      tbPlaceCursor(e.receiverSeat, '🔵 请点击还供', 'ret');
+    }
+  });
+  if (!tbBusy && prompt){
+    if (tbMyGiveEx())        { prompt.textContent = '👇 请点击你要供出的最大牌'; prompt.style.display = 'block'; }
+    else if (tbMyReturnEx()) { prompt.textContent = '👇 请点击你要还供的牌（点数≤10，非红桃级牌）'; prompt.style.display = 'block'; }
   }
+  render6pHand(myHand);
+}
+function tbTapCard(code){
+  if (tbBusy) return true;
+  var g = tbMyGiveEx();
+  if (g){
+    if (tbGiveCandsOf(g).indexOf(code) >= 0){
+      tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
+      socket.emit('tribute:give', { token:MY_TOKEN, roomCode:ROOM_CODE, card:code });
+    } else { showToast('请点击高亮的最大牌供出'); }
+    return true;
+  }
+  var r = tbMyReturnEx();
+  if (r){
+    if (canReturnCard(code)){
+      tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
+      socket.emit('tribute:return', { token:MY_TOKEN, roomCode:ROOM_CODE, returnCard:code });
+    } else { showToast('还供需点数≤10且非红桃级牌'); }
+    return true;
+  }
+  return false;
+}
+window.addEventListener('resize', function(){ if (tbEx.length) renderTributeUI(); });
+
+socket.on('tribute:phase', function(d) {
+  document.getElementById('tribute-overlay').style.display = 'none';
+  tbBusy = false;
+  tbEx = (d.exchanges || []).map(function(e){
+    return {
+      giverId: e.giverId, receiverId: e.receiverId,
+      giverSeat: tbSeatOfPlayer(e.giverId), receiverSeat: tbSeatOfPlayer(e.receiverId),
+      giveCandidates: e.giveCandidates || [], mustGiveCard: e.mustGiveCard,
+      stage: e.stage || 'give', tributeCard: e.tributeCard || null
+    };
+  });
+  renderTributeUI();
 });
 
 socket.on('tribute:resisted', function(d) {
+  clearTributeUI();
   document.getElementById('tribute-overlay').style.display = 'none';
-  showTributeNotice('本局已抗贡，请头游先出牌', 2600);
+  showTributeNotice('末游抗贡，头游先出牌', 2600);
+  render6pHand(myHand);
 });
 
 /* ── 房间关闭警告：不满员超时 / 满12h过半掉线（服务端下发 message + seconds）── */
@@ -2100,35 +2183,32 @@ socket.on('room:closed', function() {
 
 socket.on('tribute:card_flew', function(d) {
   flyTributeCard(d.tributeCard);
-  if (d.giverId === myPlayerId) {
-    document.getElementById('tribute-give-hand').style.display  = 'none';
-    document.getElementById('tribute-give-btn').style.display   = 'none';
-    document.getElementById('tribute-give-hint').style.display  = 'none';
-    document.getElementById('tribute-give-waiting').style.display = 'block';
-  }
-  if (d.receiverId === myPlayerId) {
-    setTimeout(function(){ showTributeReceiverPanel({ tributeCard: d.tributeCard }); }, 850);
-  }
+  var e = tbEx.find(function(x){ return x.giverId===d.giverId && x.receiverId===d.receiverId; });
+  if (e){ e.stage = 'return'; e.tributeCard = d.tributeCard; }
+  if (d.giverId === myPlayerId || d.receiverId === myPlayerId) tbBusy = false;
+  setTimeout(renderTributeUI, 850);
 });
 
 socket.on('tribute:exchange_done', function(d) {
-  var logEl = document.getElementById('tribute-log');
-  if (logEl) {
-    var item = document.createElement('div');
-    item.className = 'tribute-log-item done';
-    item.textContent = '✅ 进贡 ' + cardEmoji(d.tributeCard) + ' ↔ 还贡 ' + cardEmoji(d.returnCard);
-    logEl.appendChild(item);
-  }
-  if (d.giverId === myPlayerId) {
-    document.getElementById('tribute-giver-panel').style.display = 'none';
-    document.getElementById('tribute-spectator').style.display = 'flex';
-    buildTributeLog([{ done: true, tributeCard: d.tributeCard, returnCard: d.returnCard }]);
-  }
+  var e = tbEx.find(function(x){ return x.giverId===d.giverId && x.receiverId===d.receiverId; });
+  if (e){ e.stage = 'done'; }
+  if (d.giverId === myPlayerId || d.receiverId === myPlayerId) tbBusy = false;
+  showToast('✅ 进贡 ' + cardEmoji(d.tributeCard) + ' ↔ 还供 ' + cardEmoji(d.returnCard), 'rgba(30,120,60,.92)');
+  renderTributeUI();
 });
 
 socket.on('tribute:done', function() {
+  clearTributeUI();
   document.getElementById('tribute-overlay').style.display = 'none';
   tributeSelectedCard = null;
+  render6pHand(myHand);
+});
+
+/* 供/还无效：解锁，允许重点 */
+socket.on('tribute:invalid', function(d){
+  tbBusy = false;
+  showToast((d && d.message) || '进贡无效，请重试');
+  renderTributeUI();
 });
 
 /* ── 进贡方：显示手牌，仅最大牌可点 ── */
@@ -2471,6 +2551,12 @@ function build6pCardEl(code, idx){
   }
   var _cmb = comboOfKey(key);
   if (_cmb) { card.classList.add('locked'); card.style.setProperty('--combo', _cmb.color); }
+  /* 进贡态：高亮可供/可还的牌，其余变暗 */
+  if (typeof tbEx !== 'undefined' && tbEx.length) {
+    var _g = tbMyGiveEx(), _r = tbMyReturnEx();
+    if (_g)      card.classList.add(tbGiveCandsOf(_g).indexOf(code) >= 0 ? 'tb-cand' : 'tb-dim');
+    else if (_r) card.classList.add(canReturnCard(code) ? 'tb-retok' : 'tb-dim');
+  }
   attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
   return card;
 }
@@ -2495,6 +2581,7 @@ function render6pHand(hand) {
 }
 
 function toggleCard6p(code, idx) {
+  if (typeof tbTapCard === 'function' && tbEx.length && tbTapCard(code)) return;  // 进贡态：点牌=供/还
   var key = code + '_' + idx;
   var cmb = comboOfKey(key);
   if (cmb) {
