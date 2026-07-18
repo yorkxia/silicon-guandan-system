@@ -516,6 +516,23 @@ async function initDB() {
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team1 SMALLINT NOT NULL DEFAULT 0`);  // 甲队过A胜局(盘胜)
   await query(`ALTER TABLE gdo_rooms ADD COLUMN IF NOT EXISTS wins_team2 SMALLINT NOT NULL DEFAULT 0`);  // 乙队过A胜局(盘胜)
 
+  /* 网上掼蛋 play 页访问埋点表（供监控台"网上掼蛋赛事控制台"地域统计；四人六人共用，用 game_mode 区分） */
+  await query(`
+    CREATE TABLE IF NOT EXISTS gdo_visits (
+      id           SERIAL PRIMARY KEY,
+      ip_hash      VARCHAR(64),
+      country      VARCHAR(64),
+      region_code  VARCHAR(16),
+      city         VARCHAR(64),
+      game_mode    VARCHAR(4),
+      page         VARCHAR(24),
+      player_token VARCHAR(64),
+      user_agent   VARCHAR(200),
+      visited_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gdo_visits_mode_time ON gdo_visits(game_mode, visited_at)`);
+
   console.log('✅ Database initialized');
 }
 

@@ -2,9 +2,25 @@ const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
-const { geoLocate } = require('../utils/geo');
+const { geoLocate, ipHash } = require('../utils/geo');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+
+/* 网上掼蛋 play 页访问埋点（写共享库 gdo_visits，供监控台"网上掼蛋赛事控制台"地域统计）
+   fire-and-forget：不阻塞渲染、失败静默 */
+function trackPlayVisit(req, page, gameMode) {
+  try {
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    Promise.resolve(geoLocate(ip)).then(function (geo) {
+      geo = geo || {};
+      query(
+        `INSERT INTO gdo_visits (ip_hash, country, region_code, city, game_mode, page, user_agent)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [ipHash(ip), geo.country, geo.region_code, geo.city, gameMode, page, (req.headers['user-agent'] || '').slice(0, 200)]
+      ).catch(function () {});
+    }).catch(function () {});
+  } catch (e) { /* 静默 */ }
+}
 
 function amountToDays(amount) {
   if (!amount) return 31;
@@ -427,10 +443,12 @@ router.get('/play', (req, res) => {
 });
 
 router.get('/play/4p', (req, res) => {
+  trackPlayVisit(req, 'play-4p', '4p');
   res.render('play-4p');
 });
 
 router.get('/play/6p', (req, res) => {
+  trackPlayVisit(req, 'play-6p', '6p');
   res.render('play-6p');
 });
 
