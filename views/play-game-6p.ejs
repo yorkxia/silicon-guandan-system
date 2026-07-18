@@ -325,19 +325,29 @@
       box-shadow: 0 0 0 3px var(--combo, #FFD54A), -3px 5px 18px rgba(0,0,0,.55);
       outline: 3px solid #FF2626;
     }
-    /* 左下角：锁定牌型操作栏 */
+    /* 左下角：锁定牌型（三个小圆球，文字默认隐藏、悬停/点触时浮现）*/
     #combo-bar {
-      position: fixed; left: 8px; bottom: 10px; z-index: 60;
-      display: none; flex-direction: column; gap: 6px;
+      position: fixed; left: 10px; bottom: 12px; z-index: 60;
+      display: none; flex-direction: column; gap: 8px; align-items: flex-start;
     }
-    #combo-bar .cb-title { font-size: .66rem; color: rgba(255,255,255,.55); letter-spacing: 1px; text-align: center; }
-    #combo-bar button {
-      padding: 7px 12px; border-radius: 9px; border: 1px solid rgba(255,255,255,.35);
-      background: rgba(20,8,8,.74); color: #fff; font-size: .8rem; font-weight: 700;
-      letter-spacing: 1px; cursor: pointer; white-space: nowrap;
+    #combo-bar .cb-ball {
+      width: 26px; height: 26px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 2px solid rgba(255,255,255,.6); position: relative;
+      box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: transform .12s;
     }
-    #combo-bar button:hover { background: rgba(60,20,20,.92); }
-    #combo-bar .cb-confirm { border-color: #FFD54A; color: #FFE066; }
+    #combo-bar .cb-ball:active { transform: scale(.88); }
+    #combo-bar .cb-confirm { background: radial-gradient(circle at 34% 30%, #7ab6ff, #1E6BE5); }  /* 蓝=确认设置 */
+    #combo-bar .cb-undo    { background: radial-gradient(circle at 34% 30%, #ff8080, #D32F2F); }  /* 红=撤销设置 */
+    #combo-bar .cb-reset   { background: radial-gradient(circle at 34% 30%, #ffe27a, #F2B705); }  /* 黄=全部重置 */
+    #combo-bar .cb-tip {
+      position: absolute; left: 34px; top: 50%; transform: translateY(-50%);
+      white-space: nowrap; background: rgba(20,8,8,.92); color: #fff;
+      font-size: .74rem; font-weight: 700; letter-spacing: 1px;
+      padding: 4px 10px; border-radius: 7px; pointer-events: none;
+      opacity: 0; transition: opacity .12s; border: 1px solid rgba(255,255,255,.25);
+    }
+    #combo-bar .cb-ball:hover .cb-tip,
+    #combo-bar .cb-ball.show-tip .cb-tip { opacity: 1; }
 
     /* 按点数竖排成列 */
     .hand-col {
@@ -973,12 +983,11 @@
   </div>
 </div>
 
-<!-- ── 左下角：锁定牌型（预先理牌、加速出牌，个人本地辅助）── -->
+<!-- ── 左下角：锁定牌型（三小圆球：蓝=确认/红=撤销/黄=重置，点触/悬停显文字）── -->
 <div id="combo-bar">
-  <div class="cb-title">🎴 锁定牌型</div>
-  <button class="cb-confirm" onclick="lockCombo()">✅ 确认设置</button>
-  <button onclick="unlockCombo()">↩️ 撤销设置</button>
-  <button onclick="resetCombos()">🗑️ 全部重置</button>
+  <button type="button" class="cb-ball cb-confirm" onclick="comboTapBall(this, lockCombo)" aria-label="确认设置"><span class="cb-tip">确认设置</span></button>
+  <button type="button" class="cb-ball cb-undo"    onclick="comboTapBall(this, unlockCombo)" aria-label="撤销设置"><span class="cb-tip">撤销设置</span></button>
+  <button type="button" class="cb-ball cb-reset"   onclick="comboTapBall(this, resetCombos)" aria-label="全部重置"><span class="cb-tip">全部重置</span></button>
 </div>
 
 <div id="err-toast"></div>
@@ -2416,6 +2425,12 @@ function resetCombos(){
   selected = [];
   comboReRender();
   showToast('🗑️ 已清除全部组合');
+}
+/* 点圆球：执行动作，并短暂浮现该球的文字标签（触屏无悬停）*/
+function comboTapBall(el, fn){
+  if (el) { el.classList.add('show-tip'); clearTimeout(el._tipT);
+    el._tipT = setTimeout(function(){ el.classList.remove('show-tip'); }, 1500); }
+  if (typeof fn === 'function') fn();
 }
 
 function build6pCardEl(code, idx){
