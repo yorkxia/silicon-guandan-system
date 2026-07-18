@@ -1038,6 +1038,9 @@ socket.on('disconnect', function(){ setHint('连接断开，重连中...',''); }
 /* ── 游戏尚未开始：显示等候层 ── */
 socket.on('game:waiting', function(d){
   document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('result-overlay').style.display = 'none';   // 重连恢复：清掉可能残留的"大胜"层
+  var _eb = document.getElementById('err-box'); if (_eb) _eb.style.display = 'none';
+  clearInterval(_continueTimer);
   mySeat      = d.mySeat;
   myTeam      = d.myTeam;
   myPlayerId  = d.myPlayerId;
@@ -1268,10 +1271,19 @@ function startRoundContinueCountdown(majorityOffline) {
   _continueTimer = setInterval(tick, 1000);
 }
 
+/* 恢复/进入牌桌时，无条件清掉所有会挡住大屏的遮罩（修复"回不到大屏"）*/
+function clearBlockingOverlays(){
+  ['loading-overlay','tribute-overlay','result-overlay','wait-overlay','err-box'].forEach(function(id){
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  clearInterval(_continueTimer);
+  var cbtn = document.getElementById('result-continue-btn');
+  if (cbtn) { cbtn.disabled = false; cbtn.textContent = '继续发牌'; }
+}
+
 /* ── 初始化手牌 ── */
 socket.on('game:hand', function(d){
-  document.getElementById('loading-overlay').style.display = 'none';
-  document.getElementById('tribute-overlay').style.display = 'none';
+  clearBlockingOverlays();     // 重连/恢复也走此入口 → 先清掉大胜/等候等遮罩，确保回到大屏
   IN_WAITING = false;          // 已发牌，退出"牌桌等待"态
   myTeam     = d.myTeam;
   mySeat     = d.mySeat;

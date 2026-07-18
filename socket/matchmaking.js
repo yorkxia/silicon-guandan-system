@@ -170,21 +170,10 @@ module.exports = function(io, socket) {
         return;
       }
 
-      /* 优先救援：把随机参赛者塞进"过半掉线"的进行中赛事，接手掉线空座 */
-      const revival = await findRevivalRoom(mode);
-      if (revival) {
-        const rr = await joinRoomByCode(revival, player.id, socket.id);
-        if (!rr.error) {
-          socket.join(revival);
-          socket.emit('queue:joined', { roomCode: revival });
-          const rst = await getRoomState(revival);
-          await broadcastWaiting(io, revival, rst);
-          if (rst.seats.length >= (mode === '6p' ? 6 : 4)) await dealAndStart(io, revival, rst);
-          return;
-        }
-        /* 抢座失败（被别人先占/已开局）→ 落到普通开房流程 */
-      }
-
+      /* 进行中的赛事只允许"原玩友"回座续打（走上面的"回原房"分支）；
+         新手不接替进行中牌局——掉线座位由 AI 托管，原玩友随时重连恢复。
+         故不再把新玩家塞进"过半掉线"的进行中房间(findRevivalRoom 已停用)，
+         新玩家只进"尚未开赛、还在填人"的房间(findOrCreateOpenRoom 只返回 is_full=FALSE)。*/
       const roomCode = await findOrCreateOpenRoom(mode);
       const result   = await joinRoomByCode(roomCode, player.id, socket.id);
       if (result.error) return socket.emit('queue:error', { message: result.error });
