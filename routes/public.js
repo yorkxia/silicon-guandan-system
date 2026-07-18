@@ -412,6 +412,15 @@ router.get('/install', (req, res) => {
 // 短链：方便粘贴到微信/Messenger（/i → /install）
 router.get('/i', (req, res) => res.redirect(301, '/install'));
 
+// ── 四人专用安装落地页（装好后图标直达 /play/4p 四人赛事页） ──
+router.get('/install/4p', (req, res) => {
+  const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  res.render('install-4p', { baseUrl });
+});
+
+// 短链：/i4 → /install/4p
+router.get('/i4', (req, res) => res.redirect(301, '/install/4p'));
+
 // ── 公开赛事页（无需登录，朋友扫码后直接进入） ──────────────
 router.get('/play', (req, res) => {
   res.render('play');

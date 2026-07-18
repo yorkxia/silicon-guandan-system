@@ -1,0 +1,29 @@
+{
+  "id": "/play/4p",
+  "name": "四人掼蛋赛事",
+  "short_name": "四人掼蛋",
+  "description": "硅谷掼蛋协会 · 四人掼蛋网上赛事 · 随机参赛 · 全球对战 · Silicon Valley Guandan Association",
+  "start_url": "/play/4p",
+  "scope": "/play",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1a0505",
+  "theme_color": "#C0000F",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/img/assoc-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/img/assoc-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "sports"],
+  "prefer_related_applications": false
+}

@@ -695,4 +695,29 @@ router.get('/invite-card', requireAuth, async (req, res) => {
   });
 });
 
+// ── 四人掼蛋专用邀请卡生成页 ──────────────────────────────
+router.get('/invite-card-4p', requireAuth, async (req, res) => {
+  const baseUrl = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
+  const installUrl = `${baseUrl}/install/4p`;   // 四人专用安装页（装好后直达四人赛事页）
+  const pcInstallUrl = installUrl;              // 手机、电脑统一入口
+  // 可粘贴到微信/Messenger 的现成邀请文案（链接会自动生成富预览卡片）
+  const shareText =
+    '🎴 硅谷掼蛋协会 · 四人掼蛋赛事\n' +
+    '四人掼蛋 · 随机参赛 · 全球对战\n' +
+    '👇 点开链接，按提示一步装到手机/电脑桌面（免商店、免下载）：\n' +
+    installUrl;
+  const qrDataUrl = await QRCode.toDataURL(installUrl, {
+    width: 300, margin: 2,
+    color: { dark: '#1a0505', light: '#FFF8F0' }
+  });
+  res.render('admin/invite-card-4p', {
+    user: req.session.user,
+    activePage: 'invite-card-4p',
+    qrDataUrl,
+    installUrl,
+    pcInstallUrl,
+    shareText
+  });
+});
+
 module.exports = router;
