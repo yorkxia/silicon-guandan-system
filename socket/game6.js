@@ -53,6 +53,24 @@ function nextSeat(currentSeat, seats, finishOrder) {
   return currentSeat;
 }
 
+/* 接风：从 fromSeat 往下家方向找"最近的、仍在打的同队队友"座位；找不到返回 null。
+   四人=对家(座位+2)，六人=下一个同队队友。用于走牌者赢墩后把先出权交给同队接风。*/
+function nextTeammateSeat(fromSeat, seats, finishOrder) {
+  const doneSeats = new Set(finishOrder.map(f => f.seat));
+  const teamOf = {};
+  seats.forEach(s => { teamOf[s.seat] = s.team; });
+  const myTeam = teamOf[fromSeat];
+  const nums = seats.map(s => s.seat).sort((a, b) => a - b);
+  const cur  = nums.indexOf(fromSeat);
+  for (let i = 1; i <= nums.length; i++) {
+    const s = nums[(cur + i) % nums.length];
+    if (doneSeats.has(s)) continue;        // 跳过已走完的人
+    if (teamOf[s] !== myTeam) continue;    // 跳过对手
+    return s;                              // 顺时针最近的同队活人
+  }
+  return null;
+}
+
 /* ══════════════════════════════════════════════════════
  * 回合计时器（阶段九核心：避免掉线/挂机永久卡死）
  * ══════════════════════════════════════════════════════ */
@@ -522,7 +540,10 @@ async function applyPass(io, state, playerId, isAuto = false) {
     if (leaderAlive) {
       state.turnSeat = state.leadSeat;
     } else {
-      state.turnSeat = nextSeat(state.leadSeat, state.seats, state.finishOrder);
+      /* 接风：赢墩者(leadSeat)已走完 → 先出权交给其"顺时针最近、仍在打的同队队友"任意出牌
+         （能进本分支说明走牌者最后一手全程无人压过；有人压过 leadSeat 会指向压牌者，不会到这）*/
+      const relay = nextTeammateSeat(state.leadSeat, state.seats, state.finishOrder);
+      state.turnSeat = relay != null ? relay : nextSeat(state.leadSeat, state.seats, state.finishOrder);
       state.leadSeat = state.turnSeat;
     }
     io.to(state.roomCode).emit('game:trick_won', { seat: state.turnSeat });
