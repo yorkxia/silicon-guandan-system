@@ -351,9 +351,11 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   /* 按各自最大牌(排除逢人配)排序贡者 → 最大者对应头游 */
   const wild = _wildCard(state.levelCard);
   const giversByTop = tributeInfo.exchanges.map(ex => {
-    const hand     = state.hands[String(ex.giverId)] || [];
-    const mustGive = _maxGiveCard(hand, wild);
-    return { ...ex, mustGiveCard: mustGive, topVal: mustGive ? _rankVal(mustGive) : 0 };
+    const hand       = state.hands[String(ex.giverId)] || [];
+    const candidates = _maxGiveCandidates(hand, wild, state.levelCard);
+    const mustGive   = candidates[0] || null;
+    return { ...ex, mustGiveCard: mustGive, giveCandidates: candidates,
+             topVal: mustGive ? _tributeVal(mustGive, state.levelCard) : 0 };
   }).sort((a, b) => b.topVal - a.topVal);
 
   const exchanges = [];
@@ -365,6 +367,7 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     if (!g.giverId || !receiverId || !g.mustGiveCard) continue;
     exchanges.push({
       giverId: g.giverId, receiverId, mustGiveCard: g.mustGiveCard,
+      giveCandidates: g.giveCandidates || [],
       tributeCard: null, returnCard: null, resisted: false, stage: 'give'
     });
     pendingCount++;
@@ -397,7 +400,8 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   io.to(roomCode).emit('tribute:phase', {
     exchanges: exchanges.map(e => ({
       giverId: e.giverId, receiverId: e.receiverId,
-      mustGiveCard: e.mustGiveCard, resisted: false, stage: e.stage
+      mustGiveCard: e.mustGiveCard, giveCandidates: e.giveCandidates || [],
+      resisted: false, stage: e.stage
     }))
   });
   return true;
@@ -419,11 +423,27 @@ function _rankChar(level) {
 function _wildCard(levelCard) {
   return levelCard ? ('H' + _rankChar(levelCard)) : null;
 }
-/* 进贡应交的牌：手中最大的一张，但排除逢人配(红桃级牌) */
-function _maxGiveCard(hand, wild) {
+/* 进贡大小：大王 > 小王 > 级牌 > A > K … （级牌抬到仅次于王，逢人配另行豁免）*/
+function _tributeVal(card, level) {
+  if (card === 'BJ') return 17;
+  if (card === 'LJ') return 16;
+  const rv = _rankVal(card);
+  if (level && rv === level) return 15;     // 级牌：高于 A(14)、仅次于王
+  return rv;
+}
+/* 进贡候选：抬级后最大点数那一档的全部牌，排除逢人配(红桃级牌)。
+   平手多张时供牌方可任选其一；仅一张时=强制那张。极端全为逢人配才回退。*/
+function _maxGiveCandidates(hand, wild, level) {
   const pool = hand.filter(c => c !== wild);
   const src  = pool.length ? pool : hand;
-  return sortHand(src)[0] || null;
+  if (!src.length) return [];
+  let top = -1;
+  src.forEach(c => { const v = _tributeVal(c, level); if (v > top) top = v; });
+  return src.filter(c => _tributeVal(c, level) === top);
+}
+/* 进贡应交的牌：候选里的第一张（供默认/兼容用）*/
+function _maxGiveCard(hand, wild, level) {
+  return _maxGiveCandidates(hand, wild, level)[0] || null;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -669,8 +689,8 @@ module.exports = function(io, socket) {
         socket.emit('tribute:phase', {
           exchanges: state.tributePhase.exchanges.map(e => ({
             giverId: e.giverId, receiverId: e.receiverId,
-            mustGiveCard: e.mustGiveCard, tributeCard: e.tributeCard,
-            resisted: e.resisted, stage: e.stage
+            mustGiveCard: e.mustGiveCard, giveCandidates: e.giveCandidates || [],
+            tributeCard: e.tributeCard, resisted: e.resisted, stage: e.stage
           }))
         });
       }
@@ -737,7 +757,9 @@ module.exports = function(io, socket) {
       );
       if (!ex) return socket.emit('tribute:invalid', { message: '您无需进贡或已完成' });
 
-      if (card !== ex.mustGiveCard)
+      /* 供牌须是"抬级后最大点数那一档"的任意一张（排除逢人配红桃级牌）；平手可选、独一即强制 */
+      const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+      if (cands.indexOf(card) < 0)
         return socket.emit('tribute:invalid', { message: '必须进贡您手中最大的牌' });
       const hand = state.hands[String(player.id)] || [];
       if (!hand.includes(card))
