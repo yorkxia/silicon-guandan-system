@@ -291,14 +291,14 @@
     /* 手牌横向滚动 */
     #hand-scroll {
       overflow-x: auto; overflow-y: hidden; display: flex;
-      padding: 4px 14px 6px;
+      padding: 4px 14px 6px 54px;   /* 左侧留 54px 让开左下角三个圆球，最大牌不被遮 */
       scrollbar-width: none; -ms-overflow-style: none;
     }
     #hand-scroll::-webkit-scrollbar { display: none; }
 
     /* 单张手牌（放大字号，适老化） */
     .hand-card {
-      flex-shrink: 0; width: 58.5px; height: 84px; border-radius: 6.75px;
+      flex-shrink: 0; width: 51.5px; height: 74px; border-radius: 6px;   /* 缩小约12%，避免最大牌被圆球遮挡 */
       background: #fff; border: 1px solid #ddd;
       box-shadow: 2px 3px 8px rgba(0,0,0,.45);
       margin-left: -18px;
@@ -390,10 +390,10 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -58.5px; }        /* 84-58.5=25.5px 露出点数+花色 */
+    .hand-col .hand-card.stacked { margin-top: -51.5px; }        /* 74-51.5=22.5px 露出点数+花色 */
     body.mode-6p .hand-col .hand-card.stacked { margin-top: -44px; }
     body.mode-6p .hand-col { margin-left: 3px; }
-    #hand-scroll { align-items: flex-end; justify-content: center; }
+    #hand-scroll { align-items: flex-end; justify-content: flex-start; }   /* 左对齐：最大牌固定在圆球右侧，始终可点 */
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
 
     /* 点数 + 花色：花色 100% 在点数右侧同一行、不换行（放大，便于老年人辨认）*/
