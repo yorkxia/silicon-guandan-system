@@ -2010,12 +2010,44 @@ function comboTapBall(el, fn){
   if (typeof fn === 'function') fn();
 }
 
+/* ── 滑动选牌：手指/鼠标划过多张牌=依次选中（松手不自动出，仍需点绿色"出牌"）── */
+var _swipe = { active:false, seen:null };
+function swipeMove(e){
+  if (!_swipe.active) return;
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var card = el && el.closest ? el.closest('.hand-card') : null;
+  if (!card || card.dataset.code == null) return;
+  var key = card.dataset.code + '_' + card.dataset.idx;
+  if (_swipe.seen[key]) return;
+  _swipe.seen[key] = true;
+  if (selected.indexOf(key) < 0) {
+    selected.push(key);
+    card.classList.add('selected');   // 直接加类，不整重绘，避免打断指针拖动
+    updateSelInfo(); syncButtons(); updatePlayButtonState();
+  }
+}
+function swipeEnd(){
+  _swipe.active = false; _swipe.seen = null;
+  document.removeEventListener('pointermove', swipeMove);
+  document.removeEventListener('pointerup', swipeEnd);
+  document.removeEventListener('pointercancel', swipeEnd);
+}
+function swipeStart(e){
+  if (typeof tbEx !== 'undefined' && tbEx.length) return;   // 进贡态不滑选（供/还是单张点选）
+  _swipe.active = true; _swipe.seen = {};
+  document.addEventListener('pointermove', swipeMove);
+  document.addEventListener('pointerup', swipeEnd);
+  document.addEventListener('pointercancel', swipeEnd);
+}
+(function(){ var h = document.getElementById('hand-scroll'); if (h) h.addEventListener('pointerdown', swipeStart); })();
+
 /* 构建单张手牌 DOM */
 function buildHandCardEl(code, idx, onClick){
   var key  = code + '_' + idx;
   var isSel = selected.indexOf(key) >= 0;
   var card = document.createElement('div');
   card.className = 'hand-card' + (isSel ? ' selected' : '');
+  card.dataset.code = code; card.dataset.idx = idx;   // 供滑动选牌命中
   if (code === 'BJ') {
     card.classList.add('joker-big');
     card.innerHTML = '<div class="joker-label" style="color:#D4AC0D">大<br>王</div>';
