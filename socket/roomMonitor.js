@@ -18,10 +18,12 @@ function startRoomMonitor(io, io6) {
 
 /* 扫一个命名空间下满 12h 的活跃房间 */
 async function sweep(ioNs, prefix, roomsTbl, seatsTbl) {
-  /* ① 兜底：任何活跃房间只要"全部座位掉线(全AI托管)"→ 立即关闭、不再进人（不等12h、不倒计时）*/
+  /* ① 兜底：已开赛(started_at 非空)的房间只要"全部座位掉线(全AI托管)"→ 立即关闭、不再进人。
+     仅限已开赛：未开赛的私人房/等候房正常会短暂只有1人或建房者socket瞬断，不能误关。*/
   const dead = await query(
     `SELECT r.id, r.room_code FROM ${roomsTbl} r
       WHERE r.status IN ('waiting','playing')
+        AND r.started_at IS NOT NULL
         AND (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id) > 0
         AND (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id AND s.is_connected=TRUE) = 0`
   );
