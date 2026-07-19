@@ -407,13 +407,10 @@ async function startTributePhase(io, roomCode, tributeInfo) {
                          headPlayerId: tributeInfo.headPlayerId };
   await persistState(state);
 
-  io.to(roomCode).emit('tribute:phase', {
-    exchanges: exchanges.map(e => ({
-      giverId: e.giverId, receiverId: e.receiverId,
-      mustGiveCard: e.mustGiveCard, giveCandidates: e.giveCandidates || [],
-      resisted: false, stage: e.stage
-    }))
-  });
+  /* 先让所有客户端发牌渲染本局新手牌（game:starting→request_hand→game:hand），
+     再由各自 request_hand 顺带下发 tribute:phase，确保"先发牌→后供牌"，
+     避免进贡界面盖在未发牌的等待桌面上、在残留旧手牌上供牌。*/
+  io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
   return true;
 }
 
