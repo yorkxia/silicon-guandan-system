@@ -5,7 +5,7 @@ const {
   joinRoomByCode, getRoomState
 } = require('../db/gdo6');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
-const { initGameState, startTributePhase } = require('./game6');
+const { initGameState, startTributePhase, seedDisconnectedFromDb } = require('./game6');
 
 /* ══════════════════════════════════════════════════════
  * 房间生命周期：赛事大屏不满员 → 等待 5 分钟 → 警告 40 秒 → 永久关闭
@@ -104,14 +104,22 @@ async function dealAndStart(io, roomCode, state) {
 
   console.log(`[掼蛋] 🃏 发牌 · ${roomCode} · 第${newRound}局 · 每人27张`);
 
+  /* 开局即离线(上一局起就没回座)的座位 → 本局直接机器人托管，避免出牌/进贡卡死 */
+  const connMap = {};
+  sortedSeats.forEach(s => { connMap[s.seat] = !!s.is_connected; });
+
   /* 六人赛事：检查是否有上一局的进贡待处理 */
   const tributeRaw = state.room.tribute_json;
   if (is6p && tributeRaw) {
     const tributeInfo = typeof tributeRaw === 'string' ? JSON.parse(tributeRaw) : tributeRaw;
     const started = await startTributePhase(io, roomCode, tributeInfo);
-    if (started) return; // startTributePhase 内部会在合适时机 emit game:starting
+    if (started) {
+      if (gs) seedDisconnectedFromDb(io, gs, connMap);   // 含进贡阶段则驱动机器人自动供/还
+      return; // startTributePhase 内部会在合适时机 emit game:starting
+    }
   }
 
+  if (gs) seedDisconnectedFromDb(io, gs, connMap);
   io.to(roomCode).emit('game:starting', { roomCode, roundId });
 }
 
@@ -166,10 +174,24 @@ module.exports = function(io, socket) {
         return;
       }
 
-      /* 进行中的赛事只允许"原玩友"回座续打（走上面的"回原房"分支）；
-         新手不接替进行中牌局——掉线座位由 AI 托管，原玩友随时重连恢复。
-         故不再把新玩家塞进"过半掉线"的进行中房间(findRevivalRoom 已停用)，
-         新玩家只进"尚未开赛、还在填人"的房间(findOrCreateOpenRoom 只返回 is_full=FALSE)。*/
+      /* 局间接替：若有"满员、局间(waiting)、存在机器人托管空座"的随机房，
+         优先让新玩家接手一个托管座（座号/队伍不变，本局局分由新玩家继承），把被弃赛事救活。
+         原玩友仍可随时重连回原座（走上面的"回原房"分支，优先级更高）。*/
+      const reviveCode = await findRevivalRoom();
+      if (reviveCode) {
+        const rr = await joinRoomByCode(reviveCode, player.id, socket.id);
+        if (!rr.error && rr.takeover) {
+          socket.join(reviveCode);
+          socket.emit('queue:joined', { roomCode: reviveCode });
+          const rst = await getRoomState(reviveCode);
+          await broadcastWaiting(io, reviveCode, rst);
+          io.to(reviveCode).emit('room:update', { state: rst });
+          return;   // 接手托管座 → 等下一局照常发牌（不即时开局，保留续局窗口）
+        }
+        /* 竞态：座位已被别人接手/原玩友已回座 → 落到开放房逻辑 */
+      }
+
+      /* 否则进"尚未开赛、还在填人"的房间(findOrCreateOpenRoom 只返回 is_full=FALSE)。*/
       const roomCode = await findOrCreateOpenRoom();
       const result   = await joinRoomByCode(roomCode, player.id, socket.id);
       if (result.error) return socket.emit('queue:error', { message: result.error });

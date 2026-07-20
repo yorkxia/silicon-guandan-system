@@ -11,9 +11,10 @@ const gameStates = require('./gameState6');
 /* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
    在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
 */
-const TURN_SECONDS       = 30;   // 常规回合：第一家出牌后每回合 30 秒
-const FIRST_TURN_SECONDS = 50;   // 开局第一手：留 50 秒看牌
+const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
+const FIRST_TURN_SECONDS = 25;   // 开局第一手：留 25 秒看牌
 const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
+const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode, bankerTeam) {
@@ -32,6 +33,7 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     totalPlayers: seats.length,
     tributePhase: null,   // 仅六人赛事使用
     disconnected: new Set(), // 掉线的座位号集合（阶段九）
+    graceTimers:  {},     // seat -> 40 秒宽限计时器句柄（到点转机器人托管）
     turnTimer:    null,   // setTimeout 句柄
     turnDeadline: 0,      // 当前回合截止时间戳（毫秒）
     firstMove:    true,   // 开局第一手（用于40秒看牌时间）
@@ -83,6 +85,56 @@ function clearTurnTimer(state) {
 
 function isSeatDisconnected(state, seat) {
   return state.disconnected && state.disconnected.has(seat);
+}
+function isPlayerSeatDisconnected(state, playerId) {
+  const s = state.seats.find(x => x.playerId === playerId);
+  return s ? isSeatDisconnected(state, s.seat) : false;
+}
+
+/* ── 40 秒宽限托管：玩家退出/掉线后先给 40 秒回来，到点才转机器人托管 ──
+   期间牌局照常推进（轮到该座位则由超时逻辑代打），满 40 秒标记为托管。*/
+function scheduleTakeover(io, state, seat) {
+  if (!state.graceTimers) state.graceTimers = {};
+  if (state.graceTimers[seat] || isSeatDisconnected(state, seat)) return;
+  const seatObj = state.seats.find(s => s.seat === seat);
+  io.to(state.roomCode).emit('game:player_connection', {
+    seat, name: seatObj ? seatObj.name : '', connected: false
+  });
+  state.graceTimers[seat] = setTimeout(() => {
+    state.graceTimers && delete state.graceTimers[seat];
+    applyTakeover(io, state, seat).catch(e => console.error('[takeover6]', e.message));
+  }, TAKEOVER_GRACE_MS);
+}
+function cancelTakeover(state, seat) {
+  if (state.graceTimers && state.graceTimers[seat]) {
+    clearTimeout(state.graceTimers[seat]);
+    delete state.graceTimers[seat];
+  }
+}
+function clearAllGraceTimers(state) {
+  if (!state.graceTimers) return;
+  for (const k of Object.keys(state.graceTimers)) clearTimeout(state.graceTimers[k]);
+  state.graceTimers = {};
+}
+/* 宽限到点：正式转机器人托管。全部座位托管→立即关房；进贡阶段→驱动机器人供还；轮到该座位→缩短计时尽快代打。*/
+async function applyTakeover(io, state, seat) {
+  if (gameStates.get(state.roomCode) !== state) return;
+  if (isSeatDisconnected(state, seat)) return;
+  state.disconnected.add(seat);
+  const seatObj = state.seats.find(s => s.seat === seat);
+  io.to(state.roomCode).emit('game:player_connection', {
+    seat, name: seatObj ? seatObj.name : '', connected: false
+  });
+  if (state.seats.every(s => state.disconnected.has(s.seat))) {
+    await closeAbandonedRoom(io, state);
+    return;
+  }
+  if (state.tributePhase) {
+    await driveTributeBots(io, state);
+  } else if (state.turnSeat === seat && state.turnTimer) {
+    startTurnTimer(io, state);
+  }
+  broadcastState(io, state);
 }
 
 /* 启动/重置当前回合计时器 */
@@ -318,6 +370,7 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     majorityOffline: state.disconnected ? (state.disconnected.size * 2 > state.seats.length) : false
   });
 
+  clearAllGraceTimers(state);
   gameStates.delete(state.roomCode);
 }
 
@@ -440,6 +493,117 @@ function _maxGiveCandidates(hand, wild, level) {
 /* 进贡应交的牌：候选里的第一张（供默认/兼容用）*/
 function _maxGiveCard(hand, wild, level) {
   return _maxGiveCandidates(hand, wild, level)[0] || null;
+}
+
+/* 机器人还贡：合法牌(≤10、非逢人配、非级牌)里最小的一张；极端无合法牌则回退最小非逢人配 */
+function _botReturnCard(hand, state) {
+  const wild = _wildCard(state.levelCard);
+  const legal = hand.filter(c =>
+    c !== wild && !(state.levelCard && _rankVal(c) === state.levelCard) && _rankVal(c) <= 10
+  );
+  const pool = legal.length ? legal : hand.filter(c => c !== wild);
+  const src  = pool.length ? pool : hand.slice();
+  return src.sort((a, b) => _rankVal(a) - _rankVal(b))[0] || null;
+}
+
+/* 私发某玩家最新手牌（仅当其 socket 在线）*/
+function emitHand(io, state, playerId, hand) {
+  const s = state.seats.find(x => x.playerId === playerId);
+  if (s && s.socketId) io.to(s.socketId).emit('game:hand_update', { hand: sortHand(hand) });
+}
+
+/* ── 进贡核心：供牌（socket 处理器与机器人托管共用）── */
+async function applyTributeGive(io, state, giverId, card) {
+  if (!state.tributePhase) return { error: '非进贡阶段' };
+  const ex = state.tributePhase.exchanges.find(e => e.stage === 'give' && e.giverId === giverId);
+  if (!ex) return { error: '您无需进贡或已完成' };
+  const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+  if (cands.indexOf(card) < 0) return { error: '必须进贡您手中最大的牌' };
+  const hand = state.hands[String(giverId)] || [];
+  if (!hand.includes(card)) return { error: '牌不在手中' };
+
+  const newHand = [...hand];
+  newHand.splice(newHand.indexOf(card), 1);
+  state.hands[String(giverId)] = newHand;
+  ex.tributeCard = card;
+  ex.stage       = 'return';
+  await persistState(state);
+
+  emitHand(io, state, giverId, newHand);
+  io.to(state.roomCode).emit('tribute:card_flew', {
+    giverId: ex.giverId, receiverId: ex.receiverId, tributeCard: card
+  });
+  return { ok: true };
+}
+
+/* ── 还贡核心：还牌(≤10、非逢人配、非级牌)（socket 处理器与机器人托管共用）── */
+async function applyTributeReturn(io, state, receiverId, returnCard) {
+  if (!state.tributePhase) return { error: '非进贡阶段' };
+  const ex = state.tributePhase.exchanges.find(e => e.stage === 'return' && e.receiverId === receiverId);
+  if (!ex) return { error: '还没轮到您还贡或已完成' };
+
+  const receiverHand = state.hands[String(receiverId)] || [];
+  if (!receiverHand.includes(returnCard)) return { error: '请选择手中的牌还贡' };
+  const wild = _wildCard(state.levelCard);
+  if (returnCard === wild) return { error: '红桃级牌(逢人配)不可用于还贡' };
+  if (state.levelCard && _rankVal(returnCard) === state.levelCard) return { error: '级牌不可用于还贡' };
+  if (_rankVal(returnCard) > 10) return { error: '还贡的牌点数不得大于10' };
+
+  const newRHand = [...receiverHand, ex.tributeCard];
+  newRHand.splice(newRHand.indexOf(returnCard), 1);
+  state.hands[String(receiverId)]  = newRHand;
+  state.hands[String(ex.giverId)]  = [...(state.hands[String(ex.giverId)] || []), returnCard];
+  ex.returnCard = returnCard;
+  ex.stage      = 'done';
+  state.tributePhase.pendingCount--;
+
+  emitHand(io, state, receiverId, newRHand);
+  io.to(state.roomCode).emit('tribute:exchange_done', {
+    giverId: ex.giverId, receiverId: ex.receiverId, tributeCard: ex.tributeCard, returnCard
+  });
+
+  if (state.tributePhase.pendingCount === 0) await finalizeTribute(io, state);
+  return { ok: true };
+}
+
+/* 所有还贡完毕 → 按首抓规则开局 */
+async function finalizeTribute(io, state) {
+  const ls = state.tributePhase.leadSeat;
+  if (ls != null) { state.turnSeat = ls; state.leadSeat = ls; }
+  state.tributePhase = null;
+  await query(
+    `UPDATE gdo6_rounds SET hands_json=$1, current_hands_json=$1 WHERE id=$2`,
+    [JSON.stringify(state.hands), state.roundId]
+  );
+  await persistState(state);
+  await query(`UPDATE gdo6_rooms SET tribute_json=NULL WHERE room_code=$1`, [state.roomCode]);
+  io.to(state.roomCode).emit('tribute:done', {});
+  io.to(state.roomCode).emit('game:starting', { roomCode: state.roomCode, roundId: state.roundId });
+  startTurnTimer(io, state);
+}
+
+/* 机器人托管：把当前所有"轮到已托管座位"的供/还自动完成，直到无可自动推进或进贡结束。
+   保证任何玩家退出/掉线满 40 秒后，供牌/还供不会卡死。*/
+async function driveTributeBots(io, state) {
+  let progressed = true;
+  while (progressed && state.tributePhase) {
+    progressed = false;
+    for (const ex of state.tributePhase.exchanges) {
+      if (ex.stage === 'give' && isPlayerSeatDisconnected(state, ex.giverId)) {
+        const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+        if (cands[0]) {
+          const r = await applyTributeGive(io, state, ex.giverId, cands[0]);
+          if (r.ok) { progressed = true; break; }
+        }
+      } else if (ex.stage === 'return' && isPlayerSeatDisconnected(state, ex.receiverId)) {
+        const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
+        if (card) {
+          const r = await applyTributeReturn(io, state, ex.receiverId, card);
+          if (r.ok) { progressed = true; break; }
+        }
+      }
+    }
+  }
 }
 
 /* ══════════════════════════════════════════════════════
@@ -581,6 +745,7 @@ async function applyPass(io, state, playerId, isAuto = false) {
 async function closeAbandonedRoom(io, state) {
   try {
     clearTurnTimer(state);
+    clearAllGraceTimers(state);
     gameStates.delete(state.roomCode);
     await query(`UPDATE gdo6_rooms SET status='abandoned', is_full=FALSE WHERE room_code=$1`, [state.roomCode]);
     io.to(state.roomCode).emit('room:closed', {});
@@ -651,15 +816,17 @@ module.exports = function(io, socket) {
       const mySeatObj = state.seats.find(s => s.playerId === player.id);
       if (mySeatObj) mySeatObj.socketId = socket.id;
 
-      /* 重连：清除掉线标记并广播（阶段九）*/
-      const wasDisconnected = isSeatDisconnected(state, seat.seat);
-      if (wasDisconnected) {
-        state.disconnected.delete(seat.seat);
+      /* 重连/回座：取消 40 秒宽限、清除托管标记并广播（阶段九）*/
+      const wasAway = isSeatDisconnected(state, seat.seat) ||
+                      (state.graceTimers && state.graceTimers[seat.seat]);
+      cancelTakeover(state, seat.seat);
+      if (isSeatDisconnected(state, seat.seat)) state.disconnected.delete(seat.seat);
+      if (wasAway) {
         io.to(roomCode).emit('game:player_connection', {
           seat: seat.seat, name: seat.display_name, connected: true
         });
-        /* 若正轮到该玩家，用正常时长重启计时 */
-        if (state.turnSeat === seat.seat) startTurnTimer(io, state);
+        /* 若正轮到该玩家且非进贡，用正常时长重启计时 */
+        if (state.turnSeat === seat.seat && !state.tributePhase) startTurnTimer(io, state);
       }
 
       const myHand  = sortHand(state.hands[String(player.id)] || []);
@@ -764,36 +931,15 @@ module.exports = function(io, socket) {
       const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
       if (!player) return;
 
-      const ex = state.tributePhase.exchanges.find(
-        e => e.stage === 'give' && e.giverId === player.id
-      );
-      if (!ex) return socket.emit('tribute:invalid', { message: '您无需进贡或已完成' });
-
-      /* 供牌须是"抬级后最大点数那一档"的任意一张（排除逢人配红桃级牌）；平手可选、独一即强制 */
-      const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
-      if (cands.indexOf(card) < 0)
-        return socket.emit('tribute:invalid', { message: '必须进贡您手中最大的牌' });
-      const hand = state.hands[String(player.id)] || [];
-      if (!hand.includes(card))
-        return socket.emit('tribute:invalid', { message: '牌不在手中' });
-
-      const newHand = [...hand];
-      newHand.splice(newHand.indexOf(card), 1);
-      state.hands[String(player.id)] = newHand;
-      ex.tributeCard = card;
-      ex.stage       = 'return';
-      await persistState(state);
-
-      socket.emit('game:hand_update', { hand: sortHand(newHand) });
-      io.to(roomCode).emit('tribute:card_flew', {
-        giverId: ex.giverId, receiverId: ex.receiverId, tributeCard: card
-      });
+      const r = await applyTributeGive(io, state, player.id, card);
+      if (r.error) return socket.emit('tribute:invalid', { message: r.error });
+      await driveTributeBots(io, state);   // 接收方若已托管 → 机器人自动还贡
     } catch (e) {
       console.error('[tribute:give]', e.message);
     }
   });
 
-  /* ── 还贡：接收方选择归还的牌（点数≤10、非逢人配）── */
+  /* ── 还贡：接收方选择归还的牌（点数≤10、非逢人配、非级牌）── */
   socket.on('tribute:return', async function(data) {
     try {
       const { token, roomCode, returnCard } = data;
@@ -805,53 +951,9 @@ module.exports = function(io, socket) {
       );
       if (!player) return;
 
-      const ex = state.tributePhase.exchanges.find(
-        e => e.stage === 'return' && e.receiverId === player.id
-      );
-      if (!ex) return socket.emit('tribute:invalid', { message: '还没轮到您还贡或已完成' });
-
-      const receiverHand = state.hands[String(player.id)] || [];
-      if (!receiverHand.includes(returnCard))
-        return socket.emit('tribute:invalid', { message: '请选择手中的牌还贡' });
-
-      /* 还牌限制：不可为逢人配(红桃级牌)，且点数不得大于10 */
-      const wild = _wildCard(state.levelCard);
-      if (returnCard === wild)
-        return socket.emit('tribute:invalid', { message: '红桃级牌(逢人配)不可用于还贡' });
-      if (_rankVal(returnCard) > 10)
-        return socket.emit('tribute:invalid', { message: '还贡的牌点数不得大于10' });
-
-      const newRHand = [...receiverHand, ex.tributeCard];
-      newRHand.splice(newRHand.indexOf(returnCard), 1);
-      state.hands[String(player.id)]    = newRHand;
-      state.hands[String(ex.giverId)]   = [...(state.hands[String(ex.giverId)] || []), returnCard];
-
-      ex.returnCard = returnCard;
-      ex.stage      = 'done';
-      state.tributePhase.pendingCount--;
-
-      socket.emit('game:hand_update', { hand: sortHand(newRHand) });
-      io.to(roomCode).emit('tribute:exchange_done', {
-        giverId: ex.giverId, receiverId: ex.receiverId,
-        tributeCard: ex.tributeCard, returnCard
-      });
-
-      if (state.tributePhase.pendingCount === 0) {
-        const ls = state.tributePhase.leadSeat;
-        if (ls != null) { state.turnSeat = ls; state.leadSeat = ls; }
-        state.tributePhase = null;
-
-        await query(
-          `UPDATE gdo6_rounds SET hands_json=$1, current_hands_json=$1 WHERE id=$2`,
-          [JSON.stringify(state.hands), state.roundId]
-        );
-        await persistState(state);
-        await query(`UPDATE gdo6_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
-
-        io.to(roomCode).emit('tribute:done', {});
-        io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
-        startTurnTimer(io, state);
-      }
+      const r = await applyTributeReturn(io, state, player.id, returnCard);
+      if (r.error) return socket.emit('tribute:invalid', { message: r.error });
+      await driveTributeBots(io, state);   // 其余待办若为托管座位 → 机器人自动接替
     } catch (e) {
       console.error('[tribute:return]', e.message);
     }
@@ -865,19 +967,8 @@ module.exports = function(io, socket) {
           const seatObj = state.seats.find(s => s.socketId === socket.id);
           if (!seatObj) continue;
           seatObj.socketId = null;
-          state.disconnected.add(seatObj.seat);
-          io.to(state.roomCode).emit('game:player_connection', {
-            seat: seatObj.seat, name: seatObj.name, connected: false
-          });
-          /* 全部座位掉线(全AI托管) → 立即关闭房间、不再进人 */
-          if (state.seats.every(s => state.disconnected.has(s.seat))) {
-            await closeAbandonedRoom(io, state);
-            break;
-          }
-          /* 若正轮到掉线者，缩短计时尽快托管 */
-          if (state.turnSeat === seatObj.seat && state.turnTimer) {
-            startTurnTimer(io, state);
-          }
+          /* 退出/掉线：给 40 秒宽限，回来则续打；满 40 秒才转机器人托管 */
+          scheduleTakeover(io, state, seatObj.seat);
           break;   // 一个 socket 只属于一个房间
         }
       } catch (e) { console.error('[game.disconnect]', e.message); }
@@ -888,6 +979,14 @@ module.exports = function(io, socket) {
 
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
+
+/* 供 matchmaking6 在发牌开局时调用：把开局即离线(未回座)的座位直接置为机器人托管 */
+module.exports.seedDisconnectedFromDb = function(io, state, seatConnMap) {
+  for (const s of state.seats) {
+    if (seatConnMap[s.seat] === false) state.disconnected.add(s.seat);
+  }
+  if (state.tributePhase) driveTributeBots(io, state).catch(e => console.error('[seed-tribute6]', e.message));
+};
 
 /* 供离线集成测试使用（阶段十）*/
 module.exports._test = {
