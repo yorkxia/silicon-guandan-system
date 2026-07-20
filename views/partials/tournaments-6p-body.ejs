@@ -501,6 +501,15 @@ function openQueue() {
   }
   tryJoin();
 }
+/* 从"随机参赛卡"点入：URL 带 ?auto=1 → 打开页面即自动开始随机匹配 */
+(function(){
+  try {
+    var ap = new URLSearchParams(window.location.search).get('auto');
+    if (ap === '1' || ap === 'queue') {
+      window.addEventListener('load', function(){ setTimeout(openQueue, 400); });
+    }
+  } catch(e){}
+})();
 function cancelQueue() {
   clearInterval(qTimer);
   document.getElementById('overlay-queue').style.display = 'none';

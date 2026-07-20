@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>四人掼蛋赛事 · 选择模式</title>
+  <% var _b = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : ''; %>
+  <!-- 微信/Messenger 富预览卡片（随机参赛卡分享用）-->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="硅谷掼蛋协会 · 四人掼蛋随机赛事">
+  <meta property="og:description" content="点开即可直接参赛，系统自动匹配队友与对手 · 免下载免登录">
+  <meta property="og:image" content="<%= _b %>/img/assoc-logo.png">
+  <meta property="og:url" content="<%= _b %>/play/4p?auto=1">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/css/style.css">
   <%- include('partials/pwa-head') %>
 </head>

@@ -444,12 +444,14 @@ router.get('/play', (req, res) => {
 
 router.get('/play/4p', (req, res) => {
   trackPlayVisit(req, 'play-4p', '4p');
-  res.render('play-4p');
+  const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.get('host'));
+  res.render('play-4p', { baseUrl });
 });
 
 router.get('/play/6p', (req, res) => {
   trackPlayVisit(req, 'play-6p', '6p');
-  res.render('play-6p');
+  const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.get('host'));
+  res.render('play-6p', { baseUrl });
 });
 
 /* tournaments-online-body 的链接格式是 otBase + /tournaments-4p|6p */

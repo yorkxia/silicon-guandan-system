@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成<%= modeLabel %>掼蛋随机参赛卡 · 硅谷掼蛋协会</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/html2canvas.min.js"></script>
+  <style>
+    .ic-wrap { max-width: 860px; }
+    .ic-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; flex-wrap: wrap; }
+    .ic-toolbar h2 { font-size: 1.25rem; font-weight: 900; color: #8B0000; flex: 1; margin: 0; }
+    .ic-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 10px;
+      font-size: 0.9rem; font-weight: 700; cursor: pointer; border: none; letter-spacing: 1px; transition: all 0.2s; }
+    .ic-btn-red { background: linear-gradient(135deg, #C0000F, #8B0000); color: #fff; box-shadow: 0 4px 14px rgba(192,0,15,0.35); }
+    .ic-btn-red:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(192,0,15,0.5); }
+    .ic-btn-outline { background: #fff; color: #8B0000; border: 2px solid #C0000F; }
+    .ic-btn-outline:hover { background: #FFF0F0; }
+    .ic-hint { font-size: 0.82rem; color: #888; margin-bottom: 20px; line-height: 1.8;
+      padding: 12px 16px; background: #FFF8F0; border-left: 4px solid #D4AC0D; border-radius: 0 8px 8px 0; }
+    #invite-card-capture { width: 750px; background: linear-gradient(160deg, #1a0505 0%, #3D0A0A 45%, #1a0505 100%);
+      border-radius: 24px; padding: 50px 48px 44px; position: relative; overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4); margin: 0 auto; }
+    .ic-bg-suits { position: absolute; inset: 0; font-size: 9rem; line-height: 1; color: rgba(255,255,255,0.03);
+      pointer-events: none; display: flex; flex-wrap: wrap; align-content: flex-start; padding: 10px; gap: 0; letter-spacing: 10px; }
+    .ic-gold-top { position: absolute; top: 0; left: 0; right: 0; height: 6px;
+      background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent); }
+    .ic-gold-bottom { position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
+      background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent); }
+    .ic-logo-row { display: flex; align-items: center; gap: 18px; margin-bottom: 32px; position: relative; }
+    .ic-logo { width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(212,172,13,0.7);
+      box-shadow: 0 0 24px rgba(212,172,13,0.35); object-fit: cover; background: #fff; padding: 2px; flex-shrink: 0; }
+    .ic-assoc-name { font-size: 0.78rem; color: rgba(212,172,13,0.8); letter-spacing: 4px; margin-bottom: 6px; }
+    .ic-assoc-title { font-size: 1.6rem; font-weight: 900; color: #fff; letter-spacing: 3px; line-height: 1.2; }
+    .ic-assoc-en { font-size: 0.68rem; color: rgba(255,255,255,0.45); letter-spacing: 3px; margin-top: 4px; }
+    .ic-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(212,172,13,0.6), transparent); margin: 0 0 28px; }
+    .ic-main-title { text-align: center; margin-bottom: 10px; }
+    .ic-main-title h2 { font-size: 2rem; font-weight: 900; color: #FFE066; letter-spacing: 6px; margin: 0 0 6px; text-shadow: 0 2px 12px rgba(212,172,13,0.4); }
+    .ic-main-title p { font-size: 0.8rem; color: rgba(255,255,255,0.5); letter-spacing: 4px; }
+    .ic-suits-row { text-align: center; font-size: 1.4rem; letter-spacing: 14px; color: rgba(255,255,255,0.2); margin: 12px 0 24px; }
+    .ic-features { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px; }
+    .ic-feature-tag { padding: 5px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; letter-spacing: 1px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(212,172,13,0.35); color: rgba(255,255,255,0.85); }
+    .ic-qr-section { display: flex; align-items: center; gap: 28px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(212,172,13,0.2); border-radius: 18px; padding: 24px 28px; margin-bottom: 24px; }
+    .ic-qr-box { background: #FFF8F0; padding: 10px; border-radius: 12px; border: 2px solid rgba(212,172,13,0.5);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3); flex-shrink: 0; }
+    .ic-qr-box img { width: 160px; height: 160px; display: block; }
+    .ic-qr-text { flex: 1; color: #fff; }
+    .ic-qr-text h3 { font-size: 1.1rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; margin: 0 0 10px; }
+    .ic-qr-text ul { list-style: none; padding: 0; margin: 0; font-size: 0.82rem; color: rgba(255,255,255,0.8); line-height: 2.2; }
+    .ic-qr-text ul li::before { content: '✦ '; color: #D4AC0D; }
+    .ic-pc-section { display: flex; align-items: center; gap: 18px; background: rgba(212,172,13,0.08);
+      border: 1px solid rgba(212,172,13,0.3); border-radius: 16px; padding: 18px 24px; margin-bottom: 24px; }
+    .ic-pc-icon { font-size: 2.6rem; flex-shrink: 0; line-height: 1; }
+    .ic-pc-info { flex: 1; min-width: 0; }
+    .ic-pc-label { font-size: 1rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; margin-bottom: 8px; }
+    .ic-pc-link { display: inline-block; word-break: break-all; max-width: 100%; font-size: 0.9rem; font-weight: 700;
+      letter-spacing: 1px; color: #1a0505; background: linear-gradient(135deg, #FFE066, #D4AC0D);
+      padding: 9px 18px; border-radius: 10px; text-decoration: none; box-shadow: 0 3px 12px rgba(212,172,13,0.4); }
+    .ic-pc-link:hover { filter: brightness(1.08); }
+    .ic-pc-hint { font-size: 0.72rem; color: rgba(255,255,255,0.5); margin-top: 8px; letter-spacing: 1px; }
+    .ic-footer-text { text-align: center; font-size: 0.73rem; color: rgba(255,255,255,0.35); letter-spacing: 2px; line-height: 1.8; }
+    .ic-preview-wrap { overflow-x: auto; padding-bottom: 20px; }
+    #download-status { display: none; margin-top: 12px; padding: 10px 18px; background: #E8F5E9; border-radius: 8px; color: #1A7A40; font-size: 0.88rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="admin-wrap">
+  <%- include('../partials/admin-sidebar') %>
+  <main class="a-main" style="padding:32px 36px;">
+    <div class="ic-wrap">
+
+      <div class="ic-toolbar">
+        <h2>🎲 生成<%= modeLabel %>掼蛋随机参赛卡</h2>
+        <button class="ic-btn ic-btn-outline" onclick="window.history.back()">← 返回</button>
+        <button class="ic-btn ic-btn-outline" onclick="downloadCard()" id="dl-btn">⬇️ 下载图片</button>
+        <button class="ic-btn ic-btn-red" onclick="copyShareText()" id="copy-share-btn">
+          📋 复制参赛文案（推荐）
+        </button>
+      </div>
+
+      <div class="ic-hint">
+        💡 <strong>最省事用法：</strong>点「📋 复制参赛文案」→ 直接粘贴到<strong>微信</strong>或<strong>Messenger</strong>发给玩家。
+        玩家看到的是一张<strong>可点击的链接卡片</strong>，一点即可<strong>直接进入<%= modeLabel %>掼蛋随机赛事</strong>、自动匹配队友与对手 —— 无需扫码、无需敲网址。<br>
+        <span style="color:#B8860B;">（下方精美图片可选：喜欢发图的可点「下载图片」，但图片点不动，建议连同文案一起发；也可让玩家长按识别二维码。）</span>
+      </div>
+
+      <!-- 参赛卡（此区域会被截图） -->
+      <div class="ic-preview-wrap">
+        <div id="invite-card-capture">
+          <div class="ic-gold-top"></div>
+          <div class="ic-gold-bottom"></div>
+          <div class="ic-bg-suits">♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣</div>
+
+          <div class="ic-logo-row">
+            <img src="/img/assoc-logo.png" alt="硅谷掼蛋协会" class="ic-logo">
+            <div>
+              <div class="ic-assoc-name">硅 谷 掼 蛋 协 会</div>
+              <div class="ic-assoc-title"><%= modeLabel %>掼蛋赛事</div>
+              <div class="ic-assoc-en">SILICON VALLEY GUANDAN ASSOCIATION</div>
+            </div>
+          </div>
+
+          <div class="ic-divider"></div>
+
+          <div class="ic-main-title">
+            <h2>🎲 立即随机参赛</h2>
+            <p>ONLINE TOURNAMENT · JOIN &amp; MATCH NOW</p>
+          </div>
+
+          <div class="ic-suits-row">♥ ♦ ♣ ♠</div>
+
+          <div class="ic-features">
+            <span class="ic-feature-tag">🏆 <%= modeLabel %>掼蛋</span>
+            <span class="ic-feature-tag">🎲 随机匹配</span>
+            <span class="ic-feature-tag">⚡ 一点即入</span>
+            <span class="ic-feature-tag">🌏 全球对战</span>
+          </div>
+
+          <!-- 二维码 -->
+          <div class="ic-qr-section">
+            <div class="ic-qr-box">
+              <img src="<%= qrDataUrl %>" alt="扫码参赛">
+            </div>
+            <div class="ic-qr-text">
+              <h3>📱 手机 · 扫码即入</h3>
+              <ul>
+                <li>微信：长按图片识别二维码</li>
+                <li>相机：直接扫码即可打开</li>
+                <li>打开后自动开始随机匹配</li>
+                <li>支持苹果 · 安卓 · 平板</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- 电脑端点击直接参赛 -->
+          <div class="ic-pc-section">
+            <div class="ic-pc-icon">💻</div>
+            <div class="ic-pc-info">
+              <div class="ic-pc-label">笔记本电脑 · 点击直接参赛</div>
+              <a class="ic-pc-link" href="<%= joinUrl %>" target="_blank" rel="noopener"><%= joinUrl %></a>
+              <div class="ic-pc-hint">电脑浏览器打开此链接 → 直接进入<%= modeLabel %>掼蛋随机赛事</div>
+            </div>
+          </div>
+
+          <div class="ic-footer-text">
+            硅谷掼蛋协会 · Silicon Valley Guandan Association
+          </div>
+
+          <div class="ic-gold-bottom"></div>
+        </div>
+      </div>
+
+      <div id="download-status">✅ 图片已下载！请到手机相册或下载文件夹查找「<%= downloadName %>」</div>
+
+      <!-- 微信/iOS 内置浏览器会拦截自动下载：同时展示图片供长按保存 -->
+      <div id="ic-result-box" style="display:none;text-align:center;margin-top:16px;">
+        <div style="font-size:.85rem;color:#8B0000;font-weight:700;margin-bottom:8px;">
+          👇 长按下方图片，选择「保存图片 / 存储到相册」即可
+        </div>
+        <img id="ic-result-img" style="max-width:100%;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);" alt="参赛卡">
+        <div style="margin-top:16px;padding:12px 16px;background:#FFF8F0;border:1px solid rgba(212,172,13,.4);border-radius:10px;font-size:.82rem;color:#8B0000;line-height:1.8;text-align:left;">
+          💻 <strong>发给电脑玩家：</strong>图片是图片、点不了，请把下面这个链接<strong>一起发过去</strong>，玩家点击即可直接参赛：<br>
+          <a href="<%= joinUrl %>" target="_blank" rel="noopener" style="color:#1a6bd4;word-break:break-all;font-weight:700;"><%= joinUrl %></a>
+          <button class="ic-btn ic-btn-outline" id="copy-link-btn" style="padding:4px 12px;font-size:.75rem;margin-left:8px;vertical-align:middle;" onclick="copyJoinLink()">🔗 复制链接</button>
+        </div>
+      </div>
+
+      <div id="ic-error" style="display:none;margin-top:14px;padding:12px 16px;background:#FFF0F0;border-left:4px solid #C0000F;border-radius:0 8px 8px 0;color:#8B0000;font-size:.82rem;line-height:1.7;"></div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+var JOIN_URL = '<%= joinUrl %>';
+var SHARE_TEXT = <%- JSON.stringify(shareText) %>;
+
+/* 复制整段参赛文案（含链接）— 直接粘贴进微信/Messenger 即可 */
+function copyShareText(){
+  var btn = document.getElementById('copy-share-btn');
+  var old = btn ? btn.textContent : '';
+  function done(ok){
+    if (!btn) { if(!ok) prompt('请手动复制参赛文案：', SHARE_TEXT); return; }
+    btn.textContent = ok ? '✅ 已复制！去微信/Messenger 粘贴' : '❌ 复制失败';
+    setTimeout(function(){ btn.textContent = old; }, 2400);
+  }
+  function fallback(){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = SHARE_TEXT;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta); done(ok);
+    } catch(e){ prompt('请手动复制参赛文案：', SHARE_TEXT); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(SHARE_TEXT).then(function(){ done(true); }).catch(fallback);
+  } else { fallback(); }
+}
+
+/* 复制参赛链接（连同图片一起发给电脑玩家）*/
+function copyJoinLink(){
+  var btn = document.getElementById('copy-link-btn');
+  var old = btn ? btn.textContent : '';
+  function done(ok){
+    if (!btn) { if(!ok) prompt('请手动复制参赛链接：', JOIN_URL); return; }
+    btn.textContent = ok ? '✅ 链接已复制' : '❌ 复制失败';
+    setTimeout(function(){ btn.textContent = old; }, 2000);
+  }
+  function fallback(){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = JOIN_URL;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta); done(ok);
+    } catch(e){ prompt('请手动复制参赛链接：', JOIN_URL); }
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(JOIN_URL).then(function(){ done(true); }).catch(fallback);
+  } else { fallback(); }
+}
+
+function icShowError(msg){
+  var box = document.getElementById('ic-error');
+  box.style.display = 'block';
+  box.innerHTML = '⚠️ 生成失败：' + msg +
+    '<br><span style="color:#888;">若反复失败：请截屏上方预览卡片保存，或改用 Chrome / Safari 打开本页重试。</span>';
+}
+
+function icPreloadImages(root){
+  var imgs = root.querySelectorAll('img');
+  return Promise.all(Array.prototype.map.call(imgs, function(img){
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise(function(resolve){
+      img.addEventListener('load',  resolve, { once:true });
+      img.addEventListener('error', resolve, { once:true });
+    });
+  }));
+}
+
+async function downloadCard() {
+  var btn = document.getElementById('dl-btn');
+  var oldText = btn.textContent;
+  btn.textContent = '⏳ 生成中...';
+  btn.disabled = true;
+  document.getElementById('ic-error').style.display = 'none';
+  document.getElementById('download-status').style.display = 'none';
+
+  try {
+    if (typeof html2canvas !== 'function') {
+      throw new Error('截图库(html2canvas)未加载，请刷新页面');
+    }
+    var card = document.getElementById('invite-card-capture');
+
+    if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(_){} }
+    await icPreloadImages(card);
+
+    var brokenSrcs = [];
+    var imgList = card.querySelectorAll('img');
+    for (var i = 0; i < imgList.length; i++) {
+      var im0 = imgList[i];
+      if (im0.naturalWidth > 0 && im0.naturalHeight > 0) continue;
+      if (im0.closest('.ic-qr-box')) throw new Error('二维码未能加载，请刷新页面后重试');
+      brokenSrcs.push(im0.currentSrc || im0.src);
+    }
+
+    var canvas = await html2canvas(card, {
+      scale: 2, useCORS: true, allowTaint: false,
+      backgroundColor: '#1a0505', imageTimeout: 15000, logging: false,
+      onclone: function(doc){
+        var cimgs = doc.querySelectorAll('#invite-card-capture img');
+        for (var j = 0; j < cimgs.length; j++) {
+          var s = cimgs[j].currentSrc || cimgs[j].src;
+          if (brokenSrcs.indexOf(s) >= 0 && cimgs[j].parentNode) cimgs[j].parentNode.removeChild(cimgs[j]);
+        }
+      }
+    });
+
+    var dataUrl;
+    try {
+      dataUrl = canvas.toDataURL('image/png');
+    } catch (secErr) {
+      throw new Error('图片被跨域污染，无法导出（' + (secErr.message || secErr) + '）');
+    }
+
+    var link = document.createElement('a');
+    link.download = '<%= downloadName %>';
+    link.href = dataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    var rimg = document.getElementById('ic-result-img');
+    rimg.src = dataUrl;
+    document.getElementById('ic-result-box').style.display = 'block';
+    document.getElementById('download-status').style.display = 'block';
+
+  } catch(e) {
+    console.error('[join-card] 生成失败:', e);
+    icShowError((e && e.message) ? e.message : String(e));
+  } finally {
+    btn.textContent = oldText || '⬇️ 下载图片';
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

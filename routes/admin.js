@@ -720,4 +720,29 @@ router.get('/invite-card-4p', requireAuth, async (req, res) => {
   });
 });
 
+// ── 随机参赛卡生成页（可发微信/Messenger，点击直接进入随机赛事）───────
+async function renderJoinCard(req, res, mode) {
+  const baseUrl   = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
+  const modeLabel = mode === '6p' ? '六人' : '四人';
+  const joinUrl   = `${baseUrl}/play/${mode}?auto=1`;   // ?auto=1 → 打开即自动开始随机匹配
+  // 可粘贴到微信/Messenger 的现成参赛文案（链接会自动生成富预览卡片，点击直接参赛）
+  const shareText =
+    `🎴 硅谷掼蛋协会 · ${modeLabel}掼蛋赛事\n` +
+    `${modeLabel}掼蛋 · 随机匹配 · 全球对战\n` +
+    '👇 点开链接即可直接参赛，系统自动匹配队友与对手（免下载、免登录）：\n' +
+    joinUrl;
+  const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+    width: 300, margin: 2,
+    color: { dark: '#1a0505', light: '#FFF8F0' }
+  });
+  res.render('admin/join-card', {
+    user: req.session.user,
+    activePage: `join-card-${mode}`,
+    mode, modeLabel, joinUrl, qrDataUrl, shareText,
+    downloadName: `${modeLabel}掼蛋随机参赛卡.png`
+  });
+}
+router.get('/join-card-4p', requireAuth, (req, res) => renderJoinCard(req, res, '4p'));
+router.get('/join-card-6p', requireAuth, (req, res) => renderJoinCard(req, res, '6p'));
+
 module.exports = router;
