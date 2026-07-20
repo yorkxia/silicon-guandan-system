@@ -129,6 +129,9 @@
     .h-pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
     /* 托管(掉线)座位：头像/标志变暗，示意已由 AI 接管 */
     .pbox-avatar.offline, .h-pbox-avatar.offline { filter: grayscale(.85) brightness(.6); opacity: .5; }
+    /* 机器人托管：整格由鲜艳变灰暗，一眼看清哪些位置是机器人 */
+    .pbox.offline   { filter: grayscale(1) brightness(.72); opacity: .8; border-color: rgba(150,150,150,.35) !important; }
+    .h-pbox.offline { filter: grayscale(1) brightness(.72); opacity: .8; }
     .pbox-avatar.waiting-empty, .h-pbox-avatar.waiting-empty {
       opacity: .4; border-style: dashed !important;
     }
@@ -1700,7 +1703,7 @@ function fillPlayerBox(boxId, avatarId, nameId, buddyId, ccountId, cardsId, fini
 
   /* 面板发光 */
   box.className = 'pbox ' + (dir==='h'?'pbox-top':'pbox-side') +
-    ' ' + (p.team===1?'team1':'team2') + (isActive?' active':'');
+    ' ' + (p.team===1?'team1':'team2') + (isActive?' active':'') + (offline?' offline':'');
 
   /* 完成徽章 or 牌背 */
   var finEl   = document.getElementById(finishId);
@@ -2435,6 +2438,7 @@ function render6pPlayers(pList, finOrder, turnSeat) {
         (finBadge || (p && (p.cardCount||0) <= 10 ? '<span class="h-count low" style="font-size:.6rem;padding:0 5px;border-radius:7px;">' + (p.cardCount||0) + '张</span>' : '')) +
       '</div>' +
       (cardBacks ? '<div class="h-card-fan">' + cardBacks + '</div>' : '');
+    el.classList.toggle('offline', offline);   // 机器人托管：整格变灰暗
   }
 }
 

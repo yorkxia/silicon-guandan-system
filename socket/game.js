@@ -96,11 +96,7 @@ function isPlayerSeatDisconnected(state, playerId) {
 function scheduleTakeover(io, state, seat) {
   if (!state.graceTimers) state.graceTimers = {};
   if (state.graceTimers[seat] || isSeatDisconnected(state, seat)) return;
-  const seatObj = state.seats.find(s => s.seat === seat);
-  /* 立即把座位显示为离线（灰），但 40 秒后才真正转机器人托管 */
-  io.to(state.roomCode).emit('game:player_connection', {
-    seat, name: seatObj ? seatObj.name : '', connected: false
-  });
+  /* 先给 40 秒宽限（座位仍显示在线、鲜艳）；到点才转机器人托管并置灰 */
   state.graceTimers[seat] = setTimeout(() => {
     state.graceTimers && delete state.graceTimers[seat];
     applyTakeover(io, state, seat).catch(e => console.error('[takeover]', e.message));
@@ -829,12 +825,11 @@ module.exports = function(io, socket) {
       const mySeatObj = state.seats.find(s => s.playerId === player.id);
       if (mySeatObj) mySeatObj.socketId = socket.id;
 
-      /* 重连/回座：取消 40 秒宽限、清除托管标记并广播（阶段九）*/
-      const wasAway = isSeatDisconnected(state, seat.seat) ||
-                      (state.graceTimers && state.graceTimers[seat.seat]);
+      /* 重连/回座：取消 40 秒宽限；若已被机器人托管则解除并广播恢复（座位复原为鲜艳）*/
       cancelTakeover(state, seat.seat);
-      if (isSeatDisconnected(state, seat.seat)) state.disconnected.delete(seat.seat);
-      if (wasAway) {
+      const wasDisconnected = isSeatDisconnected(state, seat.seat);
+      if (wasDisconnected) {
+        state.disconnected.delete(seat.seat);
         io.to(roomCode).emit('game:player_connection', {
           seat: seat.seat, name: seat.display_name, connected: true
         });
