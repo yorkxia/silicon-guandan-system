@@ -1,5 +1,6 @@
 /* 网上掼蛋对战 · 数据库辅助层 */
 const { query, queryOne } = require('./init');
+const { geoLocate } = require('../utils/geo');
 
 const LEVEL_NAME = { 2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'10',11:'J',12:'Q',13:'K',14:'A' };
 function levelName(n) { return LEVEL_NAME[n] || String(n); }
@@ -12,23 +13,40 @@ function genCode() {
   return `${r()}${r()}${n()}${n()}${n()}${n()}`;
 }
 
-/* ── 玩家：首次访问自动建档，之后更新名称 ── */
-async function getOrCreatePlayer(token, name) {
+/* ── 玩家地理位置：异步补齐，不阻塞加入流程（geoLocate 走 ipapi.co，可能耗时数秒） ── */
+function updatePlayerGeo(playerId, ip) {
+  Promise.resolve(geoLocate(ip)).then(function (geo) {
+    if (!geo) return null;
+    return query(
+      'UPDATE gdo_players SET country=$1, region_code=$2, city=$3 WHERE id=$4',
+      [geo.country, geo.region_code, geo.city, playerId]
+    );
+  }).catch(function () { /* 静默：定位失败不影响对战 */ });
+}
+
+/* ── 玩家：首次访问自动建档，之后更新名称 ──
+   meta（可选）：{ ip, channel } —— 来源(访问渠道) 每次加入即刷新；
+   地理位置仅在尚未采集时用 IP 异步补齐一次。 */
+async function getOrCreatePlayer(token, name, meta) {
+  meta = meta || {};
+  const channel = meta.channel || null;
   let p = await queryOne('SELECT * FROM gdo_players WHERE player_token=$1', [token]);
   if (!p) {
     const rows = await query(
-      'INSERT INTO gdo_players(player_token,display_name) VALUES($1,$2) RETURNING *',
-      [token, name || '匿名玩家']
+      'INSERT INTO gdo_players(player_token,display_name,source) VALUES($1,$2,$3) RETURNING *',
+      [token, name || '匿名玩家', channel]
     );
     p = rows[0];
   } else {
     const newName = name || p.display_name;
     await query(
-      'UPDATE gdo_players SET last_active_at=NOW(), display_name=$1 WHERE id=$2',
-      [newName, p.id]
+      'UPDATE gdo_players SET last_active_at=NOW(), display_name=$1, source=COALESCE($2,source) WHERE id=$3',
+      [newName, channel, p.id]
     );
     p.display_name = newName;
   }
+  /* 尚未采集地理位置时，用本次加入的 IP 异步补齐一次 */
+  if (meta.ip && !p.country) updatePlayerGeo(p.id, meta.ip);
   return p;
 }
 

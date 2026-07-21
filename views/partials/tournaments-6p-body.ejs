@@ -476,7 +476,7 @@
 <script>
 var GD_MODE = '6p';
 /* 六人赛事：独立连接 /g6 命名空间（与四人默认命名空间隔离）*/
-var G6 = io('/g6', { transports:['websocket','polling'] });
+var G6 = io('/g6', { transports:['websocket','polling'], query: { channel: (window.gdChannel ? window.gdChannel() : 'web') } });
 G6.on('connect', function(){ try{ G6.emit('player:join', { token: window.gdGetToken(), name: window.gdGetName() }); }catch(e){} });
 G6.on('lobby:online_count', function(c){ var el=document.getElementById('gd-online-count'); if(el) el.textContent=c; });
 var qTimer = null, qSec = 0;

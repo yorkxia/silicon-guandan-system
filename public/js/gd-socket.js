@@ -20,8 +20,19 @@
     return n;
   }
 
-  /* ── 连接 ── */
-  var socket = io({ transports: ['websocket', 'polling'] });
+  /* ── 访问渠道（来源）：微信内置浏览器 / 扫码进入 / 普通网页 ── */
+  function getChannel() {
+    try {
+      var ua = navigator.userAgent || '';
+      if (/MicroMessenger/i.test(ua)) return 'wechat';
+      var q = location.search || '';
+      if (/[?&](join|code)=/.test(q) || /\/play\/join/.test(document.referrer || '')) return 'qr';
+      return 'web';
+    } catch (e) { return 'web'; }
+  }
+
+  /* ── 连接（channel 随握手 query 上报，服务端据此写 gdo_players.source） ── */
+  var socket = io({ transports: ['websocket', 'polling'], query: { channel: getChannel() } });
 
   socket.on('connect', function() {
     socket.emit('player:join', { token: getToken(), name: getName() });
@@ -37,5 +48,6 @@
   window.gdSocket = socket;
   window.gdGetName = getName;
   window.gdGetToken = getToken;
+  window.gdChannel = getChannel;
 
 })();

@@ -7,6 +7,15 @@ const {
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
 const { initGameState, startTributePhase, seedDisconnectedFromDb } = require('./game6');
 
+/* 从 socket 握手取玩家来源信息：IP（用于地理定位）+ channel（访问渠道，客户端在连接 query 传入） */
+function sockMeta(socket) {
+  const h = (socket && socket.handshake) || {};
+  const xff = (h.headers && h.headers['x-forwarded-for']) || '';
+  const ip = xff.split(',')[0].trim() || h.address || '';
+  const channel = (h.query && h.query.channel) || '';
+  return { ip, channel };
+}
+
 /* ══════════════════════════════════════════════════════
  * 房间生命周期：赛事大屏不满员 → 等待 5 分钟 → 警告 40 秒 → 永久关闭
  * ══════════════════════════════════════════════════════ */
@@ -159,7 +168,7 @@ module.exports = function(io, socket) {
   socket.on('queue:join', async function(data) {
     try {
       const { token, name, mode } = data;
-      const player = await getOrCreatePlayer(token, name);
+      const player = await getOrCreatePlayer(token, name, sockMeta(socket));
 
       /* 随机参赛的"回原房"只认【随机房】，避免残留的私人房把随机参赛劫持进等候室 */
       const activeRow = await query(`
@@ -231,7 +240,7 @@ module.exports = function(io, socket) {
   socket.on('room:create', async function(data) {
     try {
       const { token, name, mode } = data;
-      const player = await getOrCreatePlayer(token, name);
+      const player = await getOrCreatePlayer(token, name, sockMeta(socket));
       const room   = await createRoom('private');
       const result = await joinRoomByCode(room.room_code, player.id, socket.id);
       if (result.error) return socket.emit('room:error', { message: result.error });
@@ -252,7 +261,7 @@ module.exports = function(io, socket) {
     try {
       const { token, name, roomCode } = data;
       if (!roomCode) return socket.emit('room:error', { message: '请输入房间号' });
-      const player = await getOrCreatePlayer(token, name);
+      const player = await getOrCreatePlayer(token, name, sockMeta(socket));
       const code   = roomCode.trim().toUpperCase();
       const result = await joinRoomByCode(code, player.id, socket.id);
       if (result.error) return socket.emit('room:error', { message: result.error });

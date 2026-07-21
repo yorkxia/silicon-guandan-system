@@ -423,6 +423,12 @@ async function initDB() {
   await query(`CREATE INDEX IF NOT EXISTS idx_gdo_queue_status   ON gdo_queue(status, game_mode)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_gdo_players_token  ON gdo_players(player_token)`);
 
+  /* 玩家档案迁移：来源(访问渠道) + 地理位置(玩家加入时用 IP 定位写入，供监控台"玩家档案"显示) */
+  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS source      VARCHAR(16)`);
+  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS country     VARCHAR(64)`);
+  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS region_code VARCHAR(16)`);
+  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS city        VARCHAR(64)`);
+
   /* 阶段四迁移：gdo_rounds 加 hands_json 列 */
   await query(`ALTER TABLE gdo_rounds ADD COLUMN IF NOT EXISTS hands_json JSONB`);
 
