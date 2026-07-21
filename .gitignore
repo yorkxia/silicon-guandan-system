@@ -5,3 +5,9 @@ db/*.db-shm
 db/*.db-wal
 *.bat
 package-lock.json
+
+# local/agent artifacts
+.claude/worktrees/
+.claude/settings.local.json
+/claude
+*.pdf
