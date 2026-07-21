@@ -14,6 +14,7 @@ const gameStates = require('./gameState6');
 const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
 const FIRST_TURN_SECONDS = 25;   // 开局第一手：留 25 秒看牌
 const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
+const TRIBUTE_SECONDS    = 10;   // 供牌/还牌：玩家 10 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
@@ -81,6 +82,41 @@ function clearTurnTimer(state) {
     clearTimeout(state.turnTimer);
     state.turnTimer = null;
   }
+}
+
+/* ── 供牌/还牌 10 秒计时：玩家忘记点/离开时，到点系统按规则自动供还，杜绝卡死 ── */
+function clearTributeTimer(state) {
+  if (state && state.tributeTimer) { clearTimeout(state.tributeTimer); state.tributeTimer = null; }
+}
+function armTributeTimer(io, state) {
+  clearTributeTimer(state);
+  if (!state || !state.tributePhase) return;
+  const hasPending = state.tributePhase.exchanges.some(e => e.stage === 'give' || e.stage === 'return');
+  if (!hasPending) return;
+  state.tributeDeadline = Date.now() + TRIBUTE_SECONDS * 1000;
+  io.to(state.roomCode).emit('tribute:timer', {
+    deadline: state.tributeDeadline, seconds: TRIBUTE_SECONDS
+  });
+  state.tributeTimer = setTimeout(() => {
+    onTributeTimeout(io, state).catch(e => console.error('[tribute_timeout]', e.message));
+  }, TRIBUTE_SECONDS * 1000);
+}
+/* 到点：把当前所有待办的供/还各推进一步（不论是否在线），再续 10 秒给新产生的还供 */
+async function onTributeTimeout(io, state) {
+  if (gameStates.get(state.roomCode) !== state || !state.tributePhase) return;
+  const returnsToDo = state.tributePhase.exchanges.filter(e => e.stage === 'return');
+  const givesToDo   = state.tributePhase.exchanges.filter(e => e.stage === 'give');
+  for (const ex of returnsToDo) {
+    if (!state.tributePhase) break;
+    const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
+    if (card) await applyTributeReturn(io, state, ex.receiverId, card);
+  }
+  for (const ex of givesToDo) {
+    if (!state.tributePhase) break;
+    const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+    if (cands[0]) await applyTributeGive(io, state, ex.giverId, cands[0]);
+  }
+  if (gameStates.get(state.roomCode) === state && state.tributePhase) armTributeTimer(io, state);
 }
 
 function isSeatDisconnected(state, seat) {
@@ -450,6 +486,7 @@ async function startTributePhase(io, roomCode, tributeInfo) {
   /* 先让所有客户端发牌渲染本局新手牌（game:starting→request_hand→game:hand），
      再由各自 request_hand 顺带下发 tribute:phase，确保"先发牌→后供牌"。*/
   io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
+  armTributeTimer(io, state);   // 起 10 秒供牌计时（忘点/离开→到点自动供还）
   return true;
 }
 
@@ -565,6 +602,7 @@ async function applyTributeReturn(io, state, receiverId, returnCard) {
 
 /* 所有还贡完毕 → 按首抓规则开局 */
 async function finalizeTribute(io, state) {
+  clearTributeTimer(state);
   const ls = state.tributePhase.leadSeat;
   if (ls != null) { state.turnSeat = ls; state.leadSeat = ls; }
   state.tributePhase = null;
@@ -930,6 +968,7 @@ module.exports = function(io, socket) {
       const r = await applyTributeGive(io, state, player.id, card);
       if (r.error) return socket.emit('tribute:invalid', { message: r.error });
       await driveTributeBots(io, state);   // 接收方若已托管 → 机器人自动还贡
+      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 10 秒
     } catch (e) {
       console.error('[tribute:give]', e.message);
     }
@@ -950,6 +989,7 @@ module.exports = function(io, socket) {
       const r = await applyTributeReturn(io, state, player.id, returnCard);
       if (r.error) return socket.emit('tribute:invalid', { message: r.error });
       await driveTributeBots(io, state);   // 其余待办若为托管座位 → 机器人自动接替
+      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 10 秒
     } catch (e) {
       console.error('[tribute:return]', e.message);
     }

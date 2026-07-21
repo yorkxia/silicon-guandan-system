@@ -738,8 +738,8 @@
       align-items: center; justify-content: center; pointer-events: none; }
     #tribute-notice-text {
       background: rgba(20,20,35,.96); border: 2px solid #FFE066; border-radius: 16px;
-      padding: 20px 30px; color: #FFE066; font-size: 1.1rem; font-weight: 900; letter-spacing: 3px;
-      text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+      padding: 20px 30px; color: #FFE066; font-size: 1.15rem; font-weight: 900; letter-spacing: 3px;
+      text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,.6); white-space: pre-line; line-height: 1.6; }
     #tribute-fly-layer { position: fixed; inset: 0; z-index: 290; pointer-events: none; }
     .tribute-fly-card {
       position: fixed; width: 46px; height: 64px; border-radius: 6px; background: #fff;
@@ -1510,6 +1510,38 @@ socket.on('game:turn_timer', function(d){
   _turnInterval = setInterval(tickTurn, 250);
 });
 
+/* 供牌/还牌 10 秒倒计时（与出牌倒计时同款圆盘样式）*/
+var _tribDeadline = 0, _tribInterval = null;
+function ensureTribTimerEl(){
+  var el = document.getElementById('gd-trib-center');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'gd-trib-center';
+    el.style.cssText = 'position:fixed;top:41%;left:50%;transform:translate(-50%,-50%);z-index:71;display:none;pointer-events:none;';
+    el.innerHTML = '<div id="gd-trib-num" style="width:54px;height:54px;border-radius:50%;display:flex;'
+      + 'align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;'
+      + 'background:rgba(0,0,0,.55);border:3px solid #FFB020;box-shadow:0 2px 12px rgba(0,0,0,.45);">10</div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function stopTribCountdown(){ if(_tribInterval){ clearInterval(_tribInterval); _tribInterval=null; } var el=document.getElementById('gd-trib-center'); if(el) el.style.display='none'; }
+function tickTrib(){
+  var el = ensureTribTimerEl(); el.style.display='block';
+  var remain = Math.max(0, Math.ceil((_tribDeadline - Date.now())/1000));
+  var num = document.getElementById('gd-trib-num');
+  num.textContent = remain;
+  num.style.borderColor = remain<=3 ? '#FF5050' : '#FFB020';
+  num.style.color       = remain<=3 ? '#FF8080' : '#fff';
+  if(remain<=0) stopTribCountdown();
+}
+socket.on('tribute:timer', function(d){
+  _tribDeadline = Date.now() + (d.seconds || 10) * 1000;
+  if(_tribInterval) clearInterval(_tribInterval);
+  tickTrib();
+  _tribInterval = setInterval(tickTrib, 250);
+});
+
 /* ── 出/不出 位置气泡（跟随出牌方）── */
 function seatPanelEl(seat){
   if (GAME_MODE === '6p') return document.getElementById('h-seat-' + seat);
@@ -2128,6 +2160,7 @@ function tbGiveCandsOf(e){ return (e.giveCandidates && e.giveCandidates.length) 
 
 function clearTributeUI(){
   tbEx = []; tbBusy = false;
+  if (typeof stopTribCountdown === 'function') stopTribCountdown();
   var l = document.getElementById('tb-cursor-layer'); if (l) l.innerHTML = '';
   var p = document.getElementById('tb-prompt');       if (p) p.style.display = 'none';
 }
@@ -2240,7 +2273,7 @@ socket.on('tribute:phase', function(d) {
 socket.on('tribute:resisted', function(d) {
   clearTributeUI();
   document.getElementById('tribute-overlay').style.display = 'none';
-  showTributeNotice('末游抗贡，头游先出牌', 2600);
+  showTributeNotice('对家抓到所有的大王：抗供\n请头游出牌', 5000);
   render6pHand(myHand);
 });
 
@@ -2268,20 +2301,25 @@ socket.on('room:closed', function() {
   location.href = '/play';
 });
 
+/* 供牌：正面牌从贡者飞向收贡方(约3.5秒，全桌看清)，落地后才进入"还供" */
 socket.on('tribute:card_flew', function(d) {
-  flyTributeCard(d.tributeCard);
+  var gSeat = tbSeatOfPlayer(d.giverId), rSeat = tbSeatOfPlayer(d.receiverId);
+  flyTributeCard(gSeat, rSeat, d.tributeCard, '供 ' + cardEmoji(d.tributeCard));
   var e = tbEx.find(function(x){ return x.giverId===d.giverId && x.receiverId===d.receiverId; });
   if (e){ e.stage = 'return'; e.tributeCard = d.tributeCard; }
   if (d.giverId === myPlayerId || d.receiverId === myPlayerId) tbBusy = false;
-  setTimeout(renderTributeUI, 850);
+  setTimeout(renderTributeUI, TRIBUTE_FLY_MS);
 });
 
+/* 还供：正面牌从收贡方飞回贡者(约3.5秒) */
 socket.on('tribute:exchange_done', function(d) {
+  var gSeat = tbSeatOfPlayer(d.giverId), rSeat = tbSeatOfPlayer(d.receiverId);
+  flyTributeCard(rSeat, gSeat, d.returnCard, '还 ' + cardEmoji(d.returnCard));
   var e = tbEx.find(function(x){ return x.giverId===d.giverId && x.receiverId===d.receiverId; });
   if (e){ e.stage = 'done'; }
   if (d.giverId === myPlayerId || d.receiverId === myPlayerId) tbBusy = false;
   showToast('✅ 进贡 ' + cardEmoji(d.tributeCard) + ' ↔ 还供 ' + cardEmoji(d.returnCard), 'rgba(30,120,60,.92)');
-  renderTributeUI();
+  setTimeout(renderTributeUI, TRIBUTE_FLY_MS);
 });
 
 socket.on('tribute:done', function() {
@@ -2394,22 +2432,45 @@ function showTributeNotice(text, ms) {
   setTimeout(function(){ n.style.display = 'none'; }, ms || 2500);
 }
 
-function flyTributeCard(code) {
+/* 供/还牌：正面高清牌从 fromSeat 飞向 toSeat，约3.5秒，全桌都看清牌型 */
+var TRIBUTE_FLY_MS = 3500;
+function flyTributeCard(fromSeat, toSeat, code, labelTxt) {
+  var fromEl = (typeof tbSeatEl==='function') ? tbSeatEl(fromSeat) : null;
+  var toEl   = (typeof tbSeatEl==='function') ? tbSeatEl(toSeat)   : null;
+  if (!fromEl || !toEl || !code) return;
+  var fr = fromEl.getBoundingClientRect(), tr = toEl.getBoundingClientRect();
+  if (!fr.width || !tr.width) return;
   var layer = document.getElementById('tribute-fly-layer');
-  if (!layer) return;
+  if (!layer) { layer = document.createElement('div'); layer.id = 'tribute-fly-layer';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:300;pointer-events:none;'; document.body.appendChild(layer); }
+  var W = 66, H = 92;
+  var x0 = fr.left + fr.width/2 - W/2, y0 = fr.top + fr.height/2 - H/2;
+  var x1 = tr.left + tr.width/2 - W/2, y1 = tr.top + tr.height/2 - H/2;
   var el = document.createElement('div');
-  el.className = 'tribute-fly-card';
-  el.textContent = cardEmoji(code);
-  var c = code && code[0];
-  el.style.color = (c === 'H' || c === 'D') ? '#C0000F' : '#1a1a2e';
-  el.style.left = (window.innerWidth / 2 - 23) + 'px';
-  el.style.top  = (window.innerHeight * 0.72) + 'px';
+  el.style.cssText = 'position:fixed;left:0;top:0;width:'+W+'px;height:'+H+'px;border-radius:8px;overflow:hidden;'
+    + 'box-shadow:0 10px 28px rgba(0,0,0,.6);z-index:301;'
+    + 'transition:transform '+TRIBUTE_FLY_MS+'ms cubic-bezier(.34,.02,.28,1),opacity .35s ease;'
+    + 'transform:translate('+x0+'px,'+y0+'px) scale(.55);';
+  el.innerHTML = GDCard.faceSVG(code);
   layer.appendChild(el);
-  requestAnimationFrame(function(){
-    el.style.transform = 'translateY(-' + (window.innerHeight * 0.55) + 'px) scale(1.15)';
-    el.style.opacity = '0.15';
-  });
-  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, 900);
+  if (labelTxt) {
+    var lb = document.createElement('div');
+    lb.textContent = labelTxt;
+    lb.style.cssText = 'position:fixed;left:0;top:0;z-index:302;background:rgba(20,8,8,.9);color:#FFE066;'
+      + 'font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:8px;transition:transform '+TRIBUTE_FLY_MS+'ms cubic-bezier(.34,.02,.28,1),opacity .35s;'
+      + 'transform:translate('+(x0+W/2-18)+'px,'+(y0-16)+'px);';
+    layer.appendChild(lb);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      lb.style.transform = 'translate('+(x1+W/2-18)+'px,'+(y1-16)+'px)';
+    });});
+    setTimeout(function(){ lb.style.opacity='0'; }, TRIBUTE_FLY_MS - 300);
+    setTimeout(function(){ if (lb.parentNode) lb.parentNode.removeChild(lb); }, TRIBUTE_FLY_MS + 250);
+  }
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    el.style.transform = 'translate('+x1+'px,'+y1+'px) scale(1.3)';
+  });});
+  setTimeout(function(){ el.style.opacity = '0'; }, TRIBUTE_FLY_MS - 300);
+  setTimeout(function(){ if (el.parentNode) el.parentNode.removeChild(el); }, TRIBUTE_FLY_MS + 250);
 }
 
 function cardEmoji(code) {
