@@ -166,12 +166,13 @@
     .finish-badge.p3 { background:#C98F53; color:#241606; }
     .finish-badge.p4 { background:#C0000F; color:#fff; }
 
-    /* ─── 顶部玩家水平牌背 ─── */
+    /* ─── 玩家标志：正方形（内容不变，牌背扇收成小方块）─── */
     .pbox-top {
-      max-width: min(260px, 78vw);
+      width: 84px; max-width: 84px; min-height: 84px; justify-content: center; overflow: hidden;
     }
     .card-fan-h {
       display: flex; justify-content: center; flex-wrap: nowrap; overflow: hidden;
+      max-width: 74px;
     }
     .cbk-h {
       width: 20px; height: 30px; border-radius: 4px; flex-shrink: 0;
@@ -189,11 +190,11 @@
     }
     .cbk-h:first-child { margin-left: 0; }
 
-    /* ─── 侧边玩家竖直牌背 ─── */
-    .pbox-side { width: 60px; min-height: 96px; justify-content: center; }
+    /* ─── 侧边玩家：同样正方形 ─── */
+    .pbox-side { width: 84px; height: 84px; min-height: 84px; justify-content: center; overflow: hidden; }
     .card-fan-v {
       display: flex; flex-direction: column; align-items: center;
-      min-height: 20px;
+      min-height: 20px; max-height: 34px; overflow: hidden;
     }
     .cbk-v {
       width: 32px; height: 20px; border-radius: 4px; flex-shrink: 0;
@@ -259,7 +260,7 @@
     #my-hand-area {
       flex-shrink: 0; background: rgba(0,0,0,.4);
       border-top: 1px solid rgba(255,255,255,.07);
-      padding-bottom: env(safe-area-inset-bottom, 4px);
+      padding-bottom: calc(46px + env(safe-area-inset-bottom, 4px));   /* 让出底部长条栏 */
     }
     #my-info-row {
       display: flex; align-items: center; gap: 7px; padding: 6px 14px 4px;
@@ -321,49 +322,38 @@
       outline: 3px solid #FF2626;
     }
 
-    /* 右下角：锁定牌型三球（红=锁牌 蓝=撤销 黄=重置，参考商业大屏）*/
+    /* 底部长条栏：锁牌/撤销/重置 药丸按钮 + 发消息（参考商业大屏底栏）*/
     #combo-bar {
-      position: fixed; right: 78px; bottom: 16px; z-index: 60;
-      display: none; flex-direction: row; gap: 13px; align-items: flex-end;
-      padding-bottom: env(safe-area-inset-bottom, 0);
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+      height: calc(42px + env(safe-area-inset-bottom, 0));
+      padding: 0 12px env(safe-area-inset-bottom, 0);
+      background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,.12));
     }
-    #combo-bar .cb-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    #combo-bar .cb-ball {
-      width: 34px; height: 34px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 2px solid rgba(255,255,255,.72); position: relative;
-      box-shadow: 0 2px 7px rgba(0,0,0,.45); transition: transform .12s;
-      display: flex; align-items: center; justify-content: center;
-      font-size: .95rem; color: rgba(255,255,255,.95);
+    #combo-bar .cb-pill {
+      height: 30px; padding: 0 20px; border-radius: 15px; border: none; cursor: pointer;
+      color: #fff; font-weight: 800; font-size: .84rem; letter-spacing: 3px;
+      display: flex; align-items: center; box-shadow: 0 2px 7px rgba(0,0,0,.4);
+      transition: transform .1s;
     }
-    #combo-bar .cb-ball:active { transform: scale(.88); }
-    #combo-bar .cb-lock  { background: radial-gradient(circle at 34% 30%, #ff8a8a, #D32029); }  /* 红=锁牌 */
-    #combo-bar .cb-undo  { background: radial-gradient(circle at 34% 30%, #7ab6ff, #1E6BE5); }  /* 蓝=撤销 */
-    #combo-bar .cb-reset { background: radial-gradient(circle at 34% 30%, #ffe27a, #F2B705); }  /* 黄=重置 */
-    #combo-bar .cb-cap {
-      font-size: .6rem; font-weight: 800; color: #fff; letter-spacing: 1px;
-      text-shadow: 0 1px 3px rgba(0,0,0,.85); pointer-events: none; white-space: nowrap;
-    }
+    #combo-bar .cb-pill:active { transform: scale(.94); }
+    #combo-bar .cb-lock  { background: linear-gradient(#ff7a7a, #D32029); }  /* 红=锁牌 */
+    #combo-bar .cb-undo  { background: linear-gradient(#6aa8ff, #1E6BE5); }  /* 蓝=撤销 */
+    #combo-bar .cb-reset { background: linear-gradient(#ffd657, #F2B705); color: #6a4e00; }  /* 黄=重置 */
 
-    /* 右下角：发消息云朵按钮（始终可见）*/
+    /* 发消息药丸（底栏最右）*/
     #chat-fab {
-      position: fixed; right: 14px; bottom: 16px; z-index: 62;
-      width: 48px; height: 44px; border-radius: 16px; cursor: pointer;
+      height: 32px; min-width: 46px; padding: 0 15px; border-radius: 15px; cursor: pointer;
       background: radial-gradient(circle at 34% 28%, #ffffff, #e7edf5);
-      box-shadow: 0 3px 11px rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.9);
+      box-shadow: 0 2px 8px rgba(0,0,0,.4); border: none;
       display: flex; align-items: center; justify-content: center;
-      color: #1E6BE5; font-size: 1.35rem; font-weight: 900; letter-spacing: 1px;
-      padding-bottom: env(safe-area-inset-bottom, 0);
+      color: #1E6BE5; font-size: 1.3rem; font-weight: 900; letter-spacing: 1px;
     }
-    #chat-fab::after {   /* 云朵尾巴 */
-      content: ''; position: absolute; left: 10px; bottom: -6px;
-      width: 12px; height: 12px; background: #e7edf5; border-radius: 3px;
-      transform: rotate(45deg); box-shadow: 2px 2px 4px rgba(0,0,0,.2);
-    }
-    #chat-fab:active { transform: scale(.92); }
+    #chat-fab:active { transform: scale(.94); }
 
     /* 发消息面板 */
     #chat-panel {
-      position: fixed; right: 12px; bottom: 70px; z-index: 63; display: none;
+      position: fixed; right: 12px; bottom: 52px; z-index: 63; display: none;
       width: 268px; max-width: 82vw; background: rgba(22,26,34,.97);
       border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 10px;
       box-shadow: 0 8px 30px rgba(0,0,0,.6);
@@ -1068,15 +1058,13 @@
   </div>
 </div>
 
-<!-- ── 右下角：锁定牌型三球（红=锁牌 蓝=撤销 黄=重置，参考商业大屏）── -->
+<!-- ── 底部长条栏：锁牌/撤销/重置 药丸 + 发消息（参考商业大屏底栏）── -->
 <div id="combo-bar">
-  <div class="cb-item"><button type="button" class="cb-ball cb-lock"  onclick="comboTapBall(this, lockCombo)"   aria-label="锁牌"></button><span class="cb-cap">锁牌</span></div>
-  <div class="cb-item"><button type="button" class="cb-ball cb-undo"  onclick="comboTapBall(this, unlockCombo)" aria-label="撤销"></button><span class="cb-cap">撤销</span></div>
-  <div class="cb-item"><button type="button" class="cb-ball cb-reset" onclick="comboTapBall(this, resetCombos)" aria-label="重置"></button><span class="cb-cap">重置</span></div>
+  <button type="button" class="cb-pill cb-lock"  onclick="comboTapBall(this, lockCombo)">锁牌</button>
+  <button type="button" class="cb-pill cb-undo"  onclick="comboTapBall(this, unlockCombo)">撤销</button>
+  <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
+  <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
 </div>
-
-<!-- ── 右下角：发消息云朵（快捷短语+表情+自由打字）── -->
-<div id="chat-fab" onclick="toggleChatPanel()">···</div>
 <div id="chat-panel">
   <div class="cp-quick" id="cp-quick"></div>
   <div class="cp-emoji" id="cp-emoji"></div>

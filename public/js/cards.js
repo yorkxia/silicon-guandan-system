@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════════════════
- * GDCard —— 高清矢量扑克牌渲染器（离线内联 SVG，任意分辨率都锐利）
- * 统一供 4 人 / 6 人大屏使用，替代旧的文字牌。
+ * GDCard —— 高清矢量扑克牌渲染器（边锋风格：角标 + 中央大花色）
+ * 统一供 4 人 / 6 人大屏使用。
  *   GDCard.faceSVG(code)  → 正面牌 SVG 字符串
  *   GDCard.backSVG()      → 牌背 SVG 字符串
  * code: 'S3' 'HT'(10) 'DA' 'CK' 'BJ'(大王) 'LJ'(小王)
@@ -19,71 +19,51 @@
     D: 'M50 4 L88 50 L50 96 L12 50 Z',
     C: 'M50 6 C62 6 71 15 71 27 C71 33 68 38 64 42 C71 37 80 37 86 43 C94 51 93 63 85 70 C78 76 67 74 60 68 C56 65 54 61 53 56 C54 68 58 80 66 96 L34 96 C42 80 46 68 47 56 C46 61 44 65 40 68 C33 74 22 76 15 70 C7 63 6 51 14 43 C20 37 29 37 36 42 C32 38 29 33 29 27 C29 15 38 6 50 6 Z'
   };
-  var SUIT_UNI = { S: '♠', H: '♥', D: '♦', C: '♣' };
 
   function colorOf(suit) { return (suit === 'H' || suit === 'D') ? RED : BLACK; }
 
-  /* 一枚花色符号：把 100×100 路径缩放到 size，放到 (cx,cy)，flip=上下翻转 */
-  function pip(suit, cx, cy, size, color, flip) {
+  /* 一枚花色符号：把 100×100 路径缩放到 size，放到 (cx,cy) */
+  function pip(suit, cx, cy, size, color) {
     var s = size / 100;
-    var t = 'translate(' + cx + ',' + cy + ') scale(' + s + (flip ? ',' + (-s) : ',' + s) + ') translate(-50,-50)';
+    var t = 'translate(' + cx + ',' + cy + ') scale(' + s + ') translate(-50,-50)';
     return '<path d="' + SUIT_PATH[suit] + '" fill="' + color + '" transform="' + t + '"/>';
   }
 
-  /* 标准点数牌花色布局：列 L/C/R，行按牌高比例；下半区翻转 */
-  var COL = { L: 0.30 * W, C: 0.50 * W, R: 0.70 * W };
-  var LAYOUT = {
-    '2':  [['C', 0.26], ['C', 0.74]],
-    '3':  [['C', 0.26], ['C', 0.50], ['C', 0.74]],
-    '4':  [['L', 0.26], ['R', 0.26], ['L', 0.74], ['R', 0.74]],
-    '5':  [['L', 0.26], ['R', 0.26], ['C', 0.50], ['L', 0.74], ['R', 0.74]],
-    '6':  [['L', 0.26], ['R', 0.26], ['L', 0.50], ['R', 0.50], ['L', 0.74], ['R', 0.74]],
-    '7':  [['L', 0.26], ['R', 0.26], ['C', 0.38], ['L', 0.50], ['R', 0.50], ['L', 0.74], ['R', 0.74]],
-    '8':  [['L', 0.26], ['R', 0.26], ['C', 0.38], ['L', 0.50], ['R', 0.50], ['C', 0.62], ['L', 0.74], ['R', 0.74]],
-    '9':  [['L', 0.24], ['R', 0.24], ['L', 0.42], ['R', 0.42], ['C', 0.50], ['L', 0.58], ['R', 0.58], ['L', 0.76], ['R', 0.76]],
-    '10': [['L', 0.24], ['R', 0.24], ['C', 0.33], ['L', 0.42], ['R', 0.42], ['L', 0.58], ['R', 0.58], ['C', 0.67], ['L', 0.76], ['R', 0.76]]
-  };
-
-  /* 角标：点数 + 小花色（左上，右下镜像旋转 180°）*/
+  /* 角标：点数(大、粗) + 其下小花色；左上 + 右下镜像旋转 180°（边锋风格）*/
   function corner(rankTxt, suit, color) {
-    var fs = rankTxt.length > 1 ? 34 : 40;        // “10” 略小
+    var fs = rankTxt.length > 1 ? 44 : 54;        // “10” 略小
     var g =
       '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="800" ' +
       'font-size="' + fs + '" fill="' + color + '" text-anchor="middle">' + rankTxt + '</text>' +
-      pip(suit, 0, 40, 30, color, false);
-    return '<g transform="translate(30,44)">' + g + '</g>' +
-           '<g transform="translate(' + (W - 30) + ',' + (H - 44) + ') rotate(180)">' + g + '</g>';
+      pip(suit, 0, 42, 34, color);
+    return '<g transform="translate(34,44)">' + g + '</g>' +
+           '<g transform="translate(' + (W - 34) + ',' + (H - 44) + ') rotate(180)">' + g + '</g>';
   }
 
-  /* J/Q/K：清爽的宫廷牌——双线内框 + 大字母 + 四角花色 */
+  /* J/Q/K：大字母（居中）+ 其下小花色（边锋风格，干净无花边）*/
   function faceCard(rankTxt, suit, color) {
-    var cx = W / 2, cy = H / 2;
-    var panel =
-      '<rect x="58" y="72" width="124" height="192" rx="10" fill="none" stroke="' + color + '" stroke-width="3"/>' +
-      '<rect x="66" y="80" width="108" height="176" rx="7" fill="none" stroke="' + color + '" stroke-width="1.5" opacity=".55"/>';
-    var letter =
-      '<text x="' + cx + '" y="' + (cy + 34) + '" font-family="Georgia,\'Times New Roman\',serif" ' +
-      'font-weight="700" font-size="110" fill="' + color + '" text-anchor="middle" opacity=".92">' + rankTxt + '</text>';
-    var pips =
-      pip(suit, 82, 100, 26, color, false) + pip(suit, W - 82, 100, 26, color, false) +
-      pip(suit, 82, H - 100, 26, color, true) + pip(suit, W - 82, H - 100, 26, color, true);
-    return panel + letter + pips;
+    return '<text x="' + (W / 2) + '" y="205" font-family="Georgia,\'Times New Roman\',serif" ' +
+      'font-weight="700" font-size="150" fill="' + color + '" text-anchor="middle">' + rankTxt + '</text>' +
+      pip(suit, W / 2, 258, 46, color);
   }
 
-  /* 王牌 */
+  /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
   function joker(big) {
     var color = big ? RED : BLACK;
-    var txt = big ? '大王' : '小王';   // 大王 / 小王
-    var star =
-      '<path transform="translate(120,150) scale(1.5)" fill="' + color + '" ' +
-      'd="M0 -34 L9 -11 L34 -11 L14 4 L21 28 L0 14 L-21 28 L-14 4 L-34 -11 L-9 -11 Z"/>';
+    var txt = big ? '大王' : '小王';
+    var crown =
+      '<path transform="translate(120,150)" fill="' + color + '" ' +
+      'd="M-50 22 L-50 -14 L-22 8 L0 -30 L22 8 L50 -14 L50 22 Z"/>' +
+      '<circle cx="70" cy="134" r="7" fill="' + color + '"/>' +
+      '<circle cx="120" cy="116" r="8" fill="' + color + '"/>' +
+      '<circle cx="170" cy="134" r="7" fill="' + color + '"/>';
     var label = txt.split('').map(function (ch, i) {
-      return '<text x="120" y="' + (210 + i * 46) + '" font-family="\'PingFang SC\',\'Microsoft YaHei\',sans-serif" ' +
-        'font-weight="900" font-size="42" fill="' + color + '" text-anchor="middle">' + ch + '</text>';
+      return '<text x="120" y="' + (232 + i * 48) + '" font-family="\'PingFang SC\',\'Microsoft YaHei\',sans-serif" ' +
+        'font-weight="900" font-size="46" fill="' + color + '" text-anchor="middle">' + ch + '</text>';
     }).join('');
-    var jk = '<text x="120" y="86" font-family="Arial,sans-serif" font-weight="800" font-size="26" ' +
+    var jk = '<text x="120" y="80" font-family="Arial,sans-serif" font-weight="800" font-size="27" ' +
       'fill="' + color + '" text-anchor="middle" letter-spacing="2">JOKER</text>';
-    return jk + star + label;
+    return jk + crown + label;
   }
 
   function shell(inner) {
@@ -106,14 +86,9 @@
     var rankTxt = rank === 'T' ? '10' : rank;
     var body;
     if (rank === 'J' || rank === 'Q' || rank === 'K') {
-      body = faceCard(rankTxt, suit, color);
-    } else if (rank === 'A') {
-      body = pip(suit, W / 2, H / 2, 96, color, false);
+      body = faceCard(rankTxt, suit, color);       // 宫廷牌：大字母
     } else {
-      var lay = LAYOUT[rankTxt] || [];
-      body = lay.map(function (p) {
-        return pip(suit, COL[p[0]], p[1] * H, 40, color, p[1] > 0.5);
-      }).join('');
+      body = pip(suit, W / 2, 190, 132, color);    // 数字/A：中央一个大花色（边锋风格）
     }
     return shell(corner(rankTxt, suit, color) + body);
   }
