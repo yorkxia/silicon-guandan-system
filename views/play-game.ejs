@@ -233,22 +233,12 @@
     }
     .trick-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }
 
-    /* 迷你牌面（中央出牌区） */
+    /* 迷你牌面（中央出牌区）—— 高清矢量牌，放大便于适老 */
     .mc {
-      width: 30px; height: 44px; border-radius: 4px; background: #fff;
-      border: 1px solid #ddd; box-shadow: 1px 2px 4px rgba(0,0,0,.4);
-      display: flex; flex-direction: column; padding: 2px 2px; flex-shrink: 0;
-      position: relative;
+      width: 40px; height: 56px; border-radius: 5px; overflow: hidden;
+      box-shadow: 1px 2px 5px rgba(0,0,0,.45); flex-shrink: 0; position: relative;
     }
-    .mc-top  { font-size: .72rem; font-weight: 900; line-height: 1.1; }
-    .mc-suit { font-size: .65rem; line-height: 1; }
-    .mc.joker-big   { background: #fff url('/img/joker-big.png')   center top / cover no-repeat; }
-    .mc.joker-small { background: #fff url('/img/joker-small.png') center top / cover no-repeat; }
-    .mc-joker-lbl { display: none; }
-    .mc-joker-lbl {
-      font-size: .58rem; font-weight: 900; text-align: center; width: 100%;
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); letter-spacing: 1px;
-    }
+    .mc svg { display: block; width: 100%; height: 100%; }
     .trick-more { font-size: .65rem; color: rgba(255,255,255,.45); }
 
     /* 出牌赢回动画 */
@@ -300,18 +290,18 @@
     }
     #hand-scroll::-webkit-scrollbar { display: none; }
 
-    /* 单张手牌（放大字号，适老化） */
+    /* 单张手牌（高清矢量牌面，放大约15%便于适老；圆球移至右下角后左侧最大牌不再被遮挡）*/
     .hand-card {
-      flex-shrink: 0; width: 51.5px; height: 74px; border-radius: 6px;   /* 缩小约12%，避免最大牌被圆球遮挡 */
-      background: #fff; border: 1px solid #ddd;
-      box-shadow: 2px 3px 8px rgba(0,0,0,.45);
-      margin-left: -18px;
-      display: flex; flex-direction: column; align-items: flex-start; padding: 4.5px 6px;
+      flex-shrink: 0; width: 60px; height: 84px; border-radius: 6px; overflow: hidden;
+      background: #fff; box-shadow: 2px 3px 8px rgba(0,0,0,.45);
+      margin-left: -21px;
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
+    .hand-card svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+    .hand-card.hand-card-6p { width: 48px; height: 67px; }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
       transform: translateX(9px);
@@ -394,8 +384,8 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -51.5px; }        /* 74-51.5=22.5px 露出点数+花色 */
-    body.mode-6p .hand-col .hand-card.stacked { margin-top: -44px; }
+    .hand-col .hand-card.stacked { margin-top: -58px; }          /* 84-58=26px 露出点数+花色 */
+    body.mode-6p .hand-col .hand-card.stacked { margin-top: -47px; }  /* 67-47=20px 露出角标 */
     body.mode-6p .hand-col { margin-left: 3px; }
     #hand-scroll { align-items: flex-end; justify-content: flex-start; }   /* 左对齐：最大牌固定在圆球右侧，始终可点 */
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
@@ -1034,6 +1024,7 @@
 <div id="err-toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/cards.js"></script>
 <script>
 /* ════════════════════ 状态变量 ════════════════════ */
 var ROOM_CODE  = '<%= roomCode %>';
@@ -1760,14 +1751,7 @@ function renderCenterPlay(lastPlay){
 }
 
 function miniCardHtml(code){
-  if(code==='BJ') return '<div class="mc joker-big" style="position:relative"><div class="mc-joker-lbl" style="color:#D4AC0D">大王</div></div>';
-  if(code==='LJ') return '<div class="mc joker-small" style="position:relative"><div class="mc-joker-lbl" style="color:#666">小王</div></div>';
-  var suit=code[0],rank=code.slice(1);
-  var isRed=(suit==='H'||suit==='D');
-  var color=isRed?'#C0000F':'#1a1a2e';
-  var sym={S:'♠',H:'♥',D:'♦',C:'♣'}[suit];
-  var rd=rank==='T'?'10':rank;
-  return '<div class="mc" style="color:'+color+'"><div class="mc-top">'+rd+'</div><div class="mc-suit">'+sym+'</div></div>';
+  return '<div class="mc">' + GDCard.faceSVG(code) + '</div>';
 }
 
 /* ═══════ 掼蛋级牌排序 + 竖排分组 ═══════ */
@@ -2057,22 +2041,7 @@ function buildHandCardEl(code, idx, onClick){
   var card = document.createElement('div');
   card.className = 'hand-card' + (isSel ? ' selected' : '');
   card.dataset.code = code; card.dataset.idx = idx;   // 供滑动选牌命中
-  if (code === 'BJ') {
-    card.classList.add('joker-big');
-    card.innerHTML = '<div class="joker-label" style="color:#D4AC0D">大<br>王</div>';
-  } else if (code === 'LJ') {
-    card.classList.add('joker-small');
-    card.innerHTML = '<div class="joker-label" style="color:#666">小<br>王</div>';
-  } else {
-    var suit = code[0], rank = code.slice(1);
-    var isRed = (suit === 'H' || suit === 'D');
-    card.style.color = isRed ? '#C0000F' : '#1a1a2e';
-    var sym = { S:'♠', H:'♥', D:'♦', C:'♣' }[suit];
-    var rd = rank === 'T' ? '10' : rank;
-    card.innerHTML =
-      '<div class="card-corner"><span class="card-top">' + rd + '</span><span class="card-suit">' + sym + '</span></div>' +
-      '<div class="card-center">' + sym + '</div>';
-  }
+  card.innerHTML = GDCard.faceSVG(code);              // 高清矢量牌面
   var _cmb = comboOfKey(key);
   if (_cmb) { card.classList.add('locked'); card.style.setProperty('--combo', _cmb.color); }
   /* 进贡态：高亮可供/可还的牌，其余变暗 */
@@ -2597,26 +2566,9 @@ function build6pCardEl(code, idx){
   var key  = code + '_' + idx;
   var isSel = selected.indexOf(key) >= 0;
   var card = document.createElement('div');
-  card.className = 'hand-card' + (isSel ? ' selected' : '');
-  card.style.width  = '40px';
-  card.style.height = '58px';
-  card.style.fontSize = '.7rem';
-  if (code === 'BJ') {
-    card.classList.add('joker-big');
-    card.innerHTML = '<div class="joker-label" style="color:#D4AC0D;font-size:.6rem;">大<br>王</div>';
-  } else if (code === 'LJ') {
-    card.classList.add('joker-small');
-    card.innerHTML = '<div class="joker-label" style="color:#666;font-size:.6rem;">小<br>王</div>';
-  } else {
-    var suit=code[0],rank=code.slice(1);
-    var isRed=(suit==='H'||suit==='D');
-    card.style.color = isRed?'#C0000F':'#1a1a2e';
-    var sym={S:'♠',H:'♥',D:'♦',C:'♣'}[suit];
-    var rd=rank==='T'?'10':rank;
-    card.innerHTML =
-      '<div class="card-corner"><span class="card-top" style="font-size:.62rem;">'+rd+'</span><span class="card-suit" style="font-size:.62rem;">'+sym+'</span></div>'+
-      '<div class="card-center" style="font-size:.85rem;">'+sym+'</div>';
-  }
+  card.className = 'hand-card hand-card-6p' + (isSel ? ' selected' : '');
+  card.dataset.code = code; card.dataset.idx = idx;
+  card.innerHTML = GDCard.faceSVG(code);              // 高清矢量牌面
   attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
   return card;
 }
