@@ -955,6 +955,28 @@ module.exports = function(io, socket) {
     }
   });
 
+  /* ── 发消息：快捷短语/表情/自由文字，广播给同桌，气泡贴发送者座位 ── */
+  socket.on('chat:msg', async function(data) {
+    try {
+      const { token, roomCode, text } = data;
+      if (!text || !roomCode) return;
+      const clean = String(text).replace(/[\r\n\t]/g, ' ').trim().slice(0, 40);
+      if (!clean) return;
+      const state = gameStates.get(roomCode);
+      let seat = null, name = '';
+      if (state) {
+        const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+        if (player) {
+          const s = state.seats.find(x => x.playerId === player.id);
+          if (s) { seat = s.seat; name = s.name; }
+        }
+      }
+      io.to(roomCode).emit('chat:msg', { seat, name, text: clean });
+    } catch (e) {
+      console.error('[chat:msg]', e.message);
+    }
+  });
+
   /* ── 断线处理（阶段九：标记掉线 + 广播 + 缩短其回合计时）── */
   socket.on('disconnect', function() {
     (async function() {

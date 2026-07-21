@@ -321,29 +321,81 @@
       box-shadow: 0 0 0 3px var(--combo, #FFD54A), -3px 5px 18px rgba(0,0,0,.55);
       outline: 3px solid #FF2626;
     }
-    /* 左下角：锁定牌型（三个小圆球，文字默认隐藏、悬停/点触时浮现）*/
+    /* 右下角：锁定牌型三球（红=锁牌 蓝=撤销 黄=重置，参考商业大屏）*/
     #combo-bar {
-      position: fixed; left: 10px; bottom: 12px; z-index: 60;
-      display: none; flex-direction: column; gap: 8px; align-items: flex-start;
+      position: fixed; right: 78px; bottom: 16px; z-index: 60;
+      display: none; flex-direction: row; gap: 13px; align-items: flex-end;
+      padding-bottom: env(safe-area-inset-bottom, 0);
     }
+    #combo-bar .cb-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
     #combo-bar .cb-ball {
-      width: 26px; height: 26px; border-radius: 50%; padding: 0; cursor: pointer;
-      border: 2px solid rgba(255,255,255,.6); position: relative;
-      box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: transform .12s;
+      width: 34px; height: 34px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 2px solid rgba(255,255,255,.72); position: relative;
+      box-shadow: 0 2px 7px rgba(0,0,0,.45); transition: transform .12s;
+      display: flex; align-items: center; justify-content: center;
     }
     #combo-bar .cb-ball:active { transform: scale(.88); }
-    #combo-bar .cb-confirm { background: radial-gradient(circle at 34% 30%, #7ab6ff, #1E6BE5); }  /* 蓝=确认设置 */
-    #combo-bar .cb-undo    { background: radial-gradient(circle at 34% 30%, #ff8080, #D32F2F); }  /* 红=撤销设置 */
-    #combo-bar .cb-reset   { background: radial-gradient(circle at 34% 30%, #ffe27a, #F2B705); }  /* 黄=全部重置 */
-    #combo-bar .cb-tip {
-      position: absolute; left: 34px; top: 50%; transform: translateY(-50%);
-      white-space: nowrap; background: rgba(20,8,8,.92); color: #fff;
-      font-size: .74rem; font-weight: 700; letter-spacing: 1px;
-      padding: 4px 10px; border-radius: 7px; pointer-events: none;
-      opacity: 0; transition: opacity .12s; border: 1px solid rgba(255,255,255,.25);
+    #combo-bar .cb-lock  { background: radial-gradient(circle at 34% 30%, #ff8a8a, #D32029); }  /* 红=锁牌 */
+    #combo-bar .cb-undo  { background: radial-gradient(circle at 34% 30%, #7ab6ff, #1E6BE5); }  /* 蓝=撤销 */
+    #combo-bar .cb-reset { background: radial-gradient(circle at 34% 30%, #ffe27a, #F2B705); }  /* 黄=重置 */
+    #combo-bar .cb-cap {
+      font-size: .6rem; font-weight: 800; color: #fff; letter-spacing: 1px;
+      text-shadow: 0 1px 3px rgba(0,0,0,.85); pointer-events: none; white-space: nowrap;
     }
-    #combo-bar .cb-ball:hover .cb-tip,
-    #combo-bar .cb-ball.show-tip .cb-tip { opacity: 1; }
+
+    /* 右下角：发消息云朵按钮（始终可见）*/
+    #chat-fab {
+      position: fixed; right: 14px; bottom: 16px; z-index: 62;
+      width: 48px; height: 44px; border-radius: 16px; cursor: pointer;
+      background: radial-gradient(circle at 34% 28%, #ffffff, #e7edf5);
+      box-shadow: 0 3px 11px rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.9);
+      display: flex; align-items: center; justify-content: center;
+      color: #1E6BE5; font-size: 1.35rem; font-weight: 900; letter-spacing: 1px;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    #chat-fab::after {
+      content: ''; position: absolute; left: 10px; bottom: -6px;
+      width: 12px; height: 12px; background: #e7edf5; border-radius: 3px;
+      transform: rotate(45deg); box-shadow: 2px 2px 4px rgba(0,0,0,.2);
+    }
+    #chat-fab:active { transform: scale(.92); }
+    #chat-panel {
+      position: fixed; right: 12px; bottom: 70px; z-index: 63; display: none;
+      width: 268px; max-width: 82vw; background: rgba(22,26,34,.97);
+      border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.6);
+    }
+    #chat-panel.open { display: block; }
+    #chat-panel .cp-quick, #chat-panel .cp-emoji { display: flex; flex-wrap: wrap; gap: 6px; }
+    #chat-panel .cp-quick { margin-bottom: 7px; }
+    #chat-panel .cp-emoji { margin-bottom: 8px; }
+    #chat-panel .cp-q {
+      background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.18);
+      border-radius: 9px; padding: 6px 10px; font-size: .8rem; cursor: pointer; font-weight: 600;
+    }
+    #chat-panel .cp-q:active { background: rgba(255,255,255,.24); }
+    #chat-panel .cp-e { font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 2px 3px; background: none; border: none; }
+    #chat-panel .cp-input-row { display: flex; gap: 6px; }
+    #chat-panel .cp-input {
+      flex: 1; min-width: 0; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+      border-radius: 9px; color: #fff; font-size: .85rem; padding: 7px 9px; outline: none;
+    }
+    #chat-panel .cp-send {
+      background: #1E6BE5; color: #fff; border: none; border-radius: 9px; padding: 0 14px;
+      font-size: .85rem; font-weight: 800; cursor: pointer;
+    }
+    .chat-bubble {
+      position: fixed; transform: translate(-50%, -100%); z-index: 250;
+      background: #fff; color: #1a1a2e; border-radius: 13px; padding: 6px 12px;
+      font-size: .86rem; font-weight: 700; max-width: 46vw; white-space: normal;
+      box-shadow: 0 4px 14px rgba(0,0,0,.4); pointer-events: none;
+      animation: chatPop .2s ease;
+    }
+    .chat-bubble::after {
+      content: ''; position: absolute; left: 22px; bottom: -7px;
+      border: 7px solid transparent; border-top-color: #fff;
+    }
+    @keyframes chatPop { from { opacity: 0; transform: translate(-50%, -90%) scale(.8); } }
 
     /* ═══════════ 大屏内进贡：座位光标 + 手牌高亮（替代弹框）═══════════ */
     #tb-cursor-layer { position: fixed; inset: 0; z-index: 240; pointer-events: none; }
@@ -1008,11 +1060,22 @@
   </div>
 </div>
 
-<!-- ── 左下角：锁定牌型（三小圆球：蓝=确认/红=撤销/黄=重置，点触/悬停显文字）── -->
+<!-- ── 右下角：锁定牌型三球（红=锁牌 蓝=撤销 黄=重置，参考商业大屏）── -->
 <div id="combo-bar">
-  <button type="button" class="cb-ball cb-confirm" onclick="comboTapBall(this, lockCombo)" aria-label="确认设置"><span class="cb-tip">确认设置</span></button>
-  <button type="button" class="cb-ball cb-undo"    onclick="comboTapBall(this, unlockCombo)" aria-label="撤销设置"><span class="cb-tip">撤销设置</span></button>
-  <button type="button" class="cb-ball cb-reset"   onclick="comboTapBall(this, resetCombos)" aria-label="全部重置"><span class="cb-tip">全部重置</span></button>
+  <div class="cb-item"><button type="button" class="cb-ball cb-lock"  onclick="comboTapBall(this, lockCombo)"   aria-label="锁牌"></button><span class="cb-cap">锁牌</span></div>
+  <div class="cb-item"><button type="button" class="cb-ball cb-undo"  onclick="comboTapBall(this, unlockCombo)" aria-label="撤销"></button><span class="cb-cap">撤销</span></div>
+  <div class="cb-item"><button type="button" class="cb-ball cb-reset" onclick="comboTapBall(this, resetCombos)" aria-label="重置"></button><span class="cb-cap">重置</span></div>
+</div>
+
+<!-- ── 右下角：发消息云朵（快捷短语+表情+自由打字）── -->
+<div id="chat-fab" onclick="toggleChatPanel()">···</div>
+<div id="chat-panel">
+  <div class="cp-quick" id="cp-quick"></div>
+  <div class="cp-emoji" id="cp-emoji"></div>
+  <div class="cp-input-row">
+    <input class="cp-input" id="cp-input" maxlength="30" placeholder="说点什么…" onkeydown="if(event.key==='Enter'){chatSendInput();}">
+    <button type="button" class="cp-send" onclick="chatSendInput()">发送</button>
+  </div>
 </div>
 
 <!-- ── 大屏内进贡：座位光标层 + 我方提示条 ── -->
@@ -2068,6 +2131,49 @@ function clearTributeUI(){
   var l = document.getElementById('tb-cursor-layer'); if (l) l.innerHTML = '';
   var p = document.getElementById('tb-prompt');       if (p) p.style.display = 'none';
 }
+
+/* ═══════════ 发消息（快捷短语 + 表情 + 自由打字）═══════════ */
+var CHAT_QUICKS = ['快点出牌','好牌！','再来一局','谢谢','不好意思','加油！','稳住','走一个'];
+var CHAT_EMOJIS = ['😄','😅','👍','🎉','😭','🤝','🌹','💪'];
+var _chatBubbles = {};
+function initChatPanel(){
+  var q = document.getElementById('cp-quick');
+  if (q && !q.childElementCount) CHAT_QUICKS.forEach(function(t){
+    var b=document.createElement('button'); b.type='button'; b.className='cp-q'; b.textContent=t;
+    b.onclick=function(){ chatSend(t); }; q.appendChild(b);
+  });
+  var e = document.getElementById('cp-emoji');
+  if (e && !e.childElementCount) CHAT_EMOJIS.forEach(function(t){
+    var b=document.createElement('button'); b.type='button'; b.className='cp-e'; b.textContent=t;
+    b.onclick=function(){ chatSend(t); }; e.appendChild(b);
+  });
+}
+function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(p) p.classList.toggle('open'); }
+function chatSendInput(){ var i=document.getElementById('cp-input'); if(!i) return; var t=(i.value||'').trim(); if(t){ chatSend(t); i.value=''; } }
+function chatSend(text){
+  if(!text) return;
+  socket.emit('chat:msg', { token:MY_TOKEN, roomCode:ROOM_CODE, text:String(text).slice(0,30) });
+  var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open');
+}
+function showChatBubble(seat, text){
+  if(seat==null) return;
+  var el = (typeof tbSeatEl==='function') ? tbSeatEl(seat) : null; if(!el) return;
+  var r = el.getBoundingClientRect(); if(!r.width) return;
+  var key='cb_'+seat, old=_chatBubbles[key];
+  if(old){ clearTimeout(old.t); if(old.el) old.el.remove(); }
+  var b=document.createElement('div'); b.className='chat-bubble'; b.textContent=text;
+  b.style.left=(r.left + r.width/2)+'px';
+  b.style.top =(Math.max(r.top, 40))+'px';
+  document.body.appendChild(b);
+  var t=setTimeout(function(){ if(b) b.remove(); delete _chatBubbles[key]; }, 4200);
+  _chatBubbles[key]={el:b,t:t};
+}
+socket.on('chat:msg', function(d){
+  if(!d || !d.text) return;
+  var seat = (d.seat!=null) ? d.seat : (typeof tbSeatOfPlayer==='function' ? tbSeatOfPlayer(d.playerId) : null);
+  showChatBubble(seat, d.text);
+});
+
 function tbPlaceCursor(seat, text, cls){
   var el = tbSeatEl(seat); if (!el) return;
   var r = el.getBoundingClientRect(); if (!r.width) return;
