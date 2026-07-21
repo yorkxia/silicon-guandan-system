@@ -8,12 +8,13 @@
   <%- include('partials/pwa-head') %>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; overflow: hidden; margin: 0; }
+    html, body { margin: 0; overflow: hidden; height: 100vh; height: 100dvh; }
     body {
       /* 硅谷海滩实景背景 */
       background: url('/img/bg-beach.jpg') center center / cover no-repeat fixed, #1a4a6a;
       display: flex; flex-direction: column;
       font-family: -apple-system, "PingFang SC", sans-serif;
+      width: 100vw; height: 100vh; height: 100dvh;   /* 满屏，无上下白条 */
     }
     /* 沙色椭圆牌桌（背景层）*/
     #beach-table {
@@ -29,18 +30,18 @@
     }
     body.mode-6p #beach-table { top: 52%; width: 98vw; height: 76vh; max-width: 1380px; }
 
-    /* 竖屏 → 提示横屏（掼蛋以横屏为准）*/
-    #rotate-hint { display: none; }
+    /* 竖屏 → 整个牌桌自动旋转成横屏满屏（微信内置浏览器无法锁定方向，用CSS旋转）*/
+    #rotate-hint { display: none !important; }   /* 不再提示横屏，改为自动旋转 */
     @media (orientation: portrait) {
-      #rotate-hint {
-        display: flex; position: fixed; inset: 0; z-index: 99999;
-        background: linear-gradient(160deg, #1a0505, #3D0A0A);
-        color: #FFE066; align-items: center; justify-content: center; text-align: center;
+      html, body { overflow: hidden; }
+      body {
+        position: fixed; top: 0; left: 0;
+        width: 100vh;   /* 旋转后：宽=屏高（长边）*/
+        height: 100vw;  /* 旋转后：高=屏宽（短边）*/
+        transform-origin: top left;
+        transform: translateX(100vw) rotate(90deg);
       }
-      .rot-inner { font-size: 1.05rem; font-weight: 800; line-height: 1.9; letter-spacing: 2px; }
-      .rot-icon { font-size: 3.2rem; margin-bottom: 14px; animation: rothint 1.6s ease-in-out infinite; }
     }
-    @keyframes rothint { 0%,100%{ transform: rotate(0); } 55%{ transform: rotate(90deg); } }
 
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
@@ -391,6 +392,7 @@
       box-shadow: 0 4px 14px rgba(0,0,0,.4); pointer-events: none;
       animation: chatPop .2s ease;
     }
+    .chat-bubble .cb-name { color: #1E6BE5; font-weight: 900; }
     .chat-bubble::after {
       content: ''; position: absolute; left: 22px; bottom: -7px;
       border: 7px solid transparent; border-top-color: #fff;
@@ -504,6 +506,7 @@
     .seat-play {
       position: fixed; transform: translate(-50%,-50%); z-index: 42;
       display: flex; gap: 1px; pointer-events: none; align-items: center;
+      flex-wrap: wrap; justify-content: center; max-width: 42vw;
     }
     .sp-pass {
       background: rgba(214,150,20,.95); color: #fff; font-weight: 900;
@@ -1576,6 +1579,13 @@ socket.on('player:passed', function(d){ showSeatBubble(d.seat, '不出', 'rgba(2
 function clearSeatPlays(){
   for (var s = 1; s <= 6; s++){ var el = document.getElementById('seat-play-'+s); if(el) el.style.display='none'; }
 }
+/* 竖屏时整个 body 被旋转90°，getBoundingClientRect 返回"屏幕视觉坐标"，
+   fixed 子元素 left/top 是"body 本地坐标"，需换算：本地=(视觉y, 屏宽-视觉x) */
+function gdPortrait(){ return !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches); }
+function gdToLocal(vx, vy){
+  if (!gdPortrait()) return { x: vx, y: vy };
+  return { x: vy, y: window.innerWidth - vx };
+}
 function renderSeatPlays(sp){
   sp = sp || {};
   var total = (GAME_MODE === '6p') ? 6 : 4;
@@ -1600,9 +1610,10 @@ function renderSeatPlays(sp){
     var px = r.left + r.width/2, py = r.top + r.height/2;
     var dx = cx - px, dy = cy - py, len = Math.sqrt(dx*dx + dy*dy) || 1;
     var off = Math.min(len * 0.4, 105);
+    var pos = gdToLocal(px + dx/len*off, py + dy/len*off);   // 竖屏旋转换算
     el.style.display = 'flex';
-    el.style.left = (px + dx/len*off) + 'px';
-    el.style.top  = (py + dy/len*off) + 'px';
+    el.style.left = pos.x + 'px';
+    el.style.top  = pos.y + 'px';
   }
 }
 
@@ -2188,23 +2199,27 @@ function chatSend(text){
   socket.emit('chat:msg', { token:MY_TOKEN, roomCode:ROOM_CODE, text:String(text).slice(0,30) });
   var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open');
 }
-function showChatBubble(seat, text){
+function showChatBubble(seat, text, name){
   if(seat==null) return;
   var el = (typeof tbSeatEl==='function') ? tbSeatEl(seat) : null; if(!el) return;
   var r = el.getBoundingClientRect(); if(!r.width) return;
   var key='cb_'+seat, old=_chatBubbles[key];
   if(old){ clearTimeout(old.t); if(old.el) old.el.remove(); }
-  var b=document.createElement('div'); b.className='chat-bubble'; b.textContent=text;
-  b.style.left=(r.left + r.width/2)+'px';
-  b.style.top =(Math.max(r.top, 40))+'px';
+  var b=document.createElement('div'); b.className='chat-bubble';
+  if(name){ var nm=document.createElement('span'); nm.className='cb-name'; nm.textContent=name+'：'; b.appendChild(nm); }
+  b.appendChild(document.createTextNode(text));
+  var pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 40));   // 竖屏旋转换算
+  b.style.left = pos.x+'px';
+  b.style.top  = pos.y+'px';
   document.body.appendChild(b);
   var t=setTimeout(function(){ if(b) b.remove(); delete _chatBubbles[key]; }, 4200);
   _chatBubbles[key]={el:b,t:t};
 }
+/* 全桌公开显示：任何人发的消息，所有玩家都在其座位上方看到（含发言人名字）*/
 socket.on('chat:msg', function(d){
   if(!d || !d.text) return;
   var seat = (d.seat!=null) ? d.seat : (typeof tbSeatOfPlayer==='function' ? tbSeatOfPlayer(d.playerId) : null);
-  showChatBubble(seat, d.text);
+  showChatBubble(seat, d.text, d.name);
 });
 
 function tbPlaceCursor(seat, text, cls){
@@ -2212,8 +2227,9 @@ function tbPlaceCursor(seat, text, cls){
   var r = el.getBoundingClientRect(); if (!r.width) return;
   var b = document.createElement('div');
   b.className = 'tb-cursor ' + cls; b.textContent = text;
-  b.style.left = (r.left + r.width/2) + 'px';
-  b.style.top  = (Math.max(r.top, 30) - 4) + 'px';
+  var pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 30) - 4);   // 竖屏旋转换算
+  b.style.left = pos.x + 'px';
+  b.style.top  = pos.y + 'px';
   document.getElementById('tb-cursor-layer').appendChild(b);
 }
 function renderTributeUI(){
@@ -2444,8 +2460,10 @@ function flyTributeCard(fromSeat, toSeat, code, labelTxt) {
   if (!layer) { layer = document.createElement('div'); layer.id = 'tribute-fly-layer';
     layer.style.cssText = 'position:fixed;inset:0;z-index:300;pointer-events:none;'; document.body.appendChild(layer); }
   var W = 66, H = 92;
-  var x0 = fr.left + fr.width/2 - W/2, y0 = fr.top + fr.height/2 - H/2;
-  var x1 = tr.left + tr.width/2 - W/2, y1 = tr.top + tr.height/2 - H/2;
+  var fc = gdToLocal(fr.left + fr.width/2, fr.top + fr.height/2);   // 竖屏旋转换算
+  var tc = gdToLocal(tr.left + tr.width/2, tr.top + tr.height/2);
+  var x0 = fc.x - W/2, y0 = fc.y - H/2;
+  var x1 = tc.x - W/2, y1 = tc.y - H/2;
   var el = document.createElement('div');
   el.style.cssText = 'position:fixed;left:0;top:0;width:'+W+'px;height:'+H+'px;border-radius:8px;overflow:hidden;'
     + 'box-shadow:0 10px 28px rgba(0,0,0,.6);z-index:301;'
