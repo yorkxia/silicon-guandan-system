@@ -241,6 +241,7 @@
       background: rgba(0,0,0,.35); border-radius: 8px; padding: 2px 9px;
     }
     .trick-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }
+    .trick-cards.nowrap { flex-wrap: nowrap; }   /* 出牌≤5张：强制单行不换行 */
 
     /* 迷你牌面（中央出牌区） */
     /* 迷你牌面（中央出牌区）—— 高清矢量牌，放大便于适老 */
@@ -1852,6 +1853,7 @@ function renderCenterPlay(lastPlay){
   var cardsEl = document.getElementById('trick-cards');
   cardsEl.innerHTML = '';
   var show = Math.min((lastPlay.cards||[]).length, 13);
+  cardsEl.className = 'trick-cards' + (show <= 5 ? ' nowrap' : '');   // ≤5张强制单行
   for(var i=0;i<show;i++) cardsEl.innerHTML += miniCardHtml(lastPlay.cards[i]);
 
   var moreEl = document.getElementById('trick-more');

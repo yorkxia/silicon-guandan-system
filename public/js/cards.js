@@ -32,12 +32,12 @@
   /* 角标：点数在左、花色紧挨其右（横排）；左上 + 右下镜像旋转 180° */
   function corner(rankTxt, suit, color) {
     var isTen = rankTxt.length > 1;
-    var fs    = isTen ? 40 : 50;                  // “10” 略小
-    var suitX = isTen ? 50 : 36;                  // 花色在点数右侧
+    var fs    = isTen ? 60 : 75;                  // 点数放大 50%（原 40/50），加粗，便于适老
+    var suitX = isTen ? 75 : 54;                  // 花色右移让位（随点数等比外扩）
     var g =
-      '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="800" ' +
+      '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
       'font-size="' + fs + '" fill="' + color + '" text-anchor="start">' + rankTxt + '</text>' +
-      pip(suit, suitX, -16, 28, color);
+      pip(suit, suitX, -22, 28, color);
     return '<g transform="translate(22,54)">' + g + '</g>' +
            '<g transform="translate(' + (W - 22) + ',' + (H - 54) + ') rotate(180)">' + g + '</g>';
   }
