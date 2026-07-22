@@ -29,22 +29,17 @@
     return '<path d="' + SUIT_PATH[suit] + '" fill="' + color + '" transform="' + t + '"/>';
   }
 
-  /* 角标：点数(大、粗) + 其下小花色；左上 + 右下镜像旋转 180°（边锋风格）*/
+  /* 角标：点数在左、花色紧挨其右（横排）；左上 + 右下镜像旋转 180° */
   function corner(rankTxt, suit, color) {
-    var fs = rankTxt.length > 1 ? 44 : 54;        // “10” 略小
+    var isTen = rankTxt.length > 1;
+    var fs    = isTen ? 40 : 50;                  // “10” 略小
+    var suitX = isTen ? 50 : 36;                  // 花色在点数右侧
     var g =
       '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="800" ' +
-      'font-size="' + fs + '" fill="' + color + '" text-anchor="middle">' + rankTxt + '</text>' +
-      pip(suit, 0, 42, 34, color);
-    return '<g transform="translate(34,44)">' + g + '</g>' +
-           '<g transform="translate(' + (W - 34) + ',' + (H - 44) + ') rotate(180)">' + g + '</g>';
-  }
-
-  /* J/Q/K：大字母（居中）+ 其下小花色（边锋风格，干净无花边）*/
-  function faceCard(rankTxt, suit, color) {
-    return '<text x="' + (W / 2) + '" y="205" font-family="Georgia,\'Times New Roman\',serif" ' +
-      'font-weight="700" font-size="150" fill="' + color + '" text-anchor="middle">' + rankTxt + '</text>' +
-      pip(suit, W / 2, 258, 46, color);
+      'font-size="' + fs + '" fill="' + color + '" text-anchor="start">' + rankTxt + '</text>' +
+      pip(suit, suitX, -16, 28, color);
+    return '<g transform="translate(22,54)">' + g + '</g>' +
+           '<g transform="translate(' + (W - 22) + ',' + (H - 54) + ') rotate(180)">' + g + '</g>';
   }
 
   /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
@@ -84,12 +79,8 @@
     var suit = code[0], rank = code.slice(1);
     var color = colorOf(suit);
     var rankTxt = rank === 'T' ? '10' : rank;
-    var body;
-    if (rank === 'J' || rank === 'Q' || rank === 'K') {
-      body = faceCard(rankTxt, suit, color);       // 宫廷牌：大字母
-    } else {
-      body = pip(suit, W / 2, 190, 132, color);    // 数字/A：中央一个大花色（边锋风格）
-    }
+    /* 所有牌（含 J/Q/K）中心都只放一个大花色，靠角标点数区分 */
+    var body = pip(suit, W / 2, 192, 140, color);
     return shell(corner(rankTxt, suit, color) + body);
   }
 

@@ -36,10 +36,11 @@
       html, body { overflow: hidden; }
       body {
         position: fixed; top: 0; left: 0;
-        width: 100vh;   /* 旋转后：宽=屏高（长边）*/
-        height: 100vw;  /* 旋转后：高=屏宽（短边）*/
+        width: 100vh;   width: 100dvh;   /* 旋转后：宽=屏高（长边），dvh 排除动态地址栏 */
+        height: 100vw;  height: 100dvw;  /* 旋转后：高=屏宽（短边）*/
         transform-origin: top left;
         transform: translateX(100vw) rotate(90deg);
+        transform: translateX(100dvw) rotate(90deg);   /* 支持 dvw 的手机用此行，真满屏 */
       }
     }
 
@@ -143,6 +144,13 @@
       font-size: .55rem; padding: 1px 5px; border-radius: 5px; font-weight: 700; letter-spacing: 1px;
       background: rgba(212,172,13,.2); color: #D4AC0D; border: 1px solid rgba(212,172,13,.3);
     }
+    /* 队友标签移到方块底部：作为 pbox（flex列）最后一个子元素，居中贴底 */
+    .buddy-tag-bottom { align-self: center; margin-top: 2px; }
+    /* 顶部对家：名字完整显示（加宽、不再截断）*/
+    #top-bar .pbox-top .pbox-name,
+    .pbox-top .pbox-name { max-width: 180px; }
+    /* 六边形座位：队友标志移到该格最底部 */
+    .h-buddy-tag.h-buddy-bottom { margin-top: 2px; }
 
     /* 牌数徽章 */
     .card-count-badge {
@@ -263,7 +271,7 @@
       padding-bottom: env(safe-area-inset-bottom, 4px);
     }
     #my-info-row {
-      display: flex; align-items: center; gap: 7px; padding: 6px 14px 4px;
+      display: flex; align-items: center; gap: 7px; padding: 2px 14px 1px;
     }
     .my-team-dot {
       width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -293,18 +301,18 @@
     #hand-scroll::-webkit-scrollbar { display: none; }
 
     /* 单张手牌 */
-    /* 单张手牌（高清矢量牌面，放大约15%便于适老）*/
+    /* 单张手牌（高清矢量牌面，较前缩小约15%；5:7 标准比例）*/
     .hand-card {
-      flex-shrink: 0; width: 60px; height: 84px; border-radius: 6px; overflow: hidden;
+      flex-shrink: 0; width: 44px; height: 61px; border-radius: 6px; overflow: hidden;
       background: #fff; box-shadow: 2px 3px 8px rgba(0,0,0,.45);
-      margin-left: -21px;
+      margin-left: -15px;
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
     .hand-card svg { display: block; width: 100%; height: 100%; pointer-events: none; }
-    .hand-card.hand-card-6p { width: 48px; height: 67px; }
+    .hand-card.hand-card-6p { width: 36px; height: 50px; }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
       transform: translateX(9px);
@@ -420,8 +428,8 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -58px; }                /* 84-58=26px 露出角标 */
-    body.mode-6p .hand-col .hand-card.stacked { margin-top: -47px; }   /* 67-47=20px 露出角标 */
+    .hand-col .hand-card.stacked { margin-top: -43px; }                /* 61-43=18px 露出角标 */
+    body.mode-6p .hand-col .hand-card.stacked { margin-top: -35px; }   /* 50-35=15px 露出角标 */
     body.mode-6p .hand-col { margin-left: 2.25px; }
     #hand-scroll { align-items: flex-end; justify-content: center; }
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
@@ -639,7 +647,8 @@
     .h-pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
     .h-pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
-    .h-pbox-name { font-size: .68rem; color: rgba(255,255,255,.8); font-weight: 700; text-align: center; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .h-pbox-name { font-size: .64rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 84px; line-height: 1.15; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 130px; }
     .h-pbox-info { font-size: .6rem; color: rgba(255,255,255,.4); text-align: center; }
     /* 顶部中央（对家）提到顶栏那一行：与左积分榜、右房号同一水平线，避免被顶栏框线切断 */
     .h-pbox.h-top-slot {
@@ -663,7 +672,7 @@
     /* 六人手牌区 */
     #my-hand-6p { padding: 6px 0 2px; background: rgba(0,0,0,.3); }
     #my-info-6p {
-      display: flex; align-items: center; gap: 8px; padding: 4px 10px;
+      display: flex; align-items: center; gap: 8px; padding: 1px 10px;
       font-size: .78rem;
     }
     #my-hand-scroll-6p { overflow-x: auto; padding: 4px 8px 8px; }
@@ -938,11 +947,11 @@
       <div style="display:flex;align-items:center;gap:6px;justify-content:center">
         <div class="pbox-avatar team1" id="top-avatar">?</div>
         <div class="pbox-name" id="top-name">—</div>
-        <span class="buddy-tag" id="top-buddy" style="display:none">队友</span>
         <span class="card-count-badge" id="top-ccount">0张</span>
         <span class="finish-badge" id="top-finish" style="display:none"></span>
       </div>
       <div class="card-fan-h" id="top-cards"></div>
+      <span class="buddy-tag buddy-tag-bottom" id="top-buddy" style="display:none">队友</span>
     </div>
   </div>
   <div class="room-box">房间号 <span class="room-code-sm"><%= roomCode %></span></div>
@@ -963,10 +972,10 @@
     <div class="pbox pbox-side team1" id="box-left" style="display:none">
       <div class="pbox-avatar team1" id="left-avatar">?</div>
       <div class="pbox-name" id="left-name">—</div>
-      <span class="buddy-tag" id="left-buddy" style="display:none">队友</span>
       <div class="card-fan-v" id="left-cards"></div>
       <span class="card-count-badge" id="left-ccount">0</span>
       <span class="finish-badge" id="left-finish" style="display:none"></span>
+      <span class="buddy-tag buddy-tag-bottom" id="left-buddy" style="display:none">队友</span>
     </div>
   </div>
 
@@ -989,10 +998,10 @@
     <div class="pbox pbox-side team2" id="box-right" style="display:none">
       <div class="pbox-avatar team2" id="right-avatar">?</div>
       <div class="pbox-name" id="right-name">—</div>
-      <span class="buddy-tag" id="right-buddy" style="display:none">队友</span>
       <div class="card-fan-v" id="right-cards"></div>
       <span class="card-count-badge" id="right-ccount">0</span>
       <span class="finish-badge" id="right-finish" style="display:none"></span>
+      <span class="buddy-tag buddy-tag-bottom" id="right-buddy" style="display:none">队友</span>
     </div>
   </div>
 
@@ -2580,10 +2589,10 @@ function render6pPlayers(pList, finOrder, turnSeat) {
       '<div class="h-pbox-avatar ' + teamCls + (isActive?' active':'') + (offline?' offline':'') + '">' + initials + '</div>' +
       '<div class="h-pbox-name' + (offline?' offline':'') + '">' + label + (isMe?' (我)':'') + '</div>' +
       '<div class="h-pbox-info">' +
-        (isBuddy && !isMe ? '<span class="h-buddy-tag">队友</span>' : '') +
         (finBadge || (p && (p.cardCount||0) <= 10 ? '<span class="h-count low" style="font-size:.6rem;padding:0 5px;border-radius:7px;">' + (p.cardCount||0) + '张</span>' : '')) +
       '</div>' +
-      (cardBacks ? '<div class="h-card-fan">' + cardBacks + '</div>' : '');
+      (cardBacks ? '<div class="h-card-fan">' + cardBacks + '</div>' : '') +
+      (isBuddy && !isMe ? '<span class="h-buddy-tag h-buddy-bottom">队友</span>' : '');
     el.classList.toggle('offline', offline);   // 机器人托管：整格变灰暗
   }
 }

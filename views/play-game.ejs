@@ -36,10 +36,11 @@
       html, body { overflow: hidden; }
       body {
         position: fixed; top: 0; left: 0;
-        width: 100vh;   /* 旋转后：宽=屏高（长边）*/
-        height: 100vw;  /* 旋转后：高=屏宽（短边）*/
+        width: 100vh;   width: 100dvh;   /* 旋转后：宽=屏高（长边），dvh 排除动态地址栏 */
+        height: 100vw;  height: 100dvw;  /* 旋转后：高=屏宽（短边）*/
         transform-origin: top left;
         transform: translateX(100vw) rotate(90deg);
+        transform: translateX(100dvw) rotate(90deg);   /* 支持 dvw 的手机用此行，真满屏 */
       }
     }
 
@@ -120,10 +121,11 @@
     .pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .pbox-avatar.active { background: #D4AC0D; color: #1a1a2e; }
 
-    /* 名字 */
+    /* 名字（方框内确保可见：最多两行、居中，不再省略号截断）*/
     .pbox-name {
-      font-size: .64rem; color: rgba(255,255,255,.65); text-align: center; letter-spacing: 1px;
-      max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-size: .62rem; color: rgba(255,255,255,.85); text-align: center; letter-spacing: .5px;
+      max-width: 80px; line-height: 1.15; word-break: break-all;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     }
     .pbox-name.active { color: #FFE066; font-weight: 700; }
     .pbox-name.offline { color: rgba(255,120,120,.75); font-style: italic; }
@@ -142,6 +144,14 @@
     .buddy-tag {
       font-size: .55rem; padding: 1px 5px; border-radius: 5px; font-weight: 700; letter-spacing: 1px;
       background: rgba(212,172,13,.2); color: #D4AC0D; border: 1px solid rgba(212,172,13,.3);
+    }
+    /* 队友标签移到方块底部：作为 pbox（flex列）最后一个子元素，居中贴底 */
+    .buddy-tag-bottom { align-self: center; margin-top: 2px; }
+    /* 顶部对家：名字完整显示（单行、加宽、不再两行截断）*/
+    #top-bar .pbox-top .pbox-name,
+    .pbox-top .pbox-name {
+      -webkit-line-clamp: unset; max-width: 180px; white-space: nowrap;
+      display: inline-block; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* 牌数徽章 */
@@ -166,10 +176,11 @@
     .finish-badge.p3 { background:#C98F53; color:#241606; }
     .finish-badge.p4 { background:#C0000F; color:#fff; }
 
-    /* ─── 玩家标志：正方形（内容不变，牌背扇收成小方块）─── */
+    /* ─── 玩家标志：正方形，框内优先显示名字/号码（隐藏牌背扇让出空间）─── */
     .pbox-top {
       width: 84px; max-width: 84px; min-height: 84px; justify-content: center; overflow: hidden;
     }
+    .pbox-top .card-fan-h, .pbox-side .card-fan-v { display: none; }  /* 方框内不显示牌背扇 */
     .card-fan-h {
       display: flex; justify-content: center; flex-wrap: nowrap; overflow: hidden;
       max-width: 74px;
@@ -263,7 +274,7 @@
       padding-bottom: calc(46px + env(safe-area-inset-bottom, 4px));   /* 让出底部长条栏 */
     }
     #my-info-row {
-      display: flex; align-items: center; gap: 7px; padding: 6px 14px 4px;
+      display: flex; align-items: center; gap: 7px; padding: 2px 14px 1px;
     }
     .my-team-dot {
       width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
@@ -292,18 +303,18 @@
     }
     #hand-scroll::-webkit-scrollbar { display: none; }
 
-    /* 单张手牌（高清矢量牌面，放大约15%便于适老；圆球移至右下角后左侧最大牌不再被遮挡）*/
+    /* 单张手牌（高清矢量牌面，较前缩小约15%；5:7 标准比例）*/
     .hand-card {
-      flex-shrink: 0; width: 60px; height: 84px; border-radius: 6px; overflow: hidden;
+      flex-shrink: 0; width: 44px; height: 61px; border-radius: 6px; overflow: hidden;
       background: #fff; box-shadow: 2px 3px 8px rgba(0,0,0,.45);
-      margin-left: -21px;
+      margin-left: -15px;
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
     .hand-card svg { display: block; width: 100%; height: 100%; pointer-events: none; }
-    .hand-card.hand-card-6p { width: 48px; height: 67px; }
+    .hand-card.hand-card-6p { width: 36px; height: 50px; }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
       transform: translateX(9px);
@@ -431,8 +442,8 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -58px; }          /* 84-58=26px 露出点数+花色 */
-    body.mode-6p .hand-col .hand-card.stacked { margin-top: -47px; }  /* 67-47=20px 露出角标 */
+    .hand-col .hand-card.stacked { margin-top: -43px; }          /* 61-43=18px 露出角标 */
+    body.mode-6p .hand-col .hand-card.stacked { margin-top: -35px; }  /* 50-35=15px 露出角标 */
     body.mode-6p .hand-col { margin-left: 3px; }
     #hand-scroll { align-items: flex-end; justify-content: flex-start; }   /* 左对齐：最大牌固定在圆球右侧，始终可点 */
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
@@ -942,11 +953,11 @@
       <div style="display:flex;align-items:center;gap:6px;justify-content:center">
         <div class="pbox-avatar team1" id="top-avatar">?</div>
         <div class="pbox-name" id="top-name">—</div>
-        <span class="buddy-tag" id="top-buddy" style="display:none">队友</span>
         <span class="card-count-badge" id="top-ccount">0张</span>
         <span class="finish-badge" id="top-finish" style="display:none"></span>
       </div>
       <div class="card-fan-h" id="top-cards"></div>
+      <span class="buddy-tag buddy-tag-bottom" id="top-buddy" style="display:none">队友</span>
     </div>
   </div>
   <div class="room-box">房间号 <span class="room-code-sm"><%= roomCode %></span></div>
@@ -967,10 +978,10 @@
     <div class="pbox pbox-side team1" id="box-left" style="display:none">
       <div class="pbox-avatar team1" id="left-avatar">?</div>
       <div class="pbox-name" id="left-name">—</div>
-      <span class="buddy-tag" id="left-buddy" style="display:none">队友</span>
       <div class="card-fan-v" id="left-cards"></div>
       <span class="card-count-badge" id="left-ccount">0</span>
       <span class="finish-badge" id="left-finish" style="display:none"></span>
+      <span class="buddy-tag buddy-tag-bottom" id="left-buddy" style="display:none">队友</span>
     </div>
   </div>
 
@@ -993,10 +1004,10 @@
     <div class="pbox pbox-side team2" id="box-right" style="display:none">
       <div class="pbox-avatar team2" id="right-avatar">?</div>
       <div class="pbox-name" id="right-name">—</div>
-      <span class="buddy-tag" id="right-buddy" style="display:none">队友</span>
       <div class="card-fan-v" id="right-cards"></div>
       <span class="card-count-badge" id="right-ccount">0</span>
       <span class="finish-badge" id="right-finish" style="display:none"></span>
+      <span class="buddy-tag buddy-tag-bottom" id="right-buddy" style="display:none">队友</span>
     </div>
   </div>
 
