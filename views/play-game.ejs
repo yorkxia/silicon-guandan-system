@@ -248,7 +248,7 @@
 
     /* 迷你牌面（中央出牌区）—— 高清矢量牌，放大便于适老 */
     .mc {
-      width: 40px; height: 56px; border-radius: 5px; overflow: hidden;
+      width: 34px; height: 48px; border-radius: 5px; overflow: hidden;
       box-shadow: 1px 2px 5px rgba(0,0,0,.45); flex-shrink: 0; position: relative;
     }
     .mc svg { display: block; width: 100%; height: 100%; }
@@ -305,16 +305,16 @@
 
     /* 单张手牌（高清矢量牌面，较前缩小约15%；5:7 标准比例）*/
     .hand-card {
-      flex-shrink: 0; width: 44px; height: 61px; border-radius: 6px; overflow: hidden;
+      flex-shrink: 0; width: 48px; height: 67px; border-radius: 6px; overflow: hidden;
       background: #fff; box-shadow: 2px 3px 8px rgba(0,0,0,.45);
-      margin-left: -15px;
+      margin-left: -17px;
       cursor: pointer;
       transition: transform .12s ease, box-shadow .12s ease, outline .1s;
       position: relative; user-select: none; -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
     .hand-card svg { display: block; width: 100%; height: 100%; pointer-events: none; }
-    .hand-card.hand-card-6p { width: 36px; height: 50px; }
+    .hand-card.hand-card-6p { width: 40px; height: 55px; }
     .hand-card:first-child { margin-left: 0; }
     .hand-card.selected {
       transform: translateX(9px);
@@ -442,8 +442,8 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
-    .hand-col .hand-card.stacked { margin-top: -43px; }          /* 61-43=18px 露出角标 */
-    body.mode-6p .hand-col .hand-card.stacked { margin-top: -35px; }  /* 50-35=15px 露出角标 */
+    .hand-col .hand-card.stacked { margin-top: -47px; }          /* 67-47=20px 露出角标 */
+    body.mode-6p .hand-col .hand-card.stacked { margin-top: -39px; }  /* 55-39=16px 露出角标 */
     body.mode-6p .hand-col { margin-left: 3px; }
     #hand-scroll { align-items: flex-end; justify-content: flex-start; }   /* 左对齐：最大牌固定在圆球右侧，始终可点 */
     #hand-scroll-6p { align-items: flex-end; justify-content: center; }
