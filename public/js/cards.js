@@ -10,7 +10,7 @@
   'use strict';
 
   var W = 240, H = 336;
-  var RED = '#B8231D', BLACK = '#1a1a1a';   // 红/黑取自赛事牌面采样
+  var RED = '#B8231D', BLACK = '#121212';   // 红取自采样；黑加深更醒目
 
   /* 四种花色矢量路径（100×100 视框，居中约 50,50）*/
   var SUIT_PATH = {
@@ -32,13 +32,14 @@
   /* 角标：点数在左、花色紧挨其右（横排）；仅左上角一处（照赛事牌面设计）*/
   function corner(rankTxt, suit, color) {
     var isTen = rankTxt.length > 1;
-    var fs    = isTen ? 64 : 82;                  // 点数：大号加粗
-    var suitX = isTen ? 82 : 58;                  // 花色紧挨点数右侧
-    var g =
-      '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
-      'font-size="' + fs + '" fill="' + color + '" text-anchor="start">' + rankTxt + '</text>' +
-      pip(suit, suitX, -30, 33, color);
-    return '<g transform="translate(20,60)">' + g + '</g>';
+    var fs     = isTen ? 80 : 102;                // 点数再放大 25%，更醒目
+    var suitCx = isTen ? 108 : 78;               // 花色紧挨点数右侧
+    /* 同色描边(paint-order:stroke)让笔画更粗更实——加粗加黑便于适老 */
+    var t =
+      '<text x="16" y="90" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
+      'font-size="' + fs + '" fill="' + color + '" stroke="' + color + '" stroke-width="3" ' +
+      'paint-order="stroke" stroke-linejoin="round" text-anchor="start">' + rankTxt + '</text>';
+    return t + pip(suit, suitCx, 44, 40, color);
   }
 
   /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
