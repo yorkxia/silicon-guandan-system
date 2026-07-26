@@ -111,6 +111,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 1.7rem; color: #fff;
     }
+    .ms-card-main { width: 100%; flex: 1; display: flex; flex-direction: column; }
     .ms-card-title { font-size: 1.12rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 5px; }
     .ms-card-sub { font-size: 0.78rem; color: #777; line-height: 1.6; margin-bottom: 12px; flex: 1; }
     .ms-chips-sm { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 16px; }
@@ -153,13 +154,38 @@
       border-left: 4px solid #E07080; font-size: 0.78rem; color: #666; line-height: 1.7;
     }
 
+    /* ── 手机端：三项浓缩为紧凑横条，一屏全显示 ── */
     @media (max-width: 720px) {
-      .ms-hero { flex-direction: column; text-align: center; gap: 14px; padding: 24px 20px; }
-      .ms-hero-main { width: 100%; }
-      .ms-chips { justify-content: center; }
-      .ms-hero-cta { width: 100%; text-align: center; }
-      .ms-row { grid-template-columns: 1fr; }
-      .ms-header { flex-wrap: wrap; }
+      .ms-header { flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 12px; }
+      .ms-header-logo { width: 46px; height: 46px; }
+      .ms-header-text h1 { font-size: 1.16rem; }
+
+      .ms-hero, .ms-card {
+        flex-direction: row; align-items: center; text-align: left;
+        gap: 13px; padding: 14px 15px;
+      }
+      .ms-hero { margin-bottom: 14px; }
+      .ms-row { grid-template-columns: 1fr; gap: 14px; }
+
+      .ms-hero-icon { width: 52px; height: 52px; font-size: 1.55rem; border-radius: 15px; }
+      .ms-card-icon { width: 52px; height: 52px; margin: 0; font-size: 1.5rem; border-radius: 15px; flex-shrink: 0; }
+
+      .ms-hero-main, .ms-card-main { flex: 1; min-width: 0; text-align: left; }
+      .ms-hero-title { font-size: 1.12rem; letter-spacing: 1px; margin-bottom: 2px; }
+      .ms-hero-sub  { font-size: 0.74rem; margin-bottom: 0; }
+      .ms-card-title { font-size: 1.04rem; letter-spacing: 1px; margin-bottom: 2px; }
+      .ms-card-sub  { font-size: 0.73rem; margin-bottom: 0; flex: none; }
+
+      .ms-chips, .ms-chips-sm { display: none; }
+
+      .ms-hero-cta {
+        flex-shrink: 0; width: auto; padding: 11px 15px;
+        font-size: 0.82rem; letter-spacing: 0;
+      }
+      .ms-btn {
+        width: auto; flex-shrink: 0; padding: 11px 15px;
+        font-size: 0.8rem; letter-spacing: 0; white-space: nowrap;
+      }
     }
 </style>
 
@@ -194,9 +220,11 @@
     <!-- 亲友开房赛事 -->
     <a href="#" class="ms-card ms-green" onclick="openRoom();return false;">
       <div class="ms-card-icon">🏠</div>
-      <div class="ms-card-title">亲友开房赛事</div>
-      <div class="ms-card-sub">创建私人房间，邀请亲朋好友加入同乐</div>
-      <div class="ms-chips-sm"><span>私人房间</span><span>家庭聚会</span><span>好友同乐</span></div>
+      <div class="ms-card-main">
+        <div class="ms-card-title">亲友开房赛事</div>
+        <div class="ms-card-sub">创建私人房间，邀请亲朋好友加入同乐</div>
+        <div class="ms-chips-sm"><span>私人房间</span><span>家庭聚会</span><span>好友同乐</span></div>
+      </div>
       <div class="ms-btn">🏠 创建私人房间</div>
     </a>
 
@@ -204,9 +232,11 @@
     <a href="#" class="ms-card ms-purple" onclick="return false;">
       <span class="ms-badge">敬请期待</span>
       <div class="ms-card-icon">🏆</div>
-      <div class="ms-card-title">大型网上联赛</div>
-      <div class="ms-card-sub">官方认证 · 正式赛制 · 积分排行争夺冠军</div>
-      <div class="ms-chips-sm"><span>正式赛制</span><span>积分排名</span><span>冠军争夺</span></div>
+      <div class="ms-card-main">
+        <div class="ms-card-title">大型网上联赛</div>
+        <div class="ms-card-sub">官方认证 · 正式赛制 · 积分排行争夺冠军</div>
+        <div class="ms-chips-sm"><span>正式赛制</span><span>积分排名</span><span>冠军争夺</span></div>
+      </div>
       <div class="ms-btn">🏆 报名参赛联赛</div>
     </a>
 
