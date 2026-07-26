@@ -29,17 +29,17 @@
     return '<path d="' + SUIT_PATH[suit] + '" fill="' + color + '" transform="' + t + '"/>';
   }
 
-  /* 角标：点数在左、花色紧挨其右（横排）；仅左上角一处（照赛事牌面设计）*/
+  /* 角标：点数在左、花色移到顶部右侧并放大；仅左上角一处（照赛事牌面设计）*/
   function corner(rankTxt, suit, color) {
     var isTen = rankTxt.length > 1;
-    var fs     = isTen ? 80 : 102;                // 点数再放大 25%，更醒目
-    var suitCx = isTen ? 108 : 78;               // 花色紧挨点数右侧
+    var fs     = isTen ? 80 : 102;                // 点数字号
+    var suitCx = isTen ? 174 : 162;              // 花色右移到顶部右侧（约一个点数宽的距离）
     /* 同色描边(paint-order:stroke)让笔画更粗更实——加粗加黑便于适老 */
     var t =
       '<text x="16" y="90" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
       'font-size="' + fs + '" fill="' + color + '" stroke="' + color + '" stroke-width="3" ' +
       'paint-order="stroke" stroke-linejoin="round" text-anchor="start">' + rankTxt + '</text>';
-    return t + pip(suit, suitCx, 44, 40, color);
+    return t + pip(suit, suitCx, 54, 116, color);   // 花色放大约 3 倍，移至顶部右侧
   }
 
   /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
