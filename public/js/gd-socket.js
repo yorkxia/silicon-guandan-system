@@ -44,10 +44,60 @@
     if (el) el.textContent = count;
   });
 
+  /* ── 方案A：首次进入弹窗让玩家给自己起名字（存 localStorage + 同步档案）──
+     以 gd-name-set 标记是否已由用户主动设置过；未设置则弹窗。 */
+  function showNameModal(cb) {
+    if (document.getElementById('gd-name-modal')) return;
+    var wrap = document.createElement('div');
+    wrap.id = 'gd-name-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);' +
+      'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;' +
+      'align-items:center;justify-content:center;padding:20px;';
+    wrap.innerHTML =
+      '<div style="background:linear-gradient(145deg,#12324a,#0a2033);border:1px solid rgba(212,172,13,.35);' +
+        'border-radius:20px;padding:26px 24px;max-width:340px;width:100%;text-align:center;' +
+        'box-shadow:0 12px 40px rgba(0,0,0,.5);">' +
+        '<div style="font-size:1.15rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:6px;">给自己起个名字</div>' +
+        '<div style="font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:18px;">队友和对手在牌桌上会看到这个名字</div>' +
+        '<input id="gd-name-input" type="text" maxlength="12" placeholder="输入昵称，如：老王 / Karen" ' +
+          'style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);' +
+          'background:rgba(255,255,255,.08);color:#fff;font-size:1rem;text-align:center;outline:none;' +
+          'box-sizing:border-box;margin-bottom:16px;">' +
+        '<button id="gd-name-ok" style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;' +
+          'background:linear-gradient(135deg,#E8A020,#A86800);color:#fff;font-size:1rem;font-weight:800;' +
+          'letter-spacing:2px;">确定，进入赛事</button>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    var input = document.getElementById('gd-name-input');
+    var ok = document.getElementById('gd-name-ok');
+    setTimeout(function(){ try { input.focus(); } catch (e) {} }, 100);
+    function done() {
+      var v = (input.value || '').trim().replace(/\s+/g, ' ').slice(0, 12);
+      if (!v) v = getName();   // 留空 → 用随机名兜底，保证总有名字
+      localStorage.setItem('gd-name', v);
+      localStorage.setItem('gd-name-set', '1');
+      try { if (socket && socket.connected) socket.emit('player:join', { token: getToken(), name: v }); } catch (e) {}
+      wrap.remove();
+      if (cb) cb(v);
+    }
+    ok.onclick = done;
+    input.addEventListener('keydown', function(e){ if (e.key === 'Enter') done(); });
+  }
+
+  /* 已设置过名字 → 直接回调；否则弹窗收集后回调 */
+  function ensureName(cb) {
+    cb = cb || function(){};
+    if (localStorage.getItem('gd-name-set') === '1') { cb(getName()); return; }
+    if (document.body) showNameModal(cb);
+    else document.addEventListener('DOMContentLoaded', function(){ showNameModal(cb); });
+  }
+
   /* 挂到全局供页面扩展使用 */
   window.gdSocket = socket;
   window.gdGetName = getName;
   window.gdGetToken = getToken;
   window.gdChannel = getChannel;
+  window.gdEnsureName = ensureName;
+  window.gdShowNameModal = showNameModal;
 
 })();

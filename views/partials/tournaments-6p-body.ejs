@@ -530,6 +530,7 @@ function doScanJoin() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  if (window.gdEnsureName) window.gdEnsureName();   // 方案A：首次进入让玩家起名字
   initScanJoin();
 
   function attachEvents() {
