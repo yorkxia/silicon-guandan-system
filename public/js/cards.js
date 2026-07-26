@@ -10,7 +10,7 @@
   'use strict';
 
   var W = 240, H = 336;
-  var RED = '#D4001C', BLACK = '#1b1b2b';
+  var RED = '#B8231D', BLACK = '#1a1a1a';   // 红/黑取自赛事牌面采样
 
   /* 四种花色矢量路径（100×100 视框，居中约 50,50）*/
   var SUIT_PATH = {
@@ -29,17 +29,16 @@
     return '<path d="' + SUIT_PATH[suit] + '" fill="' + color + '" transform="' + t + '"/>';
   }
 
-  /* 角标：点数在左、花色紧挨其右（横排）；左上 + 右下镜像旋转 180° */
+  /* 角标：点数在左、花色紧挨其右（横排）；仅左上角一处（照赛事牌面设计）*/
   function corner(rankTxt, suit, color) {
     var isTen = rankTxt.length > 1;
-    var fs    = isTen ? 60 : 75;                  // 点数放大 50%（原 40/50），加粗，便于适老
-    var suitX = isTen ? 75 : 54;                  // 花色右移让位（随点数等比外扩）
+    var fs    = isTen ? 64 : 82;                  // 点数：大号加粗
+    var suitX = isTen ? 82 : 58;                  // 花色紧挨点数右侧
     var g =
       '<text x="0" y="0" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
       'font-size="' + fs + '" fill="' + color + '" text-anchor="start">' + rankTxt + '</text>' +
-      pip(suit, suitX, -22, 28, color);
-    return '<g transform="translate(22,54)">' + g + '</g>' +
-           '<g transform="translate(' + (W - 22) + ',' + (H - 54) + ') rotate(180)">' + g + '</g>';
+      pip(suit, suitX, -30, 33, color);
+    return '<g transform="translate(20,60)">' + g + '</g>';
   }
 
   /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
@@ -79,8 +78,8 @@
     var suit = code[0], rank = code.slice(1);
     var color = colorOf(suit);
     var rankTxt = rank === 'T' ? '10' : rank;
-    /* 所有牌（含 J/Q/K）中心都只放一个大花色，靠角标点数区分 */
-    var body = pip(suit, W / 2, 192, 140, color);
+    /* 所有牌（含 J/Q/K）牌面下部放一个大花色，靠左上角点数区分 */
+    var body = pip(suit, W / 2, 200, 150, color);
     return shell(corner(rankTxt, suit, color) + body);
   }
 

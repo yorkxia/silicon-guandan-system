@@ -11,23 +11,13 @@
     html, body { margin: 0; overflow: hidden; height: 100vh; height: 100dvh; }
     body {
       /* 硅谷海滩实景背景 */
-      background: url('/img/bg-beach.jpg') center center / cover no-repeat fixed, #1a4a6a;
+      background: #0a7d73;   /* 赛事桌布：整屏纯平青绿毡面 */
       display: flex; flex-direction: column;
       font-family: -apple-system, "PingFang SC", sans-serif;
       width: 100vw; height: 100vh; height: 100dvh;   /* 满屏，无上下白条 */
     }
-    /* 沙色椭圆牌桌（背景层）*/
-    #beach-table {
-      position: fixed; left: 50%; top: 55%; transform: translate(-50%,-50%);
-      width: 68vw; height: 56vh; max-width: 760px; border-radius: 50%;
-      /* 与海水协调的半透明青绿毡面 */
-      background: radial-gradient(ellipse at 50% 42%,
-                  rgba(58,150,132,.60) 0%, rgba(28,104,104,.72) 55%, rgba(14,68,78,.82) 100%);
-      box-shadow: 0 0 0 7px rgba(255,255,255,.18),
-                  inset 0 0 55px rgba(0,0,0,.30),
-                  0 16px 40px rgba(0,0,0,.4);
-      z-index: -1; pointer-events: none;
-    }
+    /* 牌桌改为整屏纯平青绿毡面（去除椭圆桌与上下阴影，桌面平整光滑）*/
+    #beach-table { display: none; }
     body.mode-6p #beach-table { top: 52%; width: 98vw; height: 76vh; max-width: 1380px; }
 
     /* 竖屏 → 整个牌桌自动旋转成横屏满屏（微信内置浏览器无法锁定方向，用CSS旋转）*/
