@@ -253,8 +253,33 @@
     .gd-suits-float span:nth-child(3) { animation-delay: 1.2s; }
     .gd-suits-float span:nth-child(4) { animation-delay: 1.8s; }
 
-    @media (max-width: 860px) {
+    /* 平板：单列，卡片保持完整 */
+    @media (min-width: 721px) and (max-width: 860px) {
       .gd-grid { grid-template-columns: 1fr; max-width: 480px; }
+    }
+
+    /* ── 手机端：四人/六人两卡浓缩，一屏全显示 ── */
+    @media (max-width: 720px) {
+      .gd-header { padding: 4px 0 16px; }
+      .gd-header h1 { font-size: 1.28rem; letter-spacing: 1.5px; }
+      .gd-header p { font-size: 0.72rem; letter-spacing: 1.5px; }
+
+      .gd-grid { grid-template-columns: 1fr; gap: 14px; max-width: 480px; }
+
+      .gd-card-red .gd-card-head,
+      .gd-card-blue .gd-card-head { padding: 14px 18px 12px; }
+      .gd-card-head::before { font-size: 2rem !important; top: 10px !important; }
+      .gd-emblem { width: 50px; height: 50px; }
+      .gd-emblem-row { gap: 12px; margin-bottom: 0; }
+      .gd-assoc-name { font-size: 0.68rem; margin-bottom: 2px; }
+      .gd-card-title { font-size: 1.35rem; letter-spacing: 3px; }
+      .gd-card-en { font-size: 0.6rem; letter-spacing: 2px; margin-top: 2px; }
+
+      .gd-card-body { padding: 14px 18px 16px; }
+      .gd-suits-float, .gd-vs-row, .gd-desc { display: none; }
+      .gd-tags { margin-bottom: 14px; gap: 6px; }
+      .gd-tag { padding: 3px 10px; font-size: 0.72rem; }
+      .gd-btn { padding: 12px 0; font-size: 0.92rem; letter-spacing: 2px; }
     }
 </style>
 
