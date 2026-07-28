@@ -4,7 +4,7 @@
   "short_name": "四人掼蛋",
   "description": "硅谷掼蛋协会 · 四人掼蛋网上赛事 · 随机参赛 · 全球对战 · Silicon Valley Guandan Association",
   "start_url": "/play/4p",
-  "scope": "/play",
+  "scope": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#1a0505",
