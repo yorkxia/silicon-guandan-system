@@ -1,0 +1,241 @@
+<%#
+  共享安装卡片主体（4人/主入口两张邀请卡复用，跨平台"点击即装"逻辑集中在此）
+  需要的 locals：
+    appName      顶部大标题（含 emoji）
+    appSub       英文副标题
+    appPlain     纯文字应用名（引导文案里用，如"掼蛋赛事"/"四人掼蛋赛事"）
+    enterUrl     "先直接进入"按钮 / 已安装后按钮的地址
+    enterLabel   "先直接进入"按钮文字
+    tags         标签数组（string[]）
+    dismissSuffix localStorage key 后缀，避免两张卡相互覆盖（''/'-4p'）
+%>
+<style>
+  .inst-page { max-width: 480px; margin: 0 auto; padding: 34px 24px 90px; text-align: center; }
+  .inst-logo {
+    width: 108px; height: 108px; border-radius: 26px;
+    border: 3px solid rgba(212,172,13,0.7);
+    box-shadow: 0 0 32px rgba(212,172,13,0.3), 0 8px 32px rgba(0,0,0,0.4);
+    object-fit: cover; background: #1a0505; margin: 0 auto 18px; display: block;
+  }
+  .inst-app-name { font-size: 1.65rem; font-weight: 900; color: #FFE066; letter-spacing: 3px; margin-bottom: 6px; text-shadow: 0 2px 12px rgba(212,172,13,0.4); }
+  .inst-app-sub  { font-size: 0.74rem; color: rgba(255,255,255,0.5); letter-spacing: 3px; margin-bottom: 26px; }
+  .inst-divider  { height: 1px; background: linear-gradient(90deg, transparent, rgba(212,172,13,0.5), transparent); margin: 0 auto 24px; }
+  .inst-tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 26px; }
+  .inst-tag  { padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; background: rgba(255,255,255,0.08); border: 1px solid rgba(212,172,13,0.3); color: rgba(255,255,255,0.85); }
+
+  .inst-install-btn {
+    display: block; width: 100%; padding: 17px;
+    background: linear-gradient(135deg, #E01020, #8B0000); color: #fff; border: none; border-radius: 15px;
+    font-size: 1.15rem; font-weight: 900; letter-spacing: 2px; cursor: pointer;
+    box-shadow: 0 6px 24px rgba(192,0,15,0.5); transition: transform .2s, box-shadow .2s;
+  }
+  .inst-install-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(192,0,15,0.62); }
+  .inst-install-btn:active { transform: scale(.98); }
+  .inst-btn-hint { font-size: 0.8rem; color: rgba(255,255,255,0.55); margin: 12px 0 4px; line-height: 1.7; }
+
+  .inst-steps-card { display: none; background: rgba(255,255,255,0.06); border: 1px solid rgba(212,172,13,0.25); border-radius: 18px; padding: 22px 20px; margin-top: 18px; text-align: left; }
+  .inst-steps-title { font-size: 0.95rem; font-weight: 800; color: #FFE066; letter-spacing: 1px; margin-bottom: 16px; text-align: center; }
+  .inst-step { display: flex; align-items: flex-start; gap: 13px; margin-bottom: 16px; }
+  .inst-step:last-child { margin-bottom: 0; }
+  .inst-step-num { width: 28px; height: 28px; flex-shrink: 0; background: linear-gradient(135deg, #E01020, #8B0000); border-radius: 50%; font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .inst-step-body { flex: 1; }
+  .inst-step-label { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 3px; line-height: 1.45; }
+  .inst-step-desc  { font-size: 0.83rem; color: rgba(255,255,255,0.68); line-height: 1.65; }
+  .inst-step-desc .badge { display: inline-block; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.24); border-radius: 5px; padding: 1px 7px; font-size: 0.85rem; }
+
+  #standalone-msg { display: none; background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4); border-radius: 14px; padding: 20px; margin-bottom: 20px; font-size: 0.92rem; color: #6EE89A; line-height: 1.8; }
+  #standalone-msg a { display:inline-block; margin-top:12px; color:#fff; background:linear-gradient(135deg,#E01020,#8B0000); padding:10px 22px; border-radius:12px; font-weight:800; text-decoration:none; }
+
+  .inst-enter-btn { display: block; width: 100%; padding: 14px; margin-top: 22px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); border: 1px solid rgba(212,172,13,0.3); border-radius: 14px; font-size: 0.92rem; font-weight: 700; letter-spacing: 2px; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+  .inst-enter-btn:hover { background: rgba(255,255,255,0.14); color: #fff; text-decoration: none; }
+  .inst-footer { margin-top: 30px; font-size: 0.7rem; color: rgba(255,255,255,0.28); letter-spacing: 2px; line-height: 2; }
+
+  /* 顶部一键安装横幅（beforeinstallprompt 到达时出现，锦上添花） */
+  #pwa-install-banner { display:none; align-items:center; gap:12px; padding:10px 18px; background:linear-gradient(135deg,#1a0505,#2C0A0A); color:#fff; font-size:0.83rem; position:relative; z-index:9999; }
+  #pwa-install-banner img { width:36px; height:36px; border-radius:8px; border:1px solid rgba(212,172,13,0.5); flex-shrink:0; }
+  #pwa-install-banner .pwa-btn { background:linear-gradient(135deg,#E01020,#8B0000); color:#fff; border:none; border-radius:8px; padding:7px 16px; font-size:0.82rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+  #pwa-install-banner .pwa-x { background:none; border:none; color:rgba(255,255,255,0.5); font-size:1.2rem; cursor:pointer; padding:0 4px; }
+
+  /* 微信/内置浏览器：全屏"去浏览器打开"引导 */
+  #inapp-guide { display: none; position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,0.85); }
+  #inapp-guide .iag-arrow { position: absolute; top: 6px; right: 14px; font-size: 3.4rem; line-height: 1; color: #FFE066; animation: iagBounce 1s ease-in-out infinite; text-shadow: 0 0 18px rgba(212,172,13,0.7); }
+  @keyframes iagBounce { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-8px);} }
+  #inapp-guide .iag-body { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); width: calc(100% - 44px); max-width: 420px; background: linear-gradient(175deg, #2C0A0A 0%, #1a0505 100%); border: 2px solid rgba(212,172,13,0.5); border-radius: 20px; padding: 24px 22px; text-align: center; }
+  #inapp-guide .iag-title { font-size: 1.15rem; font-weight: 900; color: #FFE066; margin-bottom: 14px; }
+  #inapp-guide .iag-line { font-size: 0.95rem; color: #fff; line-height: 1.9; }
+  #inapp-guide .iag-line .badge { display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; padding: 2px 10px; font-weight: 700; margin: 0 2px; }
+  #inapp-guide .iag-sub { margin-top: 14px; font-size: 0.78rem; color: rgba(255,255,255,0.55); line-height: 1.7; }
+</style>
+
+<!-- 顶部一键安装横幅 -->
+<div id="pwa-install-banner">
+  <img src="/img/icon-192.png" alt="<%= appPlain %>">
+  <div style="flex:1;line-height:1.5;"><strong style="color:#FFE066;">📲 安装<%= appPlain %></strong><br><small style="color:rgba(255,255,255,0.65);font-size:0.75rem;">添加到桌面，随时一键进入</small></div>
+  <button class="pwa-btn" onclick="pwaInstallClick()">安装</button>
+  <button class="pwa-x" onclick="pwaBannerDismiss()" title="关闭">✕</button>
+</div>
+
+<!-- 内置浏览器引导 -->
+<div id="inapp-guide">
+  <div class="iag-arrow">☝️</div>
+  <div class="iag-body">
+    <div class="iag-title">📲 请在浏览器中打开</div>
+    <div class="iag-line">点击右上角 <span class="badge">···</span> 菜单<br>选择 <span class="badge" id="iag-open-label">在浏览器中打开</span></div>
+    <div class="iag-sub">在微信/Messenger 内无法装到桌面，<br>用系统浏览器（Safari / Chrome / 华为浏览器）打开本页即可安装。</div>
+  </div>
+</div>
+
+<div class="inst-page">
+  <img src="/img/icon-192.png" alt="硅谷掼蛋协会" class="inst-logo">
+  <div class="inst-app-name"><%= appName %></div>
+  <div class="inst-app-sub"><%= appSub %></div>
+  <div class="inst-divider"></div>
+  <div class="inst-tags"><% tags.forEach(function(t){ %><span class="inst-tag"><%= t %></span><% }); %></div>
+
+  <!-- 已安装为 PWA -->
+  <div id="standalone-msg">✅ 已成功安装！<%= appPlain %> 已在桌面。<br><a href="<%= enterUrl %>"><%= enterLabel %></a></div>
+
+  <!-- 安装区 -->
+  <div id="install-hub">
+    <button class="inst-install-btn" id="inst-btn" onclick="pwaInstallClick()">📲 一键安装到桌面</button>
+    <p class="inst-btn-hint" id="inst-btn-hint">点一下，按提示把「<%= appPlain %>」图标装到桌面</p>
+
+    <!-- iOS Safari -->
+    <div class="inst-steps-card" id="ios-steps">
+      <div class="inst-steps-title">📲 装到 iPhone / iPad 桌面（3 步）</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">点屏幕最下方中间的「分享」</div><div class="inst-step-desc">Safari 底部那个 <span class="badge">⬆️ 方框加向上箭头</span>（没看到就先点一下屏幕下方，工具栏会出现）</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">向上滑，选「添加到主屏幕」</div><div class="inst-step-desc">菜单里往下滑，点 <span class="badge">➕ 添加到主屏幕</span></div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">点右上角「添加」</div><div class="inst-step-desc">「<%= appPlain %>」图标出现在桌面，以后直接点图标进入！</div></div></div>
+    </div>
+
+    <!-- 华为 / 鸿蒙 / 其它安卓浏览器 -->
+    <div class="inst-steps-card" id="harmony-steps">
+      <div class="inst-steps-title">📲 装到手机桌面（3 步）</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">点浏览器菜单</div><div class="inst-step-desc">华为手机请用 <span class="badge">华为浏览器</span> 打开本页，点底部中间或右上角的 <span class="badge">⋮ / 三条杠</span> 菜单</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">选「添加到桌面」</div><div class="inst-step-desc">在菜单里找 <span class="badge">添加到桌面</span>（或"添加到主屏幕"）一项，点它</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">点「添加 / 确定」</div><div class="inst-step-desc">「<%= appPlain %>」图标出现在桌面，以后直接点图标进入！</div></div></div>
+    </div>
+
+    <!-- Mac Safari -->
+    <div class="inst-steps-card" id="mac-steps">
+      <div class="inst-steps-title">💻 装到 Mac 程序坞（2 步）</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">Safari 顶部菜单「文件」</div><div class="inst-step-desc">点屏幕左上角菜单栏的 <span class="badge">文件 File</span></div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">选「添加到程序坞」</div><div class="inst-step-desc">点 <span class="badge">添加到程序坞 Add to Dock</span> → 完成，图标进 Dock。<br>（用 Chrome / Edge 打开则可点上方红色按钮一键装）</div></div></div>
+    </div>
+
+    <!-- Windows/其它电脑浏览器 -->
+    <div class="inst-steps-card" id="desktop-steps">
+      <div class="inst-steps-title">💻 装到电脑桌面</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">点网址栏右侧的安装图标</div><div class="inst-step-desc">Chrome / Edge 网址栏最右边有个 <span class="badge">⊞ / ⊕ 安装</span> 小图标，点它 →「安装」即可（点上方红色按钮也行）</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">Firefox / 其它浏览器</div><div class="inst-step-desc">建议改用 <span class="badge">Chrome</span> 或 <span class="badge">Edge</span> 打开本页，安装最省事</div></div></div>
+    </div>
+  </div>
+
+  <a href="<%= enterUrl %>" class="inst-enter-btn"><%= enterLabel %></a>
+  <div class="inst-footer">硅谷掼蛋协会 · Silicon Valley Guandan Association<br>silicon-guandan-system.onrender.com</div>
+</div>
+
+<script>
+(function(){
+  var ua = navigator.userAgent || '';
+  var DKEY = 'pwa-dismissed<%= dismissSuffix %>';
+  var isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches ||
+                     window.matchMedia('(display-mode: window-controls-overlay)').matches;
+  var isIOS = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/i.test(ua) && 'ontouchend' in document); // iPadOS 伪装 Mac
+  var isMacSafari = /Macintosh/i.test(ua) && !('ontouchend' in document) && /Safari/i.test(ua) && !/Chrome|Chromium|Edg\//i.test(ua);
+  var isWeChat    = /MicroMessenger/i.test(ua);
+  var isMessenger = /FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram/i.test(ua);
+  var isInApp     = isWeChat || isMessenger || /\bQQ\/|MQQBrowser\/|Weibo|DingTalk|Lark|feishu|baiduboxapp/i.test(ua);
+  /* 华为/鸿蒙识别：UA 关键字 + 常见华为机型号前缀（部分华为浏览器 UA 不含 Huawei 字样）*/
+  var isHuawei    = /HarmonyOS|ArkWeb|HuaweiBrowser|HMSCore|HUAWEI|Huawei|Honor|PetalSearch/i.test(ua) ||
+                    /; (ELS|ANA|LIO|TAS|EVR|OCE|NOH|BAL|JAD|MAO|ALN|BRA|VOG|YAL|JEF|WGR|HMA|SEA|EBG|GLK|DCO|FGD|LNA|MLD|STK|POT|JKM|JSN|DUB|MED|VNE|ATU|AGS|KOB|BAH|SPN|CDY|MRD|RNE)-/i.test(ua);
+  var isAndroid   = /Android/i.test(ua);
+  var isMobile    = /Android|Mobile|iPhone|iPad|iPod|HarmonyOS/i.test(ua) || isHuawei;
+  var isDesktop   = !isMobile;
+
+  function el(id){ return document.getElementById(id); }
+  function show(id){ var e=el(id); if(e) e.style.display='block'; }
+  function hide(id){ var e=el(id); if(e) e.style.display='none'; }
+  function hideAllGuides(){ ['ios-steps','harmony-steps','mac-steps','desktop-steps'].forEach(hide); }
+
+  /* 该机型对应的手动引导块 */
+  function guideId(){
+    if (isIOS) return 'ios-steps';
+    if (isMacSafari) return 'mac-steps';
+    if (isHuawei || isAndroid) return 'harmony-steps';
+    if (isDesktop) return 'desktop-steps';
+    return 'harmony-steps';
+  }
+  function showGuide(){
+    hideAllGuides();
+    var g = guideId(); show(g);
+    var e = el(g); if (e && e.scrollIntoView) e.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  /* 已安装：只显示进入按钮 */
+  if (isStandalone){ show('standalone-msg'); hide('install-hub'); return; }
+
+  /* 内置浏览器：无法安装，引导去系统浏览器 */
+  if (isInApp){
+    var openLabel = isIOS ? (isWeChat ? '在 Safari 中打开' : '在系统浏览器打开')
+                          : (isHuawei ? '用浏览器打开' : '在浏览器中打开');
+    var lbl = el('iag-open-label'); if (lbl) lbl.textContent = openLabel;
+    show('inapp-guide');
+    return;
+  }
+
+  /* 捕获系统安装事件（可能在 <head> 已捕获到 window._pwaPrompt） */
+  var deferred = window._pwaPrompt || null;
+  function onReady(e){
+    if (e){ e.preventDefault(); deferred = e; window._pwaPrompt = e; }
+    hideAllGuides();
+    var hint = el('inst-btn-hint'); if (hint) hint.textContent = '点一下，弹出系统提示里选「安装」即可';
+    var banner = el('pwa-install-banner');
+    if (banner && !localStorage.getItem(DKEY)) banner.style.display = 'flex';
+  }
+  window.addEventListener('beforeinstallprompt', onReady);
+  window.addEventListener('appinstalled', function(){
+    hide('pwa-install-banner');
+    var hint = el('inst-btn-hint'); if (hint) hint.innerHTML = '✅ 安装成功！去桌面点「<%= appPlain %>」图标进入';
+    hideAllGuides();
+  });
+
+  /* iOS / Mac Safari：系统不支持一键，直接给图文步骤，隐藏一键按钮 */
+  if (isIOS || isMacSafari){
+    hide('inst-btn'); hide('inst-btn-hint');
+    show(guideId());
+    return;
+  }
+
+  /* 其余平台（安卓含华为、Windows/Mac Chrome/Edge）：显示一键按钮 */
+  /* 若已提前捕获到事件则立即标记就绪 */
+  if (deferred) onReady(null);
+
+  /* 兜底：等一会儿若仍无系统一键（华为浏览器常见），把手动步骤主动展开，按钮也照常可点 */
+  setTimeout(function(){
+    if (deferred) return;
+    var hint = el('inst-btn-hint');
+    if (hint) hint.textContent = (isHuawei ? '华为手机：点上面按钮或按下面 3 步「添加到桌面」' : '点上面按钮，或按下面步骤操作');
+    show(guideId());
+  }, 1600);
+
+  /* 安装按钮：能一键就一键；不能就滚动/展开该机型专属图文引导——绝不"点了没反应" */
+  window.pwaInstallClick = function(){
+    if (deferred){
+      deferred.prompt();
+      var uc = deferred.userChoice;
+      deferred = null; window._pwaPrompt = null;
+      hide('pwa-install-banner');
+      if (uc && uc.then) uc.then(function(res){
+        if (!res || res.outcome !== 'accepted') showGuide(); // 用户取消系统框：给手动兜底
+      });
+    } else {
+      showGuide();
+    }
+  };
+  window.pwaBannerDismiss = function(){
+    hide('pwa-install-banner'); localStorage.setItem(DKEY, Date.now());
+  };
+})();
+</script>

@@ -1,15 +1,21 @@
-/* 硅谷掼蛋协会 · Service Worker v4 · 网上赛事版 */
-var CACHE = 'gd-pwa-v4';
+/* 硅谷掼蛋协会 · Service Worker v5 · 网上赛事版 */
+var CACHE = 'gd-pwa-v5';
 
 var PRECACHE = [
   '/manifest.json',
+  '/manifest-4p.json',
   '/css/style.css',
   '/img/assoc-logo.png',
   '/img/guandan-icon.png',
+  '/img/icon-192.png',
+  '/img/icon-512.png',
+  '/img/icon-maskable-192.png',
+  '/img/icon-maskable-512.png',
   '/play',
   '/play/4p',
   '/play/6p',
   '/install',
+  '/install/4p',
   '/guandan'
 ];
 
