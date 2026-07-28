@@ -348,8 +348,10 @@
       color: #1E6BE5; font-size: 1.3rem; font-weight: 900; letter-spacing: 1px;
     }
     #chat-fab:active { transform: scale(.94); }
+    #chat-backdrop { position: fixed; inset: 0; z-index: 294; display: none; background: transparent; }
+    #chat-backdrop.open { display: block; }
     #chat-panel {
-      position: fixed; right: 12px; bottom: 52px; z-index: 63; display: none;
+      position: fixed; right: 12px; bottom: 52px; z-index: 295; display: none;
       width: 268px; max-width: 82vw; background: rgba(22,26,34,.97);
       border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 10px;
       box-shadow: 0 8px 30px rgba(0,0,0,.6);
@@ -1060,6 +1062,7 @@
   <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
   <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
 </div>
+<div id="chat-backdrop" onclick="closeChatPanel()"></div>
 <div id="chat-panel">
   <div class="cp-quick" id="cp-quick"></div>
   <div class="cp-emoji" id="cp-emoji"></div>
@@ -2181,12 +2184,13 @@ function initChatPanel(){
     b.onclick=function(){ chatSend(t); }; e.appendChild(b);
   });
 }
-function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(p) p.classList.toggle('open'); }
+function closeChatPanel(){ var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open'); var bd=document.getElementById('chat-backdrop'); if(bd) bd.classList.remove('open'); }
+function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(!p) return; p.classList.toggle('open'); var bd=document.getElementById('chat-backdrop'); if(bd){ if(p.classList.contains('open')) bd.classList.add('open'); else bd.classList.remove('open'); } }
 function chatSendInput(){ var i=document.getElementById('cp-input'); if(!i) return; var t=(i.value||'').trim(); if(t){ chatSend(t); i.value=''; } }
 function chatSend(text){
   if(!text) return;
   socket.emit('chat:msg', { token:MY_TOKEN, roomCode:ROOM_CODE, text:String(text).slice(0,30) });
-  var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open');
+  closeChatPanel();
 }
 function showChatBubble(seat, text, name){
   if(seat==null) return;
@@ -2500,7 +2504,7 @@ function cardEmoji(code) {
 */
 var HEX_POS = [
   null,                        // placeholder index 0
-  { left:'50%', top:'88%' },   // seat 1 = bottom-center (me)
+  { left:'50%', top:'99%' },   // seat 1 = bottom-center (me)：底边贴近牌桌底部（配合 translate -100% 下移）
   { left:'94%', top:'64%' },   // seat 2 = bottom-right
   { left:'94%', top:'17%' },   // seat 3 = top-right
   { left:'50%', top:'3%'  },   // seat 4 = top-center
@@ -2530,6 +2534,11 @@ function init6pBoard(d) {
     if (displayIdx === 4) {                  // 顶部中央=对家：提到顶栏行，横排紧凑
       el.classList.add('h-top-slot');
       el.style.left = ''; el.style.top = ''; el.style.transform = '';
+    } else if (displayIdx === 1) {           // 底部中央=我：以底边为锚点向上排布，尽量贴近底部不被裁切
+      el.classList.remove('h-top-slot');
+      el.style.left       = pos.left;
+      el.style.top        = pos.top;
+      el.style.transform  = 'translate(-50%,-100%)';
     } else {
       el.classList.remove('h-top-slot');
       el.style.left       = pos.left;

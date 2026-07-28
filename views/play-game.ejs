@@ -351,9 +351,11 @@
     }
     #chat-fab:active { transform: scale(.94); }
 
-    /* 发消息面板 */
+    /* 发消息面板（z-index 高于对局中各飘层，避免被聊天气泡/光标层等遮住）*/
+    #chat-backdrop { position: fixed; inset: 0; z-index: 294; display: none; background: transparent; }
+    #chat-backdrop.open { display: block; }
     #chat-panel {
-      position: fixed; right: 12px; bottom: 52px; z-index: 63; display: none;
+      position: fixed; right: 12px; bottom: 52px; z-index: 295; display: none;
       width: 268px; max-width: 82vw; background: rgba(22,26,34,.97);
       border: 1px solid rgba(255,255,255,.18); border-radius: 14px; padding: 10px;
       box-shadow: 0 8px 30px rgba(0,0,0,.6);
@@ -1065,6 +1067,7 @@
   <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
   <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
 </div>
+<div id="chat-backdrop" onclick="closeChatPanel()"></div>
 <div id="chat-panel">
   <div class="cp-quick" id="cp-quick"></div>
   <div class="cp-emoji" id="cp-emoji"></div>
@@ -2309,12 +2312,13 @@ function initChatPanel(){
     b.onclick=function(){ chatSend(t); }; e.appendChild(b);
   });
 }
-function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(p) p.classList.toggle('open'); }
+function closeChatPanel(){ var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open'); var bd=document.getElementById('chat-backdrop'); if(bd) bd.classList.remove('open'); }
+function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(!p) return; p.classList.toggle('open'); var bd=document.getElementById('chat-backdrop'); if(bd){ if(p.classList.contains('open')) bd.classList.add('open'); else bd.classList.remove('open'); } }
 function chatSendInput(){ var i=document.getElementById('cp-input'); if(!i) return; var t=(i.value||'').trim(); if(t){ chatSend(t); i.value=''; } }
 function chatSend(text){
   if(!text) return;
   socket.emit('chat:msg', { token:MY_TOKEN, roomCode:ROOM_CODE, text:String(text).slice(0,30) });
-  var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open');
+  closeChatPanel();
 }
 function showChatBubble(seat, text, name){
   if(seat==null) return;

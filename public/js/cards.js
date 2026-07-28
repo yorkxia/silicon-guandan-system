@@ -39,7 +39,7 @@
       '<text x="16" y="90" font-family="Arial,\'Helvetica Neue\',sans-serif" font-weight="900" ' +
       'font-size="' + fs + '" fill="' + color + '" stroke="' + color + '" stroke-width="3" ' +
       'paint-order="stroke" stroke-linejoin="round" text-anchor="start">' + rankTxt + '</text>';
-    return t + pip(suit, suitCx, 54, 116, color);   // 花色放大约 3 倍，移至顶部右侧
+    return t + pip(suit, suitCx, 54, 93, color);   // 花色移至顶部右侧（在原 116 基础上缩小 20%）
   }
 
   /* 王牌：王冠 + JOKER + 大王/小王（大王红、小王黑）*/
