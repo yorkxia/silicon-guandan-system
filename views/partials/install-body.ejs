@@ -203,6 +203,7 @@
   function onReady(e){
     if (e){ e.preventDefault(); deferred = e; window._pwaPrompt = e; }
     hideAllGuides();
+    show('inst-btn'); show('inst-btn-hint');   /* 确保一键按钮可见(纯血鸿蒙也可能抛事件) */
     var hint = el('inst-btn-hint'); if (hint) hint.textContent = '点一下，弹出系统提示里选「安装」即可';
     var banner = el('pwa-install-banner');
     if (banner && !localStorage.getItem(DKEY)) banner.style.display = 'flex';
@@ -214,11 +215,19 @@
     hideAllGuides();
   });
 
-  /* iOS / Mac Safari / 纯血鸿蒙：系统无一键安装事件，直接给图文步骤，隐藏"一键安装"按钮(避免点了没反应) */
-  if (isIOS || isMacSafari || isPureHarmony){
+  /* iOS / Mac Safari：系统永远不抛一键安装事件，隐藏一键按钮直接给图文步骤 */
+  if (isIOS || isMacSafari){
     hide('inst-btn'); hide('inst-btn-hint');
     show(guideId());
     return;
+  }
+
+  /* 纯血鸿蒙(鸿蒙6/NEXT)：部分华为浏览器其实能弹系统安装框，部分只能手动"添加至桌面"——两手准备：
+     保留"一键安装"按钮(有事件就真一键)，同时展开"添加至桌面"图文兜底，绝不隐藏按钮；不 return，继续走下方 onReady */
+  if (isPureHarmony){
+    show('harmonynext-steps');
+    var phHint = el('inst-btn-hint');
+    if (phHint) phHint.textContent = '点上面按钮试试；若不弹窗，按下面 3 步「添加至桌面」';
   }
 
   /* 其余平台（安卓含华为、Windows/Mac Chrome/Edge）：显示一键按钮 */
