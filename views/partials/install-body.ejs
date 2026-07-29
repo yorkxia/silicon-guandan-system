@@ -202,8 +202,14 @@
   var deferred = window._pwaPrompt || null;
   function onReady(e){
     if (e){ e.preventDefault(); deferred = e; window._pwaPrompt = e; }
+    show('inst-btn'); show('inst-btn-hint');   /* 确保一键按钮可见 */
+    /* 纯血鸿蒙即使抛了事件, prompt() 也常无效——保留"添加至桌面"图文常显, 不给"系统提示"误导文案 */
+    if (isPureHarmony){
+      show('harmonynext-steps');
+      var ph = el('inst-btn-hint'); if (ph) ph.textContent = '点按钮或按下面 3 步「添加至桌面」';
+      return;
+    }
     hideAllGuides();
-    show('inst-btn'); show('inst-btn-hint');   /* 确保一键按钮可见(纯血鸿蒙也可能抛事件) */
     var hint = el('inst-btn-hint'); if (hint) hint.textContent = '点一下，弹出系统提示里选「安装」即可';
     var banner = el('pwa-install-banner');
     if (banner && !localStorage.getItem(DKEY)) banner.style.display = 'flex';
@@ -244,6 +250,13 @@
 
   /* 安装按钮：能一键就一键；不能就滚动/展开该机型专属图文引导——绝不"点了没反应" */
   window.pwaInstallClick = function(){
+    /* 纯血鸿蒙：华为浏览器常"抛事件但 prompt() 空操作/报错"，不能信任它——
+       静默试一次 prompt()(万一真支持)，随后无条件展开可靠的"添加至桌面"图文引导 */
+    if (isPureHarmony){
+      if (deferred){ try { deferred.prompt(); } catch(e){} }
+      showGuide();
+      return;
+    }
     if (deferred){
       deferred.prompt();
       var uc = deferred.userChoice;
