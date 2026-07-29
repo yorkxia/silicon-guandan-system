@@ -108,6 +108,14 @@
       <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">点右上角「添加」</div><div class="inst-step-desc">「<%= appPlain %>」图标出现在桌面，以后直接点图标进入！</div></div></div>
     </div>
 
+    <!-- 纯血鸿蒙（HarmonyOS NEXT / 鸿蒙6，无安卓/无Chrome，ArkWeb内核） -->
+    <div class="inst-steps-card" id="harmonynext-steps">
+      <div class="inst-steps-title">📲 装到华为桌面（鸿蒙原生版 3 步）</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">用「华为浏览器」打开本页</div><div class="inst-step-desc">鸿蒙6/纯血鸿蒙必须用华为自带的 <span class="badge">华为浏览器</span> 打开（在微信里请先点右上角 <span class="badge">···</span> → 用浏览器打开）。建议先到 <span class="badge">应用市场</span> 把华为浏览器更新到最新版</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">点屏幕最底部右下角的「四个点」</div><div class="inst-step-desc">华为浏览器最底部工具栏，右下角那个 <span class="badge">⋮⋮ 四个点 / 田字格</span> 按钮，打开「常用功能」菜单</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">选「添加至桌面」</div><div class="inst-step-desc">菜单里点 <span class="badge">添加至桌面</span>，「<%= appPlain %>」图标就出现在桌面，以后直接点图标进入！<br><span style="color:rgba(255,255,255,0.5);">找不到该项 = 华为浏览器版本旧，去应用市场更新后再试</span></div></div></div>
+    </div>
+
     <!-- 华为 / 鸿蒙 / 其它安卓浏览器 -->
     <div class="inst-steps-card" id="harmony-steps">
       <div class="inst-steps-title">📲 装到手机桌面（3 步）</div>
@@ -152,18 +160,22 @@
   var isHuawei    = /HarmonyOS|ArkWeb|HuaweiBrowser|HMSCore|HUAWEI|Huawei|Honor|PetalSearch/i.test(ua) ||
                     /; (ELS|ANA|LIO|TAS|EVR|OCE|NOH|BAL|JAD|MAO|ALN|BRA|VOG|YAL|JEF|WGR|HMA|SEA|EBG|GLK|DCO|FGD|LNA|MLD|STK|POT|JKM|JSN|DUB|MED|VNE|ATU|AGS|KOB|BAH|SPN|CDY|MRD|RNE)-/i.test(ua);
   var isAndroid   = /Android/i.test(ua);
+  /* 纯血鸿蒙(HarmonyOS NEXT / 鸿蒙6)：ArkWeb内核、无安卓运行时——不触发 beforeinstallprompt、无PWA/WebAPK安装，
+     只能用华为浏览器「添加至桌面」生成网页快捷方式。老鸿蒙4.x仍带安卓(UA含Android)，走标准安卓一键路径。 */
+  var isPureHarmony = /ArkWeb/i.test(ua) || (/HarmonyOS/i.test(ua) && !/Android/i.test(ua));
   var isMobile    = /Android|Mobile|iPhone|iPad|iPod|HarmonyOS/i.test(ua) || isHuawei;
   var isDesktop   = !isMobile;
 
   function el(id){ return document.getElementById(id); }
   function show(id){ var e=el(id); if(e) e.style.display='block'; }
   function hide(id){ var e=el(id); if(e) e.style.display='none'; }
-  function hideAllGuides(){ ['ios-steps','harmony-steps','mac-steps','desktop-steps'].forEach(hide); }
+  function hideAllGuides(){ ['ios-steps','harmonynext-steps','harmony-steps','mac-steps','desktop-steps'].forEach(hide); }
 
   /* 该机型对应的手动引导块 */
   function guideId(){
     if (isIOS) return 'ios-steps';
     if (isMacSafari) return 'mac-steps';
+    if (isPureHarmony) return 'harmonynext-steps';
     if (isHuawei || isAndroid) return 'harmony-steps';
     if (isDesktop) return 'desktop-steps';
     return 'harmony-steps';
@@ -180,7 +192,7 @@
   /* 内置浏览器：无法安装，引导去系统浏览器 */
   if (isInApp){
     var openLabel = isIOS ? (isWeChat ? '在 Safari 中打开' : '在系统浏览器打开')
-                          : (isHuawei ? '用浏览器打开' : '在浏览器中打开');
+                          : (isHuawei ? '用华为浏览器打开' : '在浏览器中打开');
     var lbl = el('iag-open-label'); if (lbl) lbl.textContent = openLabel;
     show('inapp-guide');
     return;
@@ -202,8 +214,8 @@
     hideAllGuides();
   });
 
-  /* iOS / Mac Safari：系统不支持一键，直接给图文步骤，隐藏一键按钮 */
-  if (isIOS || isMacSafari){
+  /* iOS / Mac Safari / 纯血鸿蒙：系统无一键安装事件，直接给图文步骤，隐藏"一键安装"按钮(避免点了没反应) */
+  if (isIOS || isMacSafari || isPureHarmony){
     hide('inst-btn'); hide('inst-btn-hint');
     show(guideId());
     return;
