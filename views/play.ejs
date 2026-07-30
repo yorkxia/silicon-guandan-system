@@ -124,7 +124,7 @@
   }
 
   function track(id, kind){
-    try { fetch('/api/play-ad/' + id + '/' + kind, { method:'POST' }).catch(function(){}); } catch(e){}
+    try { fetch('/api/ad/' + id + '/' + kind, { method:'POST' }).catch(function(){}); } catch(e){}
   }
 
   window.closeAd = function(e){

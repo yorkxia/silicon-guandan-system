@@ -2289,7 +2289,7 @@ ghStartRound(state.round);
 
 // ── 广告模块（服务端渲染版：访问已在服务端记录，广告数据直接注入）───────────────────────
 (function(){
-  var API = 'https://silicon-guandan-system.onrender.com/scoreboard';
+  var API = '';   // 曝光/点击统计改走本站本地接口 /api/ad/*（原 /scoreboard 未挂载于本 app，一直 404）
 
   // 广告数据由服务端直接注入，无需 fetch，无跨域，即时显示
   var allAds = <%- JSON.stringify(ads) %>;
@@ -2367,11 +2367,11 @@ ghStartRound(state.round);
   }
 
   function trackImpression(id) {
-    try { fetch(API + '/api/ads/' + id + '/impression', { method: 'POST' }).catch(function(){}); } catch(e){}
+    try { fetch(API + '/api/ad/' + id + '/impression', { method: 'POST' }).catch(function(){}); } catch(e){}
   }
 
   function trackClick(id) {
-    try { fetch(API + '/api/ads/' + id + '/click', { method: 'POST' }).catch(function(){}); } catch(e){}
+    try { fetch(API + '/api/ad/' + id + '/click', { method: 'POST' }).catch(function(){}); } catch(e){}
   }
 
   window.closeAd = function(e) {

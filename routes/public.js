@@ -476,12 +476,13 @@ router.get('/play', async (req, res) => {
   }
 });
 
-/* 广告曝光/点击统计（网上赛事页底部广告栏；直接累加共享 sb_ads 计数） */
-router.post('/api/play-ad/:id/impression', async (req, res) => {
+/* 广告曝光/点击统计（本站本地接口，直接累加共享 sb_ads 计数）
+   网上赛事底部广告栏 + 计分器广告栏共用（原计分器统计 POST 到未挂载的 /scoreboard 一直 404）*/
+router.post('/api/ad/:id/impression', async (req, res) => {
   try { await query('UPDATE sb_ads SET impressions = impressions + 1 WHERE id = $1', [req.params.id]); } catch (e) { /* 静默 */ }
   res.json({ ok: true });
 });
-router.post('/api/play-ad/:id/click', async (req, res) => {
+router.post('/api/ad/:id/click', async (req, res) => {
   try { await query('UPDATE sb_ads SET clicks = clicks + 1 WHERE id = $1', [req.params.id]); } catch (e) { /* 静默 */ }
   res.json({ ok: true });
 });
