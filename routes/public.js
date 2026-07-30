@@ -78,6 +78,25 @@ async function sendConfirmEmail(user, payment, token) {
   }
 }
 
+/* 按访客地区取广告（与计分器/首页共用 sb_ads 广告池：本区 + GLOBAL，高频广告优先）
+   在监控台"广告管理"发布的广告，三端按地区同时展示。*/
+async function fetchRegionAds(regionCode) {
+  const now = new Date();
+  return query(`
+    SELECT a.* FROM sb_ads a
+    LEFT JOIN sb_regions r ON r.id = a.region_id
+    WHERE a.is_active = 1
+      AND (a.start_time IS NULL OR a.start_time <= $1)
+      AND (a.end_time   IS NULL OR a.end_time   >= $1)
+      AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+    ORDER BY
+      CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
+      CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,
+      a.frequency_minutes ASC NULLS LAST,
+      a.created_at DESC
+  `, [now, regionCode]).catch(() => []);
+}
+
 async function getContent(page) {
   const rows = await query('SELECT key_name, value_zh, value_en FROM page_content WHERE page = $1', [page]);
   const c = {};
@@ -445,8 +464,26 @@ router.get('/install/4p', (req, res) => {
 router.get('/i4', (req, res) => res.redirect(301, '/install/4p'));
 
 // ── 公开赛事页（无需登录，朋友扫码后直接进入） ──────────────
-router.get('/play', (req, res) => {
-  res.render('play');
+router.get('/play', async (req, res) => {
+  try {
+    const ip  = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    const geo = await geoLocate(ip);
+    const ads = await fetchRegionAds(geo.region_code);
+    res.render('play', { ads });
+  } catch (e) {
+    console.error('play route error:', e.message);
+    res.render('play', { ads: [] });
+  }
+});
+
+/* 广告曝光/点击统计（网上赛事页底部广告栏；直接累加共享 sb_ads 计数） */
+router.post('/api/play-ad/:id/impression', async (req, res) => {
+  try { await query('UPDATE sb_ads SET impressions = impressions + 1 WHERE id = $1', [req.params.id]); } catch (e) { /* 静默 */ }
+  res.json({ ok: true });
+});
+router.post('/api/play-ad/:id/click', async (req, res) => {
+  try { await query('UPDATE sb_ads SET clicks = clicks + 1 WHERE id = $1', [req.params.id]); } catch (e) { /* 静默 */ }
+  res.json({ ok: true });
 });
 
 router.get('/play/4p', (req, res) => {

@@ -34,6 +34,108 @@
   <%- include('partials/tournaments-online-body', { otBase: '/play' }) %>
 </main>
 
+<!-- ── 底部广告栏（内容来自监控台「广告管理」，按访客地区展示，与计分器共用同一广告池） ── -->
+<style>
+.play-ad{max-width:760px;margin:10px auto 30px;padding:0 16px;}
+.play-ad-inner{display:flex;align-items:center;gap:12px;
+  background:linear-gradient(135deg,#FFFDF5,#FFF6D8);border:1.5px solid #E9CE7A;border-radius:14px;
+  padding:10px 14px;box-shadow:0 4px 16px rgba(168,104,0,0.14);position:relative;overflow:hidden;}
+.play-ad-label{flex-shrink:0;font-size:0.6rem;font-weight:700;color:#fff;background:#C79A3B;
+  padding:2px 7px;border-radius:6px;letter-spacing:1px;}
+.play-ad-textwrap{flex:1;overflow:hidden;white-space:nowrap;}
+.play-ad-text{display:inline-block;font-size:0.86rem;color:#6B4A1A;font-weight:600;white-space:nowrap;
+  animation:play-ad-scroll 20s linear infinite;}
+@keyframes play-ad-scroll{0%{transform:translateX(6%)}100%{transform:translateX(-100%)}}
+.play-ad-img{max-height:46px;max-width:130px;border-radius:8px;object-fit:contain;flex-shrink:0;}
+.play-ad-close{flex-shrink:0;color:rgba(107,74,26,0.45);font-size:0.9rem;cursor:pointer;padding:0 2px;line-height:1;}
+.play-ad-close:hover{color:#6B4A1A;}
+</style>
+<div class="play-ad" id="adBanner" style="display:none;">
+  <div class="play-ad-inner" id="adLink">
+    <span class="play-ad-label">广告</span>
+    <div class="play-ad-textwrap"><span class="play-ad-text" id="adText"></span></div>
+    <img class="play-ad-img" id="adImg" src="" alt="" style="display:none;">
+    <span class="play-ad-close" onclick="closeAd(event)" title="关闭 · Close">✕</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  // 广告数据由服务端按访客地区直接注入，无需 fetch、无跨域、即时显示
+  var allAds     = <%- JSON.stringify(locals.ads || []) %>;
+  var normalAds  = allAds.filter(function(a){ return !a.frequency_minutes; });
+  var specialAds = allAds.filter(function(a){ return !!a.frequency_minutes; });
+  var normalIdx  = 0, normalTimer = null, adClosed = false;
+
+  if (allAds.length > 0) {
+    if (normalAds.length > 0) {
+      displayAd(normalAds[0]);
+      if (normalAds.length > 1) normalTimer = setTimeout(rotateNormal, 30000);
+    } else if (specialAds.length > 0) {
+      displayAd(specialAds[0]);
+    }
+    // 高频广告：按各自 frequency_minutes 定时插播一次
+    specialAds.forEach(function(ad){
+      setInterval(function(){
+        if (adClosed) return;
+        if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
+        displayAd(ad);
+        if (normalAds.length > 0) normalTimer = setTimeout(rotateNormal, 30000);
+      }, ad.frequency_minutes * 60 * 1000);
+    });
+  }
+
+  function rotateNormal(){
+    if (adClosed || normalAds.length === 0) return;
+    normalIdx = (normalIdx + 1) % normalAds.length;
+    displayAd(normalAds[normalIdx]);
+    normalTimer = setTimeout(rotateNormal, 30000);
+  }
+
+  function displayAd(ad){
+    var banner = document.getElementById('adBanner');
+    var adLink = document.getElementById('adLink');
+    var adText = document.getElementById('adText');
+    var adImg  = document.getElementById('adImg');
+
+    if (ad.content_type === 'image' && ad.content_url) {
+      adImg.src = ad.content_url; adImg.style.display = 'block';
+      adText.textContent = ad.title || '';
+    } else {
+      adText.textContent = ad.content_text || ad.title || '';
+      adImg.style.display = 'none';
+    }
+    // 重启滚动动画
+    adText.style.animation = 'none'; void adText.offsetWidth; adText.style.animation = '';
+
+    adLink.onclick = null;
+    if (ad.link_url) {
+      adLink.style.cursor = 'pointer';
+      adLink.onclick = function(e){
+        if (e.target.classList.contains('play-ad-close')) return;
+        track(ad.id, 'click');
+        window.open(ad.link_url, '_blank', 'noopener');
+      };
+    } else { adLink.style.cursor = 'default'; }
+
+    banner.style.display = 'block';
+    adClosed = false;
+    track(ad.id, 'impression');
+  }
+
+  function track(id, kind){
+    try { fetch('/api/play-ad/' + id + '/' + kind, { method:'POST' }).catch(function(){}); } catch(e){}
+  }
+
+  window.closeAd = function(e){
+    e.stopPropagation();
+    document.getElementById('adBanner').style.display = 'none';
+    adClosed = true;
+    if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
+  };
+})();
+</script>
+
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/gd-socket.js"></script>
 </body>
