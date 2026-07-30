@@ -1,6 +1,7 @@
-/* 房间守护巡检：房间开房满 12 小时后，若「过半玩家离线」→ 120 秒倒计时警告 → 关闭
+/* 房间守护巡检：房间开房满 1 小时后，若「过半玩家离线」→ 120 秒倒计时警告 → 关闭
    四人(默认命名空间 io / gdo_ 表) + 六人(/g6 命名空间 io6 / gdo6_ 表)，随机/私人房都算。
-   120 秒内有人回到在线(掉线数不再过半)则取消关闭。*/
+   120 秒内有人回到在线(掉线数不再过半)则取消关闭。
+   （由 12h 收紧为 1h：避免机器人/弃赛留下的空房长时间堆积堵塞系统。）*/
 const { query } = require('../db/init');
 
 const CHECK_MS = 60 * 1000;             // 每分钟巡检一次
@@ -13,7 +14,7 @@ function startRoomMonitor(io, io6) {
     sweep(io,  'g4', 'gdo_rooms',  'gdo_seats').catch(e => console.error('[房间守护·4]', e.message));
     sweep(io6, 'g6', 'gdo6_rooms', 'gdo6_seats').catch(e => console.error('[房间守护·6]', e.message));
   }, CHECK_MS);
-  console.log('[房间守护] 已启动：每分钟巡检，满12h且过半掉线→120s→关闭');
+  console.log('[房间守护] 已启动：每分钟巡检，满1h且过半掉线→120s→关闭');
 }
 
 /* 扫一个命名空间下满 12h 的活跃房间 */
@@ -39,7 +40,7 @@ async function sweep(ioNs, prefix, roomsTbl, seatsTbl) {
             (SELECT COUNT(*) FROM ${seatsTbl} s WHERE s.room_id=r.id AND s.is_connected=FALSE) AS offline
        FROM ${roomsTbl} r
       WHERE r.status IN ('waiting','playing')
-        AND r.created_at < NOW() - INTERVAL '12 hours'`
+        AND r.created_at < NOW() - INTERVAL '1 hour'`
   );
   for (const r of rooms) {
     const total   = parseInt(r.total, 10);
@@ -75,7 +76,7 @@ async function finalizeClose(ioNs, roomsTbl, seatsTbl, roomId, roomCode, key) {
   if (active && total > 0 && offline * 2 > total) {
     await query(`UPDATE ${roomsTbl} SET status='abandoned', is_full=FALSE WHERE id=$1`, [roomId]);
     ioNs.to(roomCode).emit('room:closed', {});
-    console.log(`[房间守护] 🚪 满12h且过半掉线，关闭 · ${roomCode}`);
+    console.log(`[房间守护] 🚪 满1h且过半掉线，关闭 · ${roomCode}`);
   } else {
     ioNs.to(roomCode).emit('room:closing_cancel', {});   // 有人回来了 → 解除警告
   }

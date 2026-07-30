@@ -6,6 +6,7 @@ const {
 } = require('../db/gdo6');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
 const { initGameState, startTributePhase, seedDisconnectedFromDb } = require('./game6');
+const rateGuard = require('./rateGuard');
 
 /* 从 socket 握手取玩家来源信息：IP（用于地理定位）+ channel（访问渠道，客户端在连接 query 传入） */
 function sockMeta(socket) {
@@ -167,6 +168,12 @@ module.exports = function(io, socket) {
   /* ── 随机参赛：立即分配进开放房间 ── */
   socket.on('queue:join', async function(data) {
     try {
+      /* 反机器人：同一 IP 每分钟随机参赛过频 → 判定机器人，踢出并临时封禁 */
+      const ip = rateGuard.ipOf(socket);
+      if (!rateGuard.allow(ip, 'queue:join')) {
+        rateGuard.kickIp(io, ip, '检测到疑似机器人：短时间内大量参赛请求，已被临时限制，请稍后再试');
+        return;
+      }
       const { token, name, mode } = data;
       const player = await getOrCreatePlayer(token, name, sockMeta(socket));
 
@@ -239,6 +246,12 @@ module.exports = function(io, socket) {
   /* ── 亲友开房：建私人房间后立即进游戏页 ── */
   socket.on('room:create', async function(data) {
     try {
+      /* 反机器人：同一 IP 每分钟建房过频(≥10) → 判定机器人，踢出并临时封禁 */
+      const ip = rateGuard.ipOf(socket);
+      if (!rateGuard.allow(ip, 'room:create')) {
+        rateGuard.kickIp(io, ip, '检测到疑似机器人：短时间内创建过多房间，已被临时限制，请稍后再试');
+        return;
+      }
       const { token, name, mode } = data;
       const player = await getOrCreatePlayer(token, name, sockMeta(socket));
       const room   = await createRoom('private');
@@ -246,7 +259,7 @@ module.exports = function(io, socket) {
       if (result.error) return socket.emit('room:error', { message: result.error });
 
       socket.join(room.room_code);
-      socket.emit('room:joined', { roomCode: room.room_code });
+      socket.emit('room:joined', { roomCode: room.room_code, playerId: player.id });
 
       const state = await getRoomState(room.room_code);
       await broadcastWaiting(io, room.room_code, state);
@@ -267,7 +280,7 @@ module.exports = function(io, socket) {
       if (result.error) return socket.emit('room:error', { message: result.error });
 
       socket.join(code);
-      socket.emit('room:joined', { roomCode: code });
+      socket.emit('room:joined', { roomCode: code, playerId: player.id });
 
       const state = await getRoomState(code);
       await broadcastWaiting(io, code, state);

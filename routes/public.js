@@ -3,8 +3,15 @@ const router = express.Router();
 const { query, queryOne } = require('../db/init');
 const { encrypt, decrypt } = require('../utils/crypto');
 const { geoLocate, ipHash } = require('../utils/geo');
+const { rateLimit } = require('../middleware/httpRateLimit');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+
+/* 限流器：报名(表单) + 掼蛋计分器付款登记(会发邮件，防轰炸) */
+const registerLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20,
+  message: '报名过于频繁，请稍后再试 | Too many registrations, please try again later' });
+const gdRegisterLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 10,
+  message: '提交过于频繁，请稍后再试 | Too many submissions, please try again later' });
 
 /* 网上掼蛋 play 页访问埋点（写共享库 gdo_visits，供监控台"网上掼蛋赛事控制台"地域统计）
    fire-and-forget：不阻塞渲染、失败静默 */
@@ -198,7 +205,7 @@ router.get('/register/:id', async (req, res) => {
 });
 
 // Registration submit
-router.post('/register/:id', async (req, res) => {
+router.post('/register/:id', registerLimiter, async (req, res) => {
   try {
     const tournament = await queryOne('SELECT * FROM tournaments WHERE id = $1 AND status = $2', [req.params.id, 'active']);
     if (!tournament) return res.redirect('/');
@@ -288,7 +295,7 @@ router.use('/api/gd', (req, res, next) => {
 });
 
 // Register device + payment submission
-router.post('/api/gd/register', async (req, res) => {
+router.post('/api/gd/register', gdRegisterLimiter, async (req, res) => {
   try {
     const { name, contact, device_id, device_info, install_ts } = req.body;
     if (!name || !device_id) return res.json({ ok: false, error: 'missing fields' });

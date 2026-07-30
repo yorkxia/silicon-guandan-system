@@ -837,7 +837,7 @@ module.exports = function(io, socket) {
       /* ── 游戏尚未开始：等候状态 ── */
       if (!round || !round.hands_json) {
         const allSeats = await query(`
-          SELECT s.seat, s.team, s.player_id, p.display_name AS name, p.player_token
+          SELECT s.seat, s.team, s.player_id, p.display_name AS name
           FROM gdo_seats s JOIN gdo_players p ON p.id=s.player_id
           WHERE s.room_id=$1 ORDER BY s.seat
         `, [seat.room_id]);

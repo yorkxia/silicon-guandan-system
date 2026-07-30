@@ -1196,7 +1196,7 @@ function renderWaiting(seats, roomCode, roomType) {
   var TEAM_LABELS = ['','甲队','乙队','甲队','乙队','甲队','乙队'];
   for (var i = 1; i <= waitNeed; i++) {
     var s      = seats && seats.find(function(x){ return x.seat === i; });
-    var isMe   = s && (s.player_id === myPlayerId || s.player_token === MY_TOKEN);
+    var isMe   = s && s.player_id === myPlayerId;
     var isFilled = !!s;
     var cls    = 'wait-seat' + (isFilled ? ' filled' : '') + (isMe ? ' me' : '');
     var name   = s ? esc(s.display_name || s.name || '玩家') : '等待加入...';

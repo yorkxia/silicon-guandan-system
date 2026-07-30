@@ -78,7 +78,7 @@ async function getRoomState(roomCode) {
   const room = await queryOne('SELECT * FROM gdo6_rooms WHERE room_code=$1', [roomCode]);
   if (!room) return null;
   const seats = await query(
-    `SELECT s.*, p.display_name, p.player_token
+    `SELECT s.*, p.display_name
      FROM gdo6_seats s
      JOIN gdo_players p ON p.id = s.player_id
      WHERE s.room_id = $1 ORDER BY s.seat`,

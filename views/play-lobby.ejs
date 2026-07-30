@@ -141,6 +141,7 @@ var NEED      = MODE === '6p' ? 6 : 4;
 /* 玩家身份（来自 localStorage） */
 var MY_TOKEN = localStorage.getItem('gd-token') || '';
 var MY_NAME  = localStorage.getItem('gd-name')  || '匿名玩家';
+var MY_PLAYER_ID = 0;   // 服务端在 room:joined 时告知本人 player_id（不再下发 token，防同房冒充）
 var myReady  = false;
 
 var socket = io({ transports: ['websocket','polling'] });
@@ -155,6 +156,7 @@ socket.on('disconnect', function() {
 });
 
 socket.on('room:joined', function(d) {
+  if (d && d.playerId) MY_PLAYER_ID = d.playerId;
   renderState(d.state);
 });
 
@@ -184,7 +186,7 @@ function renderState(state) {
     var teamClass = (i % 2 === 1) ? 'team1' : 'team2';
     var teamLabel = (i % 2 === 1) ? '队伍甲' : '队伍乙';
     if (s) {
-      var isMe = s.player_token === MY_TOKEN;
+      var isMe = s.player_id === MY_PLAYER_ID;
       var rdyClass = s.is_ready ? 'yes' : 'no';
       var rdyText  = s.is_ready ? '✅ 已就绪' : '等待中';
       html += '<div class="seat-row ' + teamClass + ' filled">' +
