@@ -10,6 +10,31 @@
 <body>
 <%- include('partials/pwa-install-banner') %>
 
+<!-- ── 顶部广告栏（内容来自监控台「广告管理」，按访客地区展示，与计分器共用同一广告池） ── -->
+<style>
+.play-ad{max-width:760px;margin:8px auto 2px;padding:0 16px;}
+.play-ad-inner{display:flex;align-items:center;gap:12px;
+  background:linear-gradient(135deg,#FFFDF5,#FFF6D8);border:1.5px solid #E9CE7A;border-radius:14px;
+  padding:10px 14px;box-shadow:0 4px 16px rgba(168,104,0,0.14);position:relative;overflow:hidden;}
+.play-ad-label{flex-shrink:0;font-size:0.6rem;font-weight:700;color:#fff;background:#C79A3B;
+  padding:2px 7px;border-radius:6px;letter-spacing:1px;}
+.play-ad-textwrap{flex:1;overflow:hidden;white-space:nowrap;}
+.play-ad-text{display:inline-block;font-size:0.86rem;color:#6B4A1A;font-weight:600;white-space:nowrap;
+  animation:play-ad-scroll 20s linear infinite;}
+@keyframes play-ad-scroll{0%{transform:translateX(6%)}100%{transform:translateX(-100%)}}
+.play-ad-img{max-height:46px;max-width:130px;border-radius:8px;object-fit:contain;flex-shrink:0;}
+.play-ad-close{flex-shrink:0;color:rgba(107,74,26,0.45);font-size:0.9rem;cursor:pointer;padding:0 2px;line-height:1;}
+.play-ad-close:hover{color:#6B4A1A;}
+</style>
+<div class="play-ad" id="adBanner" style="display:none;">
+  <div class="play-ad-inner" id="adLink">
+    <span class="play-ad-label">广告</span>
+    <div class="play-ad-textwrap"><span class="play-ad-text" id="adText"></span></div>
+    <img class="play-ad-img" id="adImg" src="" alt="" style="display:none;">
+    <span class="play-ad-close" onclick="closeAd(event)" title="关闭 · Close">✕</span>
+  </div>
+</div>
+
 <!-- 简洁公开顶栏（无管理功能） -->
 <header style="display:flex;align-items:center;gap:14px;padding:12px 24px;background:#2C0A0A;box-shadow:0 2px 10px rgba(0,0,0,0.2);">
   <img src="/img/assoc-logo.png" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" alt="硅谷掼蛋协会">
@@ -33,31 +58,6 @@
 <main class="a-main" style="padding:28px 32px;">
   <%- include('partials/tournaments-online-body', { otBase: '/play' }) %>
 </main>
-
-<!-- ── 底部广告栏（内容来自监控台「广告管理」，按访客地区展示，与计分器共用同一广告池） ── -->
-<style>
-.play-ad{max-width:760px;margin:10px auto 30px;padding:0 16px;}
-.play-ad-inner{display:flex;align-items:center;gap:12px;
-  background:linear-gradient(135deg,#FFFDF5,#FFF6D8);border:1.5px solid #E9CE7A;border-radius:14px;
-  padding:10px 14px;box-shadow:0 4px 16px rgba(168,104,0,0.14);position:relative;overflow:hidden;}
-.play-ad-label{flex-shrink:0;font-size:0.6rem;font-weight:700;color:#fff;background:#C79A3B;
-  padding:2px 7px;border-radius:6px;letter-spacing:1px;}
-.play-ad-textwrap{flex:1;overflow:hidden;white-space:nowrap;}
-.play-ad-text{display:inline-block;font-size:0.86rem;color:#6B4A1A;font-weight:600;white-space:nowrap;
-  animation:play-ad-scroll 20s linear infinite;}
-@keyframes play-ad-scroll{0%{transform:translateX(6%)}100%{transform:translateX(-100%)}}
-.play-ad-img{max-height:46px;max-width:130px;border-radius:8px;object-fit:contain;flex-shrink:0;}
-.play-ad-close{flex-shrink:0;color:rgba(107,74,26,0.45);font-size:0.9rem;cursor:pointer;padding:0 2px;line-height:1;}
-.play-ad-close:hover{color:#6B4A1A;}
-</style>
-<div class="play-ad" id="adBanner" style="display:none;">
-  <div class="play-ad-inner" id="adLink">
-    <span class="play-ad-label">广告</span>
-    <div class="play-ad-textwrap"><span class="play-ad-text" id="adText"></span></div>
-    <img class="play-ad-img" id="adImg" src="" alt="" style="display:none;">
-    <span class="play-ad-close" onclick="closeAd(event)" title="关闭 · Close">✕</span>
-  </div>
-</div>
 
 <script>
 (function(){
