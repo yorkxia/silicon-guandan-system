@@ -54,9 +54,14 @@
         <div class="hero-ad-text-wrap">
           <span class="hero-ad-text" id="heroAdText"></span>
         </div>
+        <span class="hero-ad-video" id="heroAdVideo" style="display:none"></span>
         <span class="hero-ad-close" onclick="closeHeroAd(event)" title="关闭">✕</span>
       </div>
     </div>
+    <style>
+    .hero-ad-video{flex-shrink:0;line-height:0;}
+    .hero-ad-video video,.hero-ad-video iframe{width:150px;height:84px;border:0;border-radius:10px;display:block;background:#000;object-fit:cover;}
+    </style>
     <div class="year-badge">
       <span class="horse-char">🐎</span>
       <span>2026 · 丙午年 · Year of the Horse</span>
@@ -216,9 +221,37 @@
     displayAd(normalAds[normalIdx]);
     normalTimer = setTimeout(rotateNormal, 30000);
   }
+  // 视频广告：自动识别 YouTube/Vimeo(iframe) 或直链视频(video)，均静音自动循环
+  function buildVideoHtml(url){
+    var yt = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if (yt) {
+      var id = yt[1];
+      return '<iframe src="https://www.youtube.com/embed/' + id +
+        '?autoplay=1&mute=1&loop=1&playlist=' + id +
+        '&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    }
+    var vm = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vm) {
+      return '<iframe src="https://player.vimeo.com/video/' + vm[1] +
+        '?autoplay=1&muted=1&loop=1&background=1" allow="autoplay" allowfullscreen></iframe>';
+    }
+    var v = document.createElement('video');
+    v.src = url; v.autoplay = true; v.muted = true; v.loop = true;
+    v.setAttribute('playsinline',''); v.setAttribute('muted','');
+    return v.outerHTML;
+  }
+
   function displayAd(ad){
     var el = document.getElementById('heroAdText');
-    el.textContent = ad.content_text || ad.title;
+    var vid = document.getElementById('heroAdVideo');
+    vid.style.display = 'none'; vid.innerHTML = '';   // 清掉旧视频
+    if (ad.content_type === 'video' && ad.content_url) {
+      vid.innerHTML = buildVideoHtml(ad.content_url);
+      vid.style.display = 'block';
+      el.textContent = ad.title || '';
+    } else {
+      el.textContent = ad.content_text || ad.title;
+    }
     el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
     var link = document.getElementById('heroAdLink');
     link.onclick = null;
@@ -237,6 +270,7 @@
   window.closeHeroAd = function(e){
     e.stopPropagation();
     document.getElementById('heroAdBanner').style.display = 'none';
+    var v = document.getElementById('heroAdVideo'); if (v) v.innerHTML = '';  // 停止视频
     adClosed = true;
     if (normalTimer){ clearTimeout(normalTimer); normalTimer = null; }
   };

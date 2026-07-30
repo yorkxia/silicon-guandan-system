@@ -691,6 +691,8 @@ header{
   100%{ transform:translateX(-100%); }
 }
 .ad-img{max-height:52px;max-width:140px;border-radius:10px;object-fit:contain;flex-shrink:0;}
+.ad-video{flex-shrink:0;line-height:0;}
+.ad-video video,.ad-video iframe{width:140px;height:78px;border:0;border-radius:10px;display:block;background:#000;object-fit:cover;}
 .ad-close{
   font-size:16px;color:rgba(168,104,0,0.4);
   flex-shrink:0;padding:4px 6px;cursor:pointer;line-height:1;
@@ -1310,6 +1312,7 @@ header{
       <span class="ad-text" id="adText"></span>
     </div>
     <img class="ad-img" id="adImg" src="" alt="" style="display:none">
+    <span class="ad-video" id="adVideo" style="display:none"></span>
     <span class="ad-close" onclick="closeAd(event)" title="关闭">✕</span>
   </div>
 </div>
@@ -2329,19 +2332,47 @@ ghStartRound(state.round);
     normalTimer = setTimeout(rotateNormal, 30000);
   }
 
+  // 视频广告：自动识别 YouTube/Vimeo(iframe) 或直链视频(video)，均静音自动循环
+  function buildVideoHtml(url){
+    var yt = String(url).match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([\w-]{11})/);
+    if (yt) {
+      var id = yt[1];
+      return '<iframe src="https://www.youtube.com/embed/' + id +
+        '?autoplay=1&mute=1&loop=1&playlist=' + id +
+        '&controls=0&modestbranding=1&rel=0&playsinline=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    }
+    var vm = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vm) {
+      return '<iframe src="https://player.vimeo.com/video/' + vm[1] +
+        '?autoplay=1&muted=1&loop=1&background=1" allow="autoplay" allowfullscreen></iframe>';
+    }
+    var v = document.createElement('video');
+    v.src = url; v.autoplay = true; v.muted = true; v.loop = true;
+    v.setAttribute('playsinline',''); v.setAttribute('muted','');
+    return v.outerHTML;
+  }
+
   function displayAd(ad) {
     var banner = document.getElementById('adBanner');
     var adLink = document.getElementById('adLink');
     var adText = document.getElementById('adText');
     var adImg  = document.getElementById('adImg');
+    var adVideo = document.getElementById('adVideo');
 
-    if (ad.content_type === 'image' && ad.content_url) {
+    adImg.style.display = 'none';
+    adVideo.style.display = 'none';
+    adVideo.innerHTML = '';   // 清掉旧视频，停止播放
+
+    if (ad.content_type === 'video' && ad.content_url) {
+      adVideo.innerHTML = buildVideoHtml(ad.content_url);
+      adVideo.style.display = 'block';
+      adText.textContent = ad.title || '';
+    } else if (ad.content_type === 'image' && ad.content_url) {
       adImg.src = ad.content_url;
       adImg.style.display = 'block';
       adText.textContent = ad.title;
     } else {
       adText.textContent = ad.content_text || ad.title;
-      adImg.style.display = 'none';
     }
 
     // 重启滚动动画
@@ -2377,6 +2408,7 @@ ghStartRound(state.round);
   window.closeAd = function(e) {
     e.stopPropagation();
     document.getElementById('adBanner').style.display = 'none';
+    var av = document.getElementById('adVideo'); if (av) av.innerHTML = '';  // 停止视频
     adClosed = true;
     if (normalTimer) { clearTimeout(normalTimer); normalTimer = null; }
   };
