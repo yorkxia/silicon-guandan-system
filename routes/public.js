@@ -89,6 +89,7 @@ async function fetchRegionAds(regionCode) {
       AND (a.start_time IS NULL OR a.start_time <= $1)
       AND (a.end_time   IS NULL OR a.end_time   >= $1)
       AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+      AND (a.placements IS NULL OR a.placements = '' OR 'play' = ANY(string_to_array(a.placements, ',')))
     ORDER BY
       CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
       CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,
@@ -164,6 +165,7 @@ router.get('/', async (req, res) => {
           AND (a.start_time IS NULL OR a.start_time <= $1)
           AND (a.end_time   IS NULL OR a.end_time   >= $1)
           AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+          AND (a.placements IS NULL OR a.placements = '' OR 'home' = ANY(string_to_array(a.placements, ',')))
         ORDER BY
           CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
           CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,

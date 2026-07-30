@@ -222,6 +222,8 @@ async function initDB() {
 
   // 迁移：添加 frequency_minutes 列（如果不存在）
   await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS frequency_minutes INTEGER DEFAULT NULL`);
+  // 迁移：添加 placements 列（发布位置：scorer/play/home 逗号分隔；NULL/空=全部位置，兼容老广告）
+  await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS placements TEXT DEFAULT NULL`);
   // 迁移：添加 backup_partner_name_enc 列（如果不存在）
   await query(`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS backup_partner_name_enc TEXT`);
   // 迁移：添加 payment_type 列（如果不存在）

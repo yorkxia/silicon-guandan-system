@@ -28,6 +28,7 @@ router.get('/', async (req, res) => {
           OR r.area_code = 'GLOBAL'
           OR r.area_code = $2
         )
+        AND (a.placements IS NULL OR a.placements = '' OR 'scorer' = ANY(string_to_array(a.placements, ',')))
       ORDER BY
         CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
         CASE WHEN a.frequency_minutes IS NOT NULL THEN 0 ELSE 1 END,
