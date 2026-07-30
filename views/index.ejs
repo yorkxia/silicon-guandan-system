@@ -54,11 +54,13 @@
         <div class="hero-ad-text-wrap">
           <span class="hero-ad-text" id="heroAdText"></span>
         </div>
+        <img class="hero-ad-img" id="heroAdImg" src="" alt="" style="display:none">
         <span class="hero-ad-video" id="heroAdVideo" style="display:none"></span>
         <span class="hero-ad-close" onclick="closeHeroAd(event)" title="关闭">✕</span>
       </div>
     </div>
     <style>
+    .hero-ad-img{max-height:56px;max-width:150px;border-radius:10px;object-fit:contain;flex-shrink:0;}
     .hero-ad-video{flex-shrink:0;line-height:0;}
     .hero-ad-video video,.hero-ad-video iframe{width:150px;height:84px;border:0;border-radius:10px;display:block;background:#000;object-fit:cover;}
     </style>
@@ -244,10 +246,15 @@
   function displayAd(ad){
     var el = document.getElementById('heroAdText');
     var vid = document.getElementById('heroAdVideo');
+    var img = document.getElementById('heroAdImg');
     vid.style.display = 'none'; vid.innerHTML = '';   // 清掉旧视频
+    img.style.display = 'none';
     if (ad.content_type === 'video' && ad.content_url) {
       vid.innerHTML = buildVideoHtml(ad.content_url);
       vid.style.display = 'block';
+      el.textContent = ad.title || '';
+    } else if (ad.content_type === 'image' && ad.content_url) {
+      img.src = ad.content_url; img.style.display = 'block';
       el.textContent = ad.title || '';
     } else {
       el.textContent = ad.content_text || ad.title;
