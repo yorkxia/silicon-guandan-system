@@ -392,6 +392,7 @@
       content: ''; position: absolute; left: 22px; bottom: -7px;
       border: 7px solid transparent; border-top-color: #fff;
     }
+    .chat-bubble.cb-toast::after { display: none; }   /* 顶部兜底提示不显示下箭头 */
     @keyframes chatPop { from { opacity: 0; transform: translate(-50%, -90%) scale(.8); } }
 
     /* ═══════════ 大屏内进贡：座位光标 + 手牌高亮（替代弹框）═══════════ */
@@ -2321,15 +2322,24 @@ function chatSend(text){
   closeChatPanel();
 }
 function showChatBubble(seat, text, name){
-  if(seat==null) return;
-  var el = (typeof tbSeatEl==='function') ? tbSeatEl(seat) : null; if(!el) return;
-  var r = el.getBoundingClientRect(); if(!r.width) return;
-  var key='cb_'+seat, old=_chatBubbles[key];
+  var el  = (seat!=null && typeof tbSeatEl==='function') ? tbSeatEl(seat) : null;
+  var r   = el ? el.getBoundingClientRect() : null;
+  var anchored = !!(r && (r.width || r.height));   // 座位锚点可用？
+  var key = 'cb_' + (seat==null ? 'x' : seat), old = _chatBubbles[key];
   if(old){ clearTimeout(old.t); if(old.el) old.el.remove(); }
   var b=document.createElement('div'); b.className='chat-bubble';
   if(name){ var nm=document.createElement('span'); nm.className='cb-name'; nm.textContent=name+'：'; b.appendChild(nm); }
   b.appendChild(document.createTextNode(text));
-  var pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 40));   // 竖屏旋转换算
+  var pos;
+  if(anchored){
+    pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 40));   // 座位上方（竖屏旋转换算）
+    b.style.transform = 'translate(-50%, -100%)';
+  } else {
+    /* 兜底：座位锚点隐藏/0尺寸/等候中时，从屏幕顶部中央飘出，保证消息一定可见 */
+    pos = gdToLocal(window.innerWidth/2, 58);
+    b.style.transform = 'translate(-50%, 0)';
+    b.classList.add('cb-toast');
+  }
   b.style.left = pos.x+'px';
   b.style.top  = pos.y+'px';
   document.body.appendChild(b);
