@@ -88,7 +88,10 @@ async function fetchRegionAds(regionCode) {
     WHERE a.is_active = 1
       AND (a.start_time IS NULL OR a.start_time <= $1)
       AND (a.end_time   IS NULL OR a.end_time   >= $1)
-      AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+      AND (a.region_ids IS NULL OR a.region_ids = ''
+           OR EXISTS (SELECT 1 FROM sb_regions rr
+                      WHERE rr.id = ANY(string_to_array(a.region_ids, ',')::int[])
+                        AND (rr.area_code = 'GLOBAL' OR rr.area_code = $2)))
       AND (a.placements IS NULL OR a.placements = '' OR 'play' = ANY(string_to_array(a.placements, ',')))
     ORDER BY
       CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
@@ -164,7 +167,10 @@ router.get('/', async (req, res) => {
         WHERE a.is_active = 1
           AND (a.start_time IS NULL OR a.start_time <= $1)
           AND (a.end_time   IS NULL OR a.end_time   >= $1)
-          AND (a.region_id IS NULL OR r.area_code = 'GLOBAL' OR r.area_code = $2)
+          AND (a.region_ids IS NULL OR a.region_ids = ''
+               OR EXISTS (SELECT 1 FROM sb_regions rr
+                          WHERE rr.id = ANY(string_to_array(a.region_ids, ',')::int[])
+                            AND (rr.area_code = 'GLOBAL' OR rr.area_code = $2)))
           AND (a.placements IS NULL OR a.placements = '' OR 'home' = ANY(string_to_array(a.placements, ',')))
         ORDER BY
           CASE WHEN r.area_code = $2 THEN 0 ELSE 1 END,
