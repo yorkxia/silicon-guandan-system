@@ -228,6 +228,16 @@ async function initDB() {
   await query(`ALTER TABLE sb_ads ADD COLUMN IF NOT EXISTS region_ids TEXT DEFAULT NULL`);
   // 回填：老广告单地区 region_id → region_ids（只填未设置过的，幂等）
   await query(`UPDATE sb_ads SET region_ids = region_id::text WHERE region_ids IS NULL AND region_id IS NOT NULL`);
+  // 广告媒体文件（监控台上传的图片/视频，存共享库；本 app 经 /ad-media/:id 读出供三端广告栏显示）
+  await query(`
+    CREATE TABLE IF NOT EXISTS sb_ad_media (
+      id SERIAL PRIMARY KEY,
+      mime TEXT NOT NULL,
+      data BYTEA NOT NULL,
+      size_bytes INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
   // 迁移：添加 backup_partner_name_enc 列（如果不存在）
   await query(`ALTER TABLE registrations ADD COLUMN IF NOT EXISTS backup_partner_name_enc TEXT`);
   // 迁移：添加 payment_type 列（如果不存在）

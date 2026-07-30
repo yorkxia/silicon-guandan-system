@@ -495,6 +495,17 @@ router.post('/api/ad/:id/click', async (req, res) => {
   res.json({ ok: true });
 });
 
+/* 广告媒体文件（从监控台上传、存共享库 sb_ad_media）→ 供三端广告栏 <img>/<video> 读取 */
+router.get('/ad-media/:id', async (req, res) => {
+  try {
+    const m = await queryOne('SELECT mime, data FROM sb_ad_media WHERE id = $1', [parseInt(req.params.id) || 0]);
+    if (!m || !m.data) return res.status(404).end();
+    res.setHeader('Content-Type', m.mime || 'application/octet-stream');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(m.data);   // bytea → Buffer
+  } catch (e) { res.status(500).end(); }
+});
+
 router.get('/play/4p', (req, res) => {
   trackPlayVisit(req, 'play-4p', '4p');
   const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.get('host'));
