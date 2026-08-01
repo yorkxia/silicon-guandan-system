@@ -1084,15 +1084,16 @@
 
 <div id="err-toast"></div>
 
+<script src="/js/gd-safe.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/cards.js"></script>
 <script>
 /* ════════════════════ 状态变量 ════════════════════ */
 var ROOM_CODE  = '<%= roomCode %>';
-var MY_TOKEN   = localStorage.getItem('gd-token') || '';
+var MY_TOKEN   = gdLS.get('gd-token', '');   // 安全读取：华为/鸿蒙/无痕禁存储也不崩
 var GAME_MODE  = '';    // '4p' 或 '6p'，game:hand 时赋值
 var tributeSelectedCard = null;  // 进贡还贡选中的牌
-var MY_NAME_LS = localStorage.getItem('gd-name')  || '我';
+var MY_NAME_LS = gdLS.get('gd-name', '我');
 
 var myHand     = [];
 var myTeam     = 1;
@@ -1121,7 +1122,8 @@ var IN_WAITING   = false;     // 随机参赛：是否处于"真实牌桌上等�
 var _interSeats  = [];        // 上一局结算时的各座玩家（供"继续比赛"后在大屏等待时渲染座位）
 
 /* ════════════════════ Socket ════════════════════ */
-var socket = io({ transports:['websocket','polling'] });
+var socket = io({ transports:['polling','websocket'] });   // 先轮询保证连上，再升级 WebSocket（受限移动网/华为浏览器更稳）
+if (window.gdConnGuard) gdConnGuard(socket, { timeout: 12000 });   // 超时/失败可见提示，绝不无声转圈
 
 socket.on('connect', function(){
   socket.emit('game:request_hand', { token:MY_TOKEN, roomCode:ROOM_CODE });
@@ -1668,6 +1670,16 @@ socket.on('game:error', function(d){
   document.getElementById('loading-overlay').style.display = 'none';
   document.getElementById('err-msg').textContent = d.message;
   document.getElementById('err-box').style.display = 'flex';
+});
+
+/* ── 座位已被其他新玩家接手（开放纳新）→ 自动为你重新随机匹配，不再卡死 ── */
+socket.on('game:seat_taken', function(d){
+  document.getElementById('loading-overlay').style.display = 'none';
+  document.getElementById('err-msg').textContent = '您的座位已被其他玩家接手，正在为您匹配新的赛事…';
+  document.getElementById('err-box').style.display = 'flex';
+  setTimeout(function(){
+    location.href = '/play/' + ((d && d.mode === '6p') ? '6p' : '4p') + '?auto=1';
+  }, 1800);
 });
 
 /* ── 局结算 ── */

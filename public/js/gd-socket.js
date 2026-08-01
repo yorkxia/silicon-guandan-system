@@ -1,21 +1,26 @@
 /* 硅谷掼蛋协会 · Socket.io 客户端公共模块 */
 (function() {
 
-  /* ── 玩家身份（存 localStorage，跨页面保持） ── */
+  /* ── 永不抛异常的存储（华为/鸿蒙/无痕/微信内置浏览器禁存储时降级到内存）── */
+  var _mem = {};
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return (k in _mem) ? _mem[k] : null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { _mem[k] = String(v); } }
+
+  /* ── 玩家身份（跨页面保持） ── */
   function getToken() {
-    var t = localStorage.getItem('gd-token');
+    var t = lsGet('gd-token');
     if (!t) {
       t = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-      localStorage.setItem('gd-token', t);
+      lsSet('gd-token', t);
     }
     return t;
   }
 
   function getName() {
-    var n = localStorage.getItem('gd-name');
+    var n = lsGet('gd-name');
     if (!n) {
       n = '玩家' + Math.floor(Math.random() * 9000 + 1000);
-      localStorage.setItem('gd-name', n);
+      lsSet('gd-name', n);
     }
     return n;
   }
@@ -31,11 +36,22 @@
     } catch (e) { return 'web'; }
   }
 
-  /* ── 连接（channel 随握手 query 上报，服务端据此写 gdo_players.source） ── */
-  var socket = io({ transports: ['websocket', 'polling'], query: { channel: getChannel() } });
+  /* ── 连接（channel 随握手 query 上报，服务端据此写 gdo_players.source）
+     先轮询后升级：受限移动网 / 华为浏览器直连 WebSocket 易挂起，轮询优先更稳 ── */
+  var socket = io({ transports: ['polling', 'websocket'], query: { channel: getChannel() } });
 
   socket.on('connect', function() {
     socket.emit('player:join', { token: getToken(), name: getName() });
+  });
+
+  /* 连接持续失败 → 屏幕可见提示（gd-safe.js 提供），绝不无声卡住 */
+  var _connErr = 0;
+  socket.on('connect_error', function(err) {
+    _connErr++;
+    if (_connErr === 3 && !socket.connected && window.gdReportError) {
+      window.gdReportError('无法连接服务器（' + ((err && err.message) || 'connect_error') +
+        '）。请检查网络，或换用系统自带浏览器打开（避免微信/QQ内置浏览器）。');
+    }
   });
 
   /* ── 更新在线人数显示 ── */
@@ -74,8 +90,8 @@
     function done() {
       var v = (input.value || '').trim().replace(/\s+/g, ' ').slice(0, 12);
       if (!v) v = getName();   // 留空 → 用随机名兜底，保证总有名字
-      localStorage.setItem('gd-name', v);
-      localStorage.setItem('gd-name-set', '1');
+      lsSet('gd-name', v);
+      lsSet('gd-name-set', '1');
       try { if (socket && socket.connected) socket.emit('player:join', { token: getToken(), name: v }); } catch (e) {}
       wrap.remove();
       if (cb) cb(v);

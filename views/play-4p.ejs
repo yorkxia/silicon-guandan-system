@@ -40,8 +40,6 @@
 <main class="a-main" style="padding:28px 32px;">
   <%- include('partials/tournaments-4p-body', { otBase: '/play' }) %>
 </main>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="/js/gd-socket.js"></script>
+<%# socket.io / gd-socket 已由 tournaments-4p-body 统一加载，避免重复连接 %>
 </body>
 </html>

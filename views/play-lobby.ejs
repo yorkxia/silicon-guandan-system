@@ -132,19 +132,21 @@
 
 </div>
 
+<script src="/js/gd-safe.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 var ROOM_CODE = '<%= roomCode %>';
 var MODE      = '<%= gameMode %>';
 var NEED      = MODE === '6p' ? 6 : 4;
 
-/* 玩家身份（来自 localStorage） */
-var MY_TOKEN = localStorage.getItem('gd-token') || '';
-var MY_NAME  = localStorage.getItem('gd-name')  || '匿名玩家';
+/* 玩家身份（安全读取：华为/鸿蒙/无痕禁存储也不崩） */
+var MY_TOKEN = gdLS.get('gd-token', '');
+var MY_NAME  = gdLS.get('gd-name', '匿名玩家');
 var MY_PLAYER_ID = 0;   // 服务端在 room:joined 时告知本人 player_id（不再下发 token，防同房冒充）
 var myReady  = false;
 
-var socket = io({ transports: ['websocket','polling'] });
+var socket = io({ transports: ['polling','websocket'] });   // 先轮询后升级，受限网络更稳
+if (window.gdConnGuard) gdConnGuard(socket, { timeout: 12000 });
 
 socket.on('connect', function() {
   setStatus('<span class="conn-dot on"></span>已连接 · 正在进入房间...');

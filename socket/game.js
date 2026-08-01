@@ -819,7 +819,17 @@ module.exports = function(io, socket) {
         FROM gdo_seats s JOIN gdo_rooms r ON r.id = s.room_id
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
-      if (!seat) return socket.emit('game:error', { message: '您不在此房间中' });
+      if (!seat) {
+        /* 找不到座位：多半是本座位在你掉线期间已被其他新玩家「接手托管」（开放纳新）。
+           随机赛事房 → 不再死路一条，直接引导重新随机匹配新赛事，避免"再也进不去"。*/
+        const room = await queryOne(
+          'SELECT game_mode, room_type FROM gdo_rooms WHERE room_code=$1', [roomCode]
+        );
+        if (room && room.room_type === 'random') {
+          return socket.emit('game:seat_taken', { mode: room.game_mode });
+        }
+        return socket.emit('game:error', { message: '您不在此房间中' });
+      }
 
       /* 房间已因"全部托管"关闭 → 不再让任何人进入 */
       if (seat.status === 'abandoned' || seat.status === 'closed') {
