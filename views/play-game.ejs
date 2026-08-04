@@ -541,11 +541,15 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(180,0,0,.45);
       text-shadow: 0 1px 2px rgba(80,0,0,.5);
     }
-    /* 各家出的牌贴其座位显示 */
+    /* 各家出的牌贴其座位显示：≤5 张一律排在同一条横线上(不换行)；
+       >5 张才换到下面一行(每行最多5张，仍按顺序左→右排列) */
     .seat-play {
       position: fixed; transform: translate(-50%,-50%); z-index: 42;
       display: flex; gap: 1px; pointer-events: none; align-items: center;
-      flex-wrap: wrap; justify-content: center; max-width: 42vw;
+      flex-wrap: nowrap; justify-content: center;
+    }
+    .seat-play.sp-wrap {
+      flex-wrap: wrap; max-width: 178px;   /* 约 5 张迷你牌宽 → 6~10 张自动排成两行 */
     }
     .sp-pass {
       background: rgba(214,150,20,.95); color: #fff; font-weight: 900;
@@ -1634,12 +1638,16 @@ function renderSeatPlays(sp){
     if (r.width === 0 && r.height === 0){ if(el) el.style.display='none'; continue; }
     if (!el){ el = document.createElement('div'); el.id = 'seat-play-'+seat; el.className = 'seat-play'; document.body.appendChild(el); }
     if (play.pass){
+      el.className = 'seat-play';
       el.innerHTML = '<span class="sp-pass">不出</span>';
     } else {
-      var cards = play.cards || [], html = '';
+      /* 级牌感知排序，保证出的牌「有顺序」地排列 */
+      var cards = sortHandLevel(play.cards || [], levelCard), html = '';
       var show = Math.min(cards.length, 14);
       for (var i = 0; i < show; i++) html += miniCardHtml(cards[i]);
       if (cards.length > show) html += '<span class="sp-more">共'+cards.length+'</span>';
+      /* ≤5 张：单行(默认 nowrap)；>5 张：加 sp-wrap 换行(每行≤5，仍按序) */
+      el.className = 'seat-play' + (show > 5 ? ' sp-wrap' : '');
       el.innerHTML = html;
     }
     var px = r.left + r.width/2, py = r.top + r.height/2;
