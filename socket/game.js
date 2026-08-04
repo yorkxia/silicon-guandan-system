@@ -13,7 +13,7 @@ const gameStates = require('./gameState');
 */
 const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
 const FIRST_TURN_SECONDS = 40;   // 开局第一手：留 40 秒看牌（第一张牌出去后转 25 秒）
-const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
+const DC_TURN_SECONDS    = 3;    // 掉线托管：AI 约 3 秒即接替出牌（比真人更快，不拖节奏）
 const TRIBUTE_SECONDS    = 10;   // 供牌/还牌：玩家 10 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 
@@ -219,12 +219,11 @@ async function onTurnTimeout(io, state) {
     /* 有上家牌 → 自动不出 */
     await applyPass(io, state, seatObj.playerId, true);
   } else {
-    /* 先出方 → 自动出最小单张 */
-    const hand     = sortHand(state.hands[String(seatObj.playerId)] || []);
-    const smallest = hand[hand.length - 1];
-    if (smallest) {
-      const r = await applyPlay(io, state, seatObj.playerId, [smallest], true);
-      /* 万一最小单张被判无效（理论上不会），退化为跳过一手 */
+    /* 先出方(在线玩家挂机) → 用机器人策略挑「最小的普通牌」领出，避免误甩级牌/逢人配/王 */
+    const lead = pickBotPlay(state, seatObj);
+    if (lead && lead.length) {
+      const r = await applyPlay(io, state, seatObj.playerId, lead, true);
+      /* 万一被判无效（理论上不会），退化为跳过一手 */
       if (r && r.error) {
         state.turnSeat = nextSeat(seatObj.seat, state.seats, state.finishOrder);
         await persistState(state);
