@@ -62,14 +62,12 @@
   }
 
   function shell(inner) {
+    /* 牌面底色用「纯白实心」而非 SVG 渐变：老旧鸿蒙/安卓 webview 无法解析
+       fill="url(#渐变)" 会回退成黑色，导致整张牌发黑发紫看不清牌型。纯白最兼容。*/
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
-      'style="display:block;width:100%;height:100%" preserveAspectRatio="xMidYMid meet">' +
-      '<defs><linearGradient id="gdcw" x1="0" y1="0" x2="0" y2="1">' +
-      '<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f2f4f8"/></linearGradient></defs>' +
+      'style="display:block;width:100%;height:100%;background:#ffffff" preserveAspectRatio="xMidYMid meet">' +
       '<rect x="1.5" y="1.5" width="' + (W - 3) + '" height="' + (H - 3) + '" rx="18" ry="18" ' +
-      'fill="url(#gdcw)" stroke="#c9ced8" stroke-width="1.5"/>' +
-      '<rect x="1.5" y="1.5" width="' + (W - 3) + '" height="' + (H - 3) + '" rx="18" ry="18" ' +
-      'fill="none" stroke="rgba(0,0,0,.10)" stroke-width="1"/>' +
+      'fill="#ffffff" stroke="#c9ced8" stroke-width="1.5"/>' +
       inner + '</svg>';
   }
 
@@ -86,7 +84,7 @@
 
   function backSVG() {
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
-      'style="display:block;width:100%;height:100%" preserveAspectRatio="xMidYMid meet">' +
+      'style="display:block;width:100%;height:100%;background:#1c4a90" preserveAspectRatio="xMidYMid meet">' +
       '<defs><linearGradient id="gdcb" x1="0" y1="0" x2="1" y2="1">' +
       '<stop offset="0" stop-color="#2a5db0"/><stop offset="1" stop-color="#123a7a"/></linearGradient>' +
       '<pattern id="gdcbp" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
