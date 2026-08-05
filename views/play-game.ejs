@@ -1972,20 +1972,21 @@ function sortHandLevel(hand, level){
 
 /* 触摸友好的点选：静止轻点才触发；滑动（滚动手牌）不触发，规避横向滚动吞掉 click。
    兼容鼠标（pointer 事件覆盖鼠标）。 */
+/* 轻点判定：移动 ≤ TAP_SLOP(14px) 视为一次点击（只选被点的这一张牌）；
+   超过阈值则交给"滑动选牌"，本次不再触发点击，避免同点叠牌列被误选成两张。*/
+var TAP_SLOP = 14;
 function attachTap(el, fn){
-  var sx = 0, sy = 0, moved = false, down = false, t0 = 0;
+  var sx = 0, sy = 0, moved = false, down = false;
   el.addEventListener('pointerdown', function(e){
-    down = true; moved = false; sx = e.clientX; sy = e.clientY; t0 = Date.now();
+    down = true; moved = false; sx = e.clientX; sy = e.clientY;
     if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch(_){} }
   });
   el.addEventListener('pointermove', function(e){
     if (!down) return;
-    /* 阈值放宽到 14px：手指轻点时的微小抖动不再被误判为滑动而吞掉点击 */
-    if (Math.abs(e.clientX - sx) > 14 || Math.abs(e.clientY - sy) > 14) moved = true;
+    if (Math.abs(e.clientX - sx) > TAP_SLOP || Math.abs(e.clientY - sy) > TAP_SLOP) moved = true;
   });
   el.addEventListener('pointerup', function(){
-    /* 若位移小或按下时间很短(<250ms 快速轻点)，一律视为点击 */
-    if (down && (!moved || Date.now() - t0 < 250)) fn();
+    if (down && !moved) fn();   // 仅"静止轻点"才选牌；一次点击=一张牌，绝不多选
     down = false;
   });
   el.addEventListener('pointercancel', function(){ down = false; moved = false; });
@@ -2240,12 +2241,10 @@ function comboTapBall(el, fn){
   if (typeof fn === 'function') fn();
 }
 
-/* ── 滑动选牌：手指/鼠标划过多张牌=依次选中（松手不自动出，仍需点绿色"出牌"）── */
-var _swipe = { active:false, seen:null };
-function swipeMove(e){
-  if (!_swipe.active) return;
-  var el = document.elementFromPoint(e.clientX, e.clientY);
-  var card = el && el.closest ? el.closest('.hand-card') : null;
+/* ── 滑动选牌：手指划过多张牌=依次选中（仅"明确滑动"才触发，移动需超过 TAP_SLOP；
+      未达阈值一律当作轻点，由 attachTap 只选一张，杜绝同点叠牌列被误选成两张）── */
+var _swipe = { active:false, engaged:false, seen:null, sx:0, sy:0 };
+function _swipeAdd(card){
   if (!card || card.dataset.code == null) return;
   var key = card.dataset.code + '_' + card.dataset.idx;
   if (_swipe.seen[key]) return;
@@ -2256,15 +2255,29 @@ function swipeMove(e){
     updateSelInfo(); syncButtons(); updatePlayButtonState();
   }
 }
+function swipeMove(e){
+  if (!_swipe.active) return;
+  if (!_swipe.engaged) {
+    /* 未超过阈值：当作轻点，暂不滑选（由 attachTap 处理单张）*/
+    if (Math.abs(e.clientX - _swipe.sx) <= TAP_SLOP && Math.abs(e.clientY - _swipe.sy) <= TAP_SLOP) return;
+    _swipe.engaged = true;
+    /* 引擎启动时把起点那张牌也纳入，避免漏选第一张 */
+    var s0 = document.elementFromPoint(_swipe.sx, _swipe.sy);
+    _swipeAdd(s0 && s0.closest ? s0.closest('.hand-card') : null);
+  }
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  _swipeAdd(el && el.closest ? el.closest('.hand-card') : null);
+}
 function swipeEnd(){
-  _swipe.active = false; _swipe.seen = null;
+  _swipe.active = false; _swipe.engaged = false; _swipe.seen = null;
   document.removeEventListener('pointermove', swipeMove);
   document.removeEventListener('pointerup', swipeEnd);
   document.removeEventListener('pointercancel', swipeEnd);
 }
 function swipeStart(e){
   if (typeof tbEx !== 'undefined' && tbEx.length) return;   // 进贡态不滑选（供/还是单张点选）
-  _swipe.active = true; _swipe.seen = {};
+  _swipe.active = true; _swipe.engaged = false; _swipe.seen = {};
+  _swipe.sx = e.clientX; _swipe.sy = e.clientY;
   document.addEventListener('pointermove', swipeMove);
   document.addEventListener('pointerup', swipeEnd);
   document.addEventListener('pointercancel', swipeEnd);
