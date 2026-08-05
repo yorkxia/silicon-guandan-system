@@ -423,6 +423,8 @@ var gdInviteUrl  = null;
 
 /* ── 随机匹配 ── */
 function openQueue() {
+  /* 强制：未起名的首次玩家先弹窗输入名字，输入后再进入随机匹配 */
+  if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(openQueue); return; }
   document.getElementById('overlay-queue').style.display = 'flex';
   qSec = 0;
   document.getElementById('q-timer').textContent = '0';
@@ -460,6 +462,7 @@ function openRoom() { document.getElementById('overlay-room').style.display = 'f
 function closeRoom() { document.getElementById('overlay-room').style.display = 'none'; }
 
 function doCreateRoom() {
+  if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(doCreateRoom); return; }
   gdRoomAction = 'create';
   setRoomMsg('创建中...');
   function tryCreate() {
@@ -473,6 +476,7 @@ function doCreateRoom() {
 function doJoinRoom() {
   var code = document.getElementById('room-code-input').value.trim().toUpperCase();
   if (code.length < 4) return setRoomMsg('请输入正确的房间号');
+  if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(doJoinRoom); return; }
   gdRoomAction = 'join';
   if (window.gdSocket && window.gdSocket.connected) {
     window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
@@ -542,6 +546,7 @@ function initScanJoin() {
 function doScanJoin() {
   var code = window._scanJoinCode;
   if (!code) return;
+  if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(doScanJoin); return; }
   document.getElementById('scan-join-btn').textContent = '加入中...';
   document.getElementById('scan-join-btn').disabled = true;
   gdRoomAction = 'join';

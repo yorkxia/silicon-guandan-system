@@ -60,10 +60,17 @@
     if (el) el.textContent = count;
   });
 
-  /* ── 方案A：首次进入弹窗让玩家给自己起名字（存 localStorage + 同步档案）──
-     以 gd-name-set 标记是否已由用户主动设置过；未设置则弹窗。 */
+  /* 是否已由玩家主动设置过名字（首次强制起名的判据）*/
+  function hasName() { return lsGet('gd-name-set') === '1'; }
+
+  /* ── 首次进入赛事：强制弹窗让玩家给自己起名字（4人/6人一致）──
+     · 强制：名字为空不放行，必须输入才能进入赛事；
+     · 记忆：设置后写 gd-name + gd-name-set='1'，第二次起直接沿用，不再弹窗；
+     · 多处触发共用同一弹窗：回调排队，确定后统一回调（避免自动匹配等场景丢回调）。*/
+  var _nameCbs = [];
   function showNameModal(cb) {
-    if (document.getElementById('gd-name-modal')) return;
+    if (cb) _nameCbs.push(cb);
+    if (document.getElementById('gd-name-modal')) return;   // 已在显示：cb 已入队，等确定后一起回调
     var wrap = document.createElement('div');
     wrap.id = 'gd-name-modal';
     wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);' +
@@ -73,12 +80,13 @@
       '<div style="background:linear-gradient(145deg,#12324a,#0a2033);border:1px solid rgba(212,172,13,.35);' +
         'border-radius:20px;padding:26px 24px;max-width:340px;width:100%;text-align:center;' +
         'box-shadow:0 12px 40px rgba(0,0,0,.5);">' +
-        '<div style="font-size:1.15rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:6px;">给自己起个名字</div>' +
-        '<div style="font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:18px;">队友和对手在牌桌上会看到这个名字</div>' +
+        '<div style="font-size:1.15rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:6px;">请输入你的名字</div>' +
+        '<div style="font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:18px;">必须填写才能加入赛事，队友和对手在牌桌上会看到它</div>' +
         '<input id="gd-name-input" type="text" maxlength="12" placeholder="输入昵称，如：老王 / Karen" ' +
           'style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);' +
           'background:rgba(255,255,255,.08);color:#fff;font-size:1rem;text-align:center;outline:none;' +
-          'box-sizing:border-box;margin-bottom:16px;">' +
+          'box-sizing:border-box;margin-bottom:8px;">' +
+        '<div id="gd-name-err" style="min-height:16px;font-size:.74rem;color:#ff8080;margin-bottom:8px;"></div>' +
         '<button id="gd-name-ok" style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;' +
           'background:linear-gradient(135deg,#E8A020,#A86800);color:#fff;font-size:1rem;font-weight:800;' +
           'letter-spacing:2px;">确定，进入赛事</button>' +
@@ -86,24 +94,31 @@
     document.body.appendChild(wrap);
     var input = document.getElementById('gd-name-input');
     var ok = document.getElementById('gd-name-ok');
+    var err = document.getElementById('gd-name-err');
     setTimeout(function(){ try { input.focus(); } catch (e) {} }, 100);
     function done() {
       var v = (input.value || '').trim().replace(/\s+/g, ' ').slice(0, 12);
-      if (!v) v = getName();   // 留空 → 用随机名兜底，保证总有名字
+      if (!v) {                       // 强制：留空不放行
+        err.textContent = '⚠️ 请输入你的名字后再进入赛事';
+        try { input.focus(); } catch (e) {}
+        return;
+      }
       lsSet('gd-name', v);
       lsSet('gd-name-set', '1');
       try { if (socket && socket.connected) socket.emit('player:join', { token: getToken(), name: v }); } catch (e) {}
       wrap.remove();
-      if (cb) cb(v);
+      var cbs = _nameCbs.slice(); _nameCbs = [];
+      cbs.forEach(function(f){ try { f(v); } catch (e) {} });
     }
     ok.onclick = done;
+    input.addEventListener('input', function(){ err.textContent = ''; });
     input.addEventListener('keydown', function(e){ if (e.key === 'Enter') done(); });
   }
 
-  /* 已设置过名字 → 直接回调；否则弹窗收集后回调 */
+  /* 已设置过名字 → 直接回调（第二次起沿用记忆名）；否则强制弹窗，输入有效名字后再回调 */
   function ensureName(cb) {
     cb = cb || function(){};
-    if (localStorage.getItem('gd-name-set') === '1') { cb(getName()); return; }
+    if (hasName()) { cb(getName()); return; }
     if (document.body) showNameModal(cb);
     else document.addEventListener('DOMContentLoaded', function(){ showNameModal(cb); });
   }
@@ -115,5 +130,6 @@
   window.gdChannel = getChannel;
   window.gdEnsureName = ensureName;
   window.gdShowNameModal = showNameModal;
+  window.gdHasName = hasName;
 
 })();
