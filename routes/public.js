@@ -405,6 +405,54 @@ router.get('/api/gd/status', async (req, res) => {
   }
 });
 
+// ── 计分器全局收费开关（管理员在计分器后台设置，前端据此决定是否收费）──
+router.get('/api/gd/billing', async (req, res) => {
+  try {
+    const en = await queryOne("SELECT sval FROM gd_settings WHERE skey='scorer_billing_enabled'");
+    const si = await queryOne("SELECT sval FROM gd_settings WHERE skey='scorer_billing_since'");
+    // 默认未开启收费(enabled=0)：管理员未设置前，计分器免费
+    res.json({ ok: true, enabled: (en && en.sval === '1') ? 1 : 0, since: si ? si.sval : null });
+  } catch (e) {
+    res.json({ ok: false, enabled: 0, since: null });
+  }
+});
+
+// ── 在线客服：用户发消息给管理员 ──
+const gdSupportLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60,
+  message: '发送过于频繁，请稍后再试' });
+router.post('/api/gd/support/send', gdSupportLimiter, async (req, res) => {
+  try {
+    const { device_id, name, body } = req.body || {};
+    if (!device_id || !body || !String(body).trim()) return res.json({ ok: false, error: 'missing' });
+    await query(
+      "INSERT INTO gd_support_messages (device_id, user_name, sender, body) VALUES ($1,$2,'user',$3)",
+      [String(device_id).slice(0, 80), String(name || '').slice(0, 40), String(body).trim().slice(0, 1000)]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+// ── 在线客服：用户轮询自己会话的消息（after=最后已收到的消息id，用于增量拉取）──
+router.get('/api/gd/support/messages', async (req, res) => {
+  try {
+    const { device_id, after } = req.query;
+    if (!device_id) return res.json({ ok: false, messages: [] });
+    const afterId = parseInt(after, 10) || 0;
+    const messages = await query(
+      "SELECT id, sender, body, user_name, created_at FROM gd_support_messages WHERE device_id=$1 AND id>$2 ORDER BY id ASC LIMIT 200",
+      [String(device_id).slice(0, 80), afterId]
+    );
+    // 管理员回复标记为"用户已读"
+    query("UPDATE gd_support_messages SET read_by_user=1 WHERE device_id=$1 AND sender='admin' AND read_by_user=0",
+      [String(device_id).slice(0, 80)]).catch(function () {});
+    res.json({ ok: true, messages });
+  } catch (e) {
+    res.json({ ok: false, messages: [] });
+  }
+});
+
 // Admin email confirm link → auto-activate device
 router.get('/api/gd/confirm/:token', async (req, res) => {
   try {

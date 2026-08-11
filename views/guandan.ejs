@@ -1577,8 +1577,111 @@ header{
 <div class="footer-bar">
   <div class="footer-line"></div>
   <div class="footer-contact">技术及广告支持联系：siliconguandan@gmail.com</div>
+  <button id="gd-support-btn" onclick="gdSupportOpen()">💬 实时在线客服</button>
   <div class="footer-copy" id="gd-footer-copy">&#169; 硅谷掼蛋协会 &#183; Activation Day: No &#183; AI GUANDAN</div>
 </div>
+
+<!-- 在线客服对话面板 -->
+<div id="gd-support-overlay" onclick="if(event.target===this)gdSupportClose()">
+  <div id="gd-support-box">
+    <div id="gd-support-header">
+      <span>💬 在线客服 · 硅谷掼蛋协会</span>
+      <span id="gd-support-close" onclick="gdSupportClose()">✕</span>
+    </div>
+    <div id="gd-support-msgs">
+      <div class="gd-sp-tip">有任何问题（激活、付款、使用）请留言，管理员会尽快回复。<br>回复会显示在这里，也可稍后回来查看。</div>
+    </div>
+    <div id="gd-support-input-row">
+      <input type="text" id="gd-support-input" placeholder="输入消息…" maxlength="500" autocomplete="off">
+      <button id="gd-support-send" onclick="gdSupportSend()">发送</button>
+    </div>
+  </div>
+</div>
+<style>
+#gd-support-btn{display:inline-block;margin:8px auto 0;padding:8px 18px;border:none;border-radius:20px;
+  background:linear-gradient(135deg,#25c05a,#0f9e45);color:#fff;font-size:0.9rem;font-weight:700;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);}
+#gd-support-btn:active{transform:scale(.96);}
+#gd-support-overlay{display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.55);
+  align-items:flex-end;justify-content:center;}
+#gd-support-overlay.open{display:flex;}
+#gd-support-box{background:#fff;width:100%;max-width:460px;height:70vh;max-height:560px;border-radius:16px 16px 0 0;
+  display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -6px 30px rgba(0,0,0,.4);}
+@media(min-width:520px){#gd-support-overlay{align-items:center;}#gd-support-box{border-radius:16px;height:560px;}}
+#gd-support-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;
+  background:linear-gradient(135deg,#0f9e45,#0a7d38);color:#fff;font-weight:800;font-size:0.95rem;flex-shrink:0;}
+#gd-support-close{cursor:pointer;font-size:1.2rem;line-height:1;padding:0 4px;}
+#gd-support-msgs{flex:1;overflow-y:auto;padding:14px;background:#f4f6f8;display:flex;flex-direction:column;gap:8px;}
+.gd-sp-tip{background:#fff;border:1px dashed #cbd5e1;color:#64748b;font-size:0.8rem;border-radius:10px;padding:10px 12px;text-align:center;}
+.gd-sp-msg{max-width:80%;padding:9px 13px;border-radius:14px;font-size:0.9rem;line-height:1.4;word-break:break-word;white-space:pre-wrap;}
+.gd-sp-user{align-self:flex-end;background:#25c05a;color:#fff;border-bottom-right-radius:4px;}
+.gd-sp-admin{align-self:flex-start;background:#fff;color:#1a1a2e;border:1px solid #e2e8f0;border-bottom-left-radius:4px;}
+.gd-sp-who{display:block;font-size:0.68rem;opacity:.7;margin-bottom:2px;}
+#gd-support-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e5e7eb;background:#fff;flex-shrink:0;}
+#gd-support-input{flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:20px;padding:10px 14px;font-size:0.92rem;outline:none;}
+#gd-support-send{border:none;border-radius:20px;padding:0 18px;background:#0f9e45;color:#fff;font-weight:800;font-size:0.9rem;cursor:pointer;}
+#gd-support-send:active{transform:scale(.96);}
+</style>
+<script>
+(function(){
+  var lastId = 0, pollTimer = null, opened = false;
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function render(list, append){
+    var box = el('gd-support-msgs');
+    if(!append){ box.innerHTML=''; }
+    list.forEach(function(m){
+      var d = document.createElement('div');
+      d.className = 'gd-sp-msg ' + (m.sender==='admin'?'gd-sp-admin':'gd-sp-user');
+      d.innerHTML = '<span class="gd-sp-who">'+(m.sender==='admin'?'客服':'我')+'</span>' + esc(m.body);
+      box.appendChild(d);
+      if(m.id>lastId) lastId=m.id;
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+  function poll(){
+    var dev = getDeviceId();
+    fetch('/api/gd/support/messages?device_id='+encodeURIComponent(dev)+'&after='+lastId)
+      .then(function(r){return r.json();})
+      .then(function(d){ if(d.ok && d.messages && d.messages.length){ render(d.messages, true); } })
+      .catch(function(){});
+  }
+  window.gdSupportOpen = function(){
+    el('gd-support-overlay').classList.add('open');
+    opened = true; lastId = 0;
+    var box = el('gd-support-msgs');
+    box.innerHTML = '<div class="gd-sp-tip">有任何问题（激活、付款、使用）请留言，管理员会尽快回复。</div>';
+    poll();
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(poll, 4000);   // 轮询：每 4 秒拉取新消息
+    setTimeout(function(){ try{ el('gd-support-input').focus(); }catch(e){} }, 200);
+  };
+  window.gdSupportClose = function(){
+    el('gd-support-overlay').classList.remove('open');
+    opened = false;
+    if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  };
+  window.gdSupportSend = function(){
+    var inp = el('gd-support-input');
+    var body = (inp.value||'').trim();
+    if(!body) return;
+    inp.value='';
+    var nm = '';
+    try{ nm = localStorage.getItem('gd_user_name') || ''; }catch(e){}
+    fetch('/api/gd/support/send', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ device_id: getDeviceId(), name: nm, body: body })
+    }).then(function(r){return r.json();}).then(function(d){
+      setTimeout(poll, 300);   // 立即拉取，把刚发的消息(带真实id)显示出来，避免重复回显
+    }).catch(function(){ setTimeout(poll, 300); });
+  };
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Enter' && el('gd-support-overlay').classList.contains('open') && document.activeElement===el('gd-support-input')){
+      gdSupportSend();
+    }
+  });
+})();
+</script>
 
 <script>
 /*
@@ -2503,13 +2606,22 @@ function getDeviceId() {
     }).catch(function(){});
   }
 
-  // 页面加载时同步服务端状态
-  syncServerStatus(function(isActive){
-    renderFooter();
-    init();
+  // 全局收费开关（管理员在计分器后台控制；取不到时按"免费"处理，绝不误锁用户）
+  function fetchBilling(cb) {
+    fetch('/api/gd/billing').then(function(r){ return r.json(); })
+      .then(function(d){ cb({ enabled: (d && d.enabled) ? 1 : 0, since: d ? d.since : null }); })
+      .catch(function(){ cb({ enabled: 0, since: null }); });
+  }
+
+  // 页面加载：先取收费开关，再同步激活状态，最后按开关决定是否收费
+  fetchBilling(function(billing){
+    syncServerStatus(function(isActive){
+      renderFooter();
+      init(billing);
+    });
   });
 
-  function init() {
+  function init(billing) {
   var installTs  = parseInt(localStorage.getItem(INSTALL_KEY));
   var paidUntil  = parseInt(localStorage.getItem(PAID_KEY) || '0');
   var pendingTs  = parseInt(localStorage.getItem(PENDING_KEY) || '0');
@@ -2517,13 +2629,81 @@ function getDeviceId() {
   var daysUsed   = Math.floor((Date.now() - installTs) / 86400000);
   var daysLeft   = Math.max(0, 60 - daysUsed);
 
-  if (isPaid) return; // 已正式付费，正常使用
-
   var pw       = document.getElementById('gd-paywall');
   var trialMsg = document.getElementById('gd-pw-trial-msg');
   var skipBtn  = document.getElementById('gd-pw-skip');
 
-  // ── 待核实付款状态处理 ──
+  // ── 付费墙交互函数（提前定义：任何提前 return 的分支里按钮都能正常用）──
+  window.gdPwTab = function(tab) {
+    document.querySelectorAll('.gd-pw-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.gd-pw-panel').forEach(function(p){ p.classList.remove('active'); });
+    var idx = tab === 'wechat' ? 0 : 1;
+    document.querySelectorAll('.gd-pw-tab')[idx].classList.add('active');
+    document.getElementById('gd-pw-' + tab).classList.add('active');
+  };
+  window.gdSelectPrice = function(el) {
+    el.closest('.gd-pw-price').querySelectorAll('.gd-pw-price-item').forEach(function(i){ i.classList.remove('selected'); });
+    el.classList.add('selected');
+  };
+  window.gdClosePaywall = function() { pw.style.display = 'none'; };
+  window.gdShowConfirm = function() {
+    document.getElementById('gd-pw-main').style.display = 'none';
+    document.getElementById('gd-pw-confirm').style.display = 'block';
+  };
+  window.gdSubmitPaid = function() {
+    var name    = document.getElementById('gd-pw-name').value.trim();
+    var contact = document.getElementById('gd-pw-contact').value.trim();
+    if (!name) { alert('请填写您的姓名'); return; }
+    var activePanel = document.querySelector('.gd-pw-panel.active');
+    var selectedPrice = activePanel ? ((activePanel.querySelector('.gd-pw-price-item.selected .amt') || {textContent:''}).textContent) : '';
+    var currency = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'CNY' : 'USD';
+    var payMethod = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'wechat' : 'venmo';
+    var deviceId = getDeviceId();
+    var deviceInfo = navigator.userAgent + ' | ' + screen.width + 'x' + screen.height + ' | ' + navigator.platform;
+    fetch('/api/gd/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: name, contact: contact,
+        device_id: deviceId, device_info: deviceInfo,
+        install_ts: parseInt(localStorage.getItem(INSTALL_KEY) || '0'),
+        amount: selectedPrice, currency: currency, payment_method: payMethod
+      })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if (data.ok) {
+        localStorage.setItem(PENDING_KEY, Date.now().toString());
+        alert('✅ 已提交！系统已自动发送确认邮件给管理员。\n\n管理员确认付款后将立即为您激活，\n请稍后重新打开计分器即可使用。\n\n（14天内若未收到确认将暂停使用）');
+      } else {
+        alert('⚠️ 提交时出现错误，请稍后重试');
+      }
+    }).catch(function(){
+      localStorage.setItem(PENDING_KEY, Date.now().toString());
+      alert('✅ 已记录！请确保网络正常，稍后管理员将为您确认激活。');
+    });
+    pw.style.display = 'none';
+  };
+
+  if (isPaid) return; // 已正式付费，正常使用
+
+  // ── 全局收费开关（管理员在计分器后台控制）──
+  billing = billing || {};
+  if (!billing.enabled) return;   // 未开启收费 → 计分器完全免费，不弹付费墙、不卡试用
+
+  // 已开启收费：自开启时刻起给 2 周宽限——每次打开都提醒缴费，但仍可继续使用
+  var _sinceTs  = billing.since ? new Date(billing.since).getTime() : Date.now();
+  var _graceEnd = _sinceTs + 14 * 86400000;
+  if (Date.now() < _graceEnd) {
+    var _gLeft = Math.max(1, Math.ceil((_graceEnd - Date.now()) / 86400000));
+    trialMsg.textContent = '💳 计分器已开始收费 · 请在 ' + _gLeft + ' 天内完成订阅';
+    trialMsg.style.background = '#FFF3E0';
+    trialMsg.style.color = '#E65100';
+    skipBtn.style.display = 'block';
+    skipBtn.textContent = '稍后订阅（宽限剩 ' + _gLeft + ' 天）';
+    pw.style.display = 'flex';
+    return;
+  }
+
+  // ── 满 2 周后：按原有「待核实 / 免费试用 / 锁定」逻辑正式收费 ──
   if (pendingTs > 0) {
     var pendingDays = Math.floor((Date.now() - pendingTs) / 86400000);
     if (pendingDays < 14) {
@@ -2563,65 +2743,6 @@ function getDeviceId() {
     pw.style.display = 'flex';
   }
 
-  // ── 全局函数 ──
-  window.gdPwTab = function(tab) {
-    document.querySelectorAll('.gd-pw-tab').forEach(function(t){ t.classList.remove('active'); });
-    document.querySelectorAll('.gd-pw-panel').forEach(function(p){ p.classList.remove('active'); });
-    var idx = tab === 'wechat' ? 0 : 1;
-    document.querySelectorAll('.gd-pw-tab')[idx].classList.add('active');
-    document.getElementById('gd-pw-' + tab).classList.add('active');
-  };
-
-  window.gdSelectPrice = function(el) {
-    el.closest('.gd-pw-price').querySelectorAll('.gd-pw-price-item').forEach(function(i){ i.classList.remove('selected'); });
-    el.classList.add('selected');
-  };
-
-  window.gdClosePaywall = function() {
-    pw.style.display = 'none';
-  };
-
-  window.gdShowConfirm = function() {
-    document.getElementById('gd-pw-main').style.display = 'none';
-    document.getElementById('gd-pw-confirm').style.display = 'block';
-  };
-
-  window.gdSubmitPaid = function() {
-    var name    = document.getElementById('gd-pw-name').value.trim();
-    var contact = document.getElementById('gd-pw-contact').value.trim();
-    if (!name) { alert('请填写您的姓名'); return; }
-
-    // Get selected price and payment method
-    var activePanel = document.querySelector('.gd-pw-panel.active');
-    var selectedPrice = activePanel ? ((activePanel.querySelector('.gd-pw-price-item.selected .amt') || {textContent:''}).textContent) : '';
-    var currency = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'CNY' : 'USD';
-    var payMethod = (activePanel && activePanel.id === 'gd-pw-wechat') ? 'wechat' : 'venmo';
-
-    // Register device + payment with server (server auto-sends confirmation email)
-    var deviceId = getDeviceId();
-    var deviceInfo = navigator.userAgent + ' | ' + screen.width + 'x' + screen.height + ' | ' + navigator.platform;
-    fetch('/api/gd/register', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        name: name, contact: contact,
-        device_id: deviceId, device_info: deviceInfo,
-        install_ts: parseInt(localStorage.getItem(INSTALL_KEY) || '0'),
-        amount: selectedPrice, currency: currency, payment_method: payMethod
-      })
-    }).then(function(r){ return r.json(); }).then(function(data){
-      if (data.ok) {
-        localStorage.setItem(PENDING_KEY, Date.now().toString());
-        alert('✅ 已提交！系统已自动发送确认邮件给管理员。\n\n管理员确认付款后将立即为您激活，\n请稍后重新打开计分器即可使用。\n\n（14天内若未收到确认将暂停使用）');
-      } else {
-        alert('⚠️ 提交时出现错误，请稍后重试');
-      }
-    }).catch(function(){
-      localStorage.setItem(PENDING_KEY, Date.now().toString());
-      alert('✅ 已记录！请确保网络正常，稍后管理员将为您确认激活。');
-    });
-    pw.style.display = 'none';
-  };
   } // end init()
 })();
 </script>

@@ -555,6 +555,28 @@ async function initDB() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_gdo_visits_mode_time ON gdo_visits(game_mode, visited_at)`);
 
+  // ============ 计分器 · 全局设置(收费开关) + 在线客服消息（与计分器后台共用同库）============
+  await query(`
+    CREATE TABLE IF NOT EXISTS gd_settings (
+      skey       TEXT PRIMARY KEY,
+      sval       TEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS gd_support_messages (
+      id          SERIAL PRIMARY KEY,
+      device_id   TEXT NOT NULL,
+      user_name   TEXT DEFAULT '',
+      sender      TEXT NOT NULL,          -- 'user' 用户 / 'admin' 管理员
+      body        TEXT NOT NULL,
+      read_by_admin SMALLINT DEFAULT 0,   -- 用户消息是否已被管理员读过
+      read_by_user  SMALLINT DEFAULT 0,   -- 管理员回复是否已被用户读过
+      created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_gd_support_device_time ON gd_support_messages(device_id, created_at)`);
+
   console.log('✅ Database initialized');
 }
 
