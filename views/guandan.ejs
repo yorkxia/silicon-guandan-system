@@ -1597,6 +1597,34 @@ header{
     </div>
   </div>
 </div>
+
+<!-- 首次进入客服：输入微信姓名（存本地，以后不再弹） -->
+<div id="gd-wxname-overlay" onclick="if(event.target===this)gdWxNameCancel()">
+  <div id="gd-wxname-box">
+    <div id="gd-wxname-title">💬 联系在线客服</div>
+    <div id="gd-wxname-tip">首次咨询请输入您的<b>微信姓名</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。</div>
+    <input type="text" id="gd-wxname-input" placeholder="请输入微信姓名…" maxlength="40" autocomplete="off">
+    <div id="gd-wxname-btns">
+      <button id="gd-wxname-cancel" onclick="gdWxNameCancel()">取消</button>
+      <button id="gd-wxname-ok" onclick="gdWxNameConfirm()">进入客服</button>
+    </div>
+  </div>
+</div>
+<style>
+#gd-wxname-overlay{display:none;position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.6);
+  align-items:center;justify-content:center;padding:20px;}
+#gd-wxname-overlay.open{display:flex;}
+#gd-wxname-box{background:#fff;width:100%;max-width:360px;border-radius:16px;padding:22px 20px;box-shadow:0 10px 40px rgba(0,0,0,.4);}
+#gd-wxname-title{font-size:1.05rem;font-weight:800;color:#0f9e45;text-align:center;margin-bottom:10px;}
+#gd-wxname-tip{font-size:0.85rem;color:#555;line-height:1.5;text-align:center;margin-bottom:14px;}
+#gd-wxname-input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:11px 14px;font-size:0.95rem;outline:none;margin-bottom:14px;}
+#gd-wxname-input:focus{border-color:#0f9e45;}
+#gd-wxname-btns{display:flex;gap:10px;}
+#gd-wxname-btns button{flex:1;border:none;border-radius:22px;padding:11px 0;font-size:0.92rem;font-weight:800;cursor:pointer;}
+#gd-wxname-cancel{background:#eef1f4;color:#555;}
+#gd-wxname-ok{background:linear-gradient(135deg,#25c05a,#0f9e45);color:#fff;}
+#gd-wxname-btns button:active{transform:scale(.96);}
+</style>
 <style>
 #gd-support-btn{display:inline-block;margin:8px auto 0;padding:8px 18px;border:none;border-radius:20px;
   background:linear-gradient(135deg,#25c05a,#0f9e45);color:#fff;font-size:0.9rem;font-weight:700;cursor:pointer;
@@ -1646,7 +1674,25 @@ header{
       .then(function(d){ if(d.ok && d.messages && d.messages.length){ render(d.messages, true); } })
       .catch(function(){});
   }
+  function gdGetWxName(){ try{ return (localStorage.getItem('gd_wx_name')||'').trim(); }catch(e){ return ''; } }
+  // 点「实时在线客服」：无本地微信名先弹输入框，有则直接进对话
   window.gdSupportOpen = function(){
+    if(!gdGetWxName()){
+      el('gd-wxname-overlay').classList.add('open');
+      setTimeout(function(){ try{ el('gd-wxname-input').focus(); }catch(e){} }, 200);
+      return;
+    }
+    gdSupportOpenChat();
+  };
+  window.gdWxNameCancel = function(){ el('gd-wxname-overlay').classList.remove('open'); };
+  window.gdWxNameConfirm = function(){
+    var v = (el('gd-wxname-input').value||'').trim();
+    if(!v){ try{ el('gd-wxname-input').focus(); }catch(e){} return; }
+    try{ localStorage.setItem('gd_wx_name', v.slice(0,40)); }catch(e){}
+    el('gd-wxname-overlay').classList.remove('open');
+    gdSupportOpenChat();
+  };
+  function gdSupportOpenChat(){
     el('gd-support-overlay').classList.add('open');
     opened = true; lastId = 0;
     var box = el('gd-support-msgs');
@@ -1666,8 +1712,7 @@ header{
     var body = (inp.value||'').trim();
     if(!body) return;
     inp.value='';
-    var nm = '';
-    try{ nm = localStorage.getItem('gd_user_name') || ''; }catch(e){}
+    var nm = gdGetWxName();
     fetch('/api/gd/support/send', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ device_id: getDeviceId(), name: nm, body: body })
@@ -1678,6 +1723,9 @@ header{
   document.addEventListener('keydown', function(e){
     if(e.key==='Enter' && el('gd-support-overlay').classList.contains('open') && document.activeElement===el('gd-support-input')){
       gdSupportSend();
+    }
+    if(e.key==='Enter' && el('gd-wxname-overlay').classList.contains('open') && document.activeElement===el('gd-wxname-input')){
+      gdWxNameConfirm();
     }
   });
 })();

@@ -424,9 +424,20 @@ router.post('/api/gd/support/send', gdSupportLimiter, async (req, res) => {
   try {
     const { device_id, name, body } = req.body || {};
     if (!device_id || !body || !String(body).trim()) return res.json({ ok: false, error: 'missing' });
+    // IP 自动定位登录位置（免用户授权，城市级）+ 记录设备
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    let city = '', region = '';
+    try {
+      const geo = (await geoLocate(ip)) || {};
+      city = geo.city || '';
+      region = geo.country || geo.region_code || '';
+    } catch (e) { /* 定位失败静默，不影响发消息 */ }
+    const deviceInfo = (req.headers['user-agent'] || '').slice(0, 200);
     await query(
-      "INSERT INTO gd_support_messages (device_id, user_name, sender, body) VALUES ($1,$2,'user',$3)",
-      [String(device_id).slice(0, 80), String(name || '').slice(0, 40), String(body).trim().slice(0, 1000)]
+      `INSERT INTO gd_support_messages (device_id, user_name, sender, body, source, user_city, user_region, device_info)
+       VALUES ($1,$2,'user',$3,'scorer',$4,$5,$6)`,
+      [String(device_id).slice(0, 80), String(name || '').slice(0, 40), String(body).trim().slice(0, 1000),
+       city.slice(0, 80), region.slice(0, 40), deviceInfo]
     );
     res.json({ ok: true });
   } catch (e) {
