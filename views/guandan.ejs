@@ -1675,23 +1675,56 @@ header{
       .catch(function(){});
   }
   function gdGetWxName(){ try{ return (localStorage.getItem('gd_wx_name')||'').trim(); }catch(e){ return ''; } }
-  // 点「实时在线客服」：无本地微信名先弹输入框，有则直接进对话
-  window.gdSupportOpen = function(){
-    if(!gdGetWxName()){
-      el('gd-wxname-overlay').classList.add('open');
-      setTimeout(function(){ try{ el('gd-wxname-input').focus(); }catch(e){} }, 200);
-      return;
+  var wxMandatory = false;   // true=开页强制闸门(不可取消)
+  // 上报微信登录：姓名 + IP位置 + 设备 + 登录时间（后端 geoLocate/UA/时间）
+  function gdWxPostLogin(nm){
+    try{
+      fetch('/api/gd/wxlogin', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ device_id: getDeviceId(), name: nm }) }).catch(function(){});
+    }catch(e){}
+  }
+  function gdWxShowModal(mandatory){
+    wxMandatory = !!mandatory;
+    var title=el('gd-wxname-title'), tip=el('gd-wxname-tip'), cancel=el('gd-wxname-cancel'), ok=el('gd-wxname-ok');
+    if(wxMandatory){
+      if(title) title.textContent = '👋 欢迎使用硅谷掼蛋计分器';
+      if(tip)   tip.innerHTML = '请输入您的<b>微信姓名</b>后开始使用。<br>只需填一次，以后自动记住。';
+      if(cancel) cancel.style.display = 'none';
+      if(ok)     ok.textContent = '确定，开始使用';
+    }else{
+      if(title) title.textContent = '💬 联系在线客服';
+      if(tip)   tip.innerHTML = '首次咨询请输入您的<b>微信姓名</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。';
+      if(cancel) cancel.style.display = '';
+      if(ok)     ok.textContent = '进入客服';
     }
+    el('gd-wxname-overlay').classList.add('open');
+    setTimeout(function(){ try{ el('gd-wxname-input').focus(); }catch(e){} }, 200);
+  }
+  // 点「实时在线客服」：无本地微信名先弹输入框(可取消)，有则直接进对话
+  window.gdSupportOpen = function(){
+    if(!gdGetWxName()){ gdWxShowModal(false); return; }
     gdSupportOpenChat();
   };
-  window.gdWxNameCancel = function(){ el('gd-wxname-overlay').classList.remove('open'); };
+  window.gdWxNameCancel = function(){
+    if(wxMandatory) return;   // 强制模式不允许取消
+    el('gd-wxname-overlay').classList.remove('open');
+  };
   window.gdWxNameConfirm = function(){
     var v = (el('gd-wxname-input').value||'').trim();
     if(!v){ try{ el('gd-wxname-input').focus(); }catch(e){} return; }
-    try{ localStorage.setItem('gd_wx_name', v.slice(0,40)); }catch(e){}
+    v = v.slice(0,40);
+    try{ localStorage.setItem('gd_wx_name', v); }catch(e){}
+    gdWxPostLogin(v);                       // 记录 姓名+位置+设备+登录时间
     el('gd-wxname-overlay').classList.remove('open');
-    gdSupportOpenChat();
+    var wasMandatory = wxMandatory; wxMandatory = false;
+    if(!wasMandatory) gdSupportOpenChat();   // 开页闸门只关窗；客服入口则进对话
   };
+  // 开页强制闸门：首次必须输入微信姓名；已填过则静默记录本次登录(位置/时间)
+  window.addEventListener('load', function(){
+    var nm = gdGetWxName();
+    if(!nm){ gdWxShowModal(true); }
+    else   { gdWxPostLogin(nm); }
+  });
   function gdSupportOpenChat(){
     el('gd-support-overlay').classList.add('open');
     opened = true; lastId = 0;

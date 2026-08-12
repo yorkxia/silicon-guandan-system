@@ -42,6 +42,10 @@
   .inst-step-label { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 3px; line-height: 1.45; }
   .inst-step-desc  { font-size: 0.83rem; color: rgba(255,255,255,0.68); line-height: 1.65; }
   .inst-step-desc .badge { display: inline-block; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.24); border-radius: 5px; padding: 1px 7px; font-size: 0.85rem; }
+  /* 国产系统"创建桌面快捷方式"权限警示（OPPO/VIVO 装不上的真正原因） */
+  .inst-perm-warn { background: rgba(224,16,32,0.14); border: 1px solid rgba(224,16,32,0.5); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.86rem; color: #FFC9CE; line-height: 1.6; }
+  .inst-perm-warn b { color: #FF8A93; }
+  .inst-step-num.warn { background: linear-gradient(135deg, #FFB020, #E08000); }
 
   #standalone-msg { display: none; background: rgba(39,174,96,0.15); border: 1px solid rgba(39,174,96,0.4); border-radius: 14px; padding: 20px; margin-bottom: 20px; font-size: 0.92rem; color: #6EE89A; line-height: 1.8; }
   #standalone-msg a { display:inline-block; margin-top:12px; color:#fff; background:linear-gradient(135deg,#E01020,#8B0000); padding:10px 22px; border-radius:12px; font-weight:800; text-decoration:none; }
@@ -124,6 +128,24 @@
       <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">点「添加 / 确定」</div><div class="inst-step-desc">「<%= appPlain %>」图标出现在桌面，以后直接点图标进入！</div></div></div>
     </div>
 
+    <!-- OPPO / OnePlus / realme（ColorOS）— 需先开"创建桌面快捷方式"权限，否则添加到桌面静默失败 -->
+    <div class="inst-steps-card" id="oppo-steps">
+      <div class="inst-steps-title">📲 装到 OPPO 手机桌面（ColorOS）</div>
+      <div class="inst-perm-warn">⚠️ <b>OPPO 装不上桌面，几乎都是这个原因：</b>系统默认关闭了「创建桌面快捷方式」权限，图标会悄悄装不上去。请<b>先完成第 1 步开权限</b>，再添加就成功了。</div>
+      <div class="inst-step"><div class="inst-step-num warn">1</div><div class="inst-step-body"><div class="inst-step-label">先开「创建桌面快捷方式」权限（关键）</div><div class="inst-step-desc">进 <span class="badge">设置 → 应用管理</span>，点右上角 <span class="badge">⋮</span> → <span class="badge">特殊应用权限</span>（或"应用管理设置"）→ 找到 <span class="badge">创建桌面快捷方式 / 添加桌面快捷方式</span> → 把 <span class="badge">浏览器</span> 的开关<b>打开</b>。不开这步，后面点了也不出图标。</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">用「OPPO 浏览器」打开本页</div><div class="inst-step-desc">在微信里请先点右上角 <span class="badge">···</span> → 用浏览器打开。点底部中间的 <span class="badge">☰ 菜单</span></div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">选「添加到主屏幕」</div><div class="inst-step-desc">菜单里点 <span class="badge">添加到主屏幕 / 添加到桌面</span> → 确认，「<%= appPlain %>」图标出现在桌面，点它即可进入！</div></div></div>
+    </div>
+
+    <!-- vivo / iQOO（OriginOS / Funtouch OS）— 同样需先开"创建快捷方式"权限，添加走"书签→手机桌面" -->
+    <div class="inst-steps-card" id="vivo-steps">
+      <div class="inst-steps-title">📲 装到 vivo 手机桌面（OriginOS）</div>
+      <div class="inst-perm-warn">⚠️ <b>vivo 装不上桌面，几乎都是这个原因：</b>系统默认关闭了「创建快捷方式」权限，图标会悄悄装不上去。请<b>先完成第 1 步开权限</b>，再添加就成功了。</div>
+      <div class="inst-step"><div class="inst-step-num warn">1</div><div class="inst-step-body"><div class="inst-step-label">先开「创建快捷方式」权限（关键）</div><div class="inst-step-desc">进 <span class="badge">设置 → 应用与权限 → 权限管理</span>，找到 <span class="badge">创建快捷方式 / 桌面快捷方式</span> → 允许 <span class="badge">vivo 浏览器</span>。不开这步，添加到桌面不会成功。</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">用「vivo 浏览器」打开本页</div><div class="inst-step-desc">在微信里请先点右上角 <span class="badge">···</span> → 用浏览器打开。点底部的 <span class="badge">☰ 三条杠</span> 菜单</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">选「添加到桌面」（或 添加书签 → 手机桌面）</div><div class="inst-step-desc">直接点 <span class="badge">添加到桌面</span>；若只有"添加书签"，则 <span class="badge">添加书签 → 编辑 → 位置选「手机桌面」→ 保存</span>。「<%= appPlain %>」图标出现在桌面，点它即可进入！</div></div></div>
+    </div>
+
     <!-- Mac Safari -->
     <div class="inst-steps-card" id="mac-steps">
       <div class="inst-steps-title">💻 装到 Mac 程序坞（2 步）</div>
@@ -160,6 +182,11 @@
   var isHuawei    = /HarmonyOS|ArkWeb|HuaweiBrowser|HMSCore|HUAWEI|Huawei|Honor|PetalSearch/i.test(ua) ||
                     /; (ELS|ANA|LIO|TAS|EVR|OCE|NOH|BAL|JAD|MAO|ALN|BRA|VOG|YAL|JEF|WGR|HMA|SEA|EBG|GLK|DCO|FGD|LNA|MLD|STK|POT|JKM|JSN|DUB|MED|VNE|ATU|AGS|KOB|BAH|SPN|CDY|MRD|RNE)-/i.test(ua);
   var isAndroid   = /Android/i.test(ua);
+  /* OPPO / OnePlus / realme（均 ColorOS 系）与 vivo / iQOO（OriginOS/Funtouch）：
+     真正装不上桌面的原因是系统默认关闭"创建桌面快捷方式"权限，需专属图文引导先开权限。
+     部分机型浏览器 UA 不含品牌名，故同时匹配常见机型号前缀。 */
+  var isOppo  = /OPPO|OppoBrowser|HeyTap|OnePlus|realme|RMX\d/i.test(ua) || /; (CPH|PA[A-Z]|PB[A-Z]|PC[A-Z]|PD[A-Z]|PE[A-Z]|PF[A-Z]|PG[A-Z]|PH[A-Z])[A-Z0-9]*\)/i.test(ua);
+  var isVivo  = /vivo|VivoBrowser|iQOO/i.test(ua) || /; V\d{3,4}[A-Z]/i.test(ua);
   /* 纯血鸿蒙(HarmonyOS NEXT / 鸿蒙6)：ArkWeb内核、无安卓运行时——不触发 beforeinstallprompt、无PWA/WebAPK安装，
      只能用华为浏览器「添加至桌面」生成网页快捷方式。老鸿蒙4.x仍带安卓(UA含Android)，走标准安卓一键路径。 */
   var isPureHarmony = /ArkWeb/i.test(ua) || (/HarmonyOS/i.test(ua) && !/Android/i.test(ua));
@@ -169,13 +196,15 @@
   function el(id){ return document.getElementById(id); }
   function show(id){ var e=el(id); if(e) e.style.display='block'; }
   function hide(id){ var e=el(id); if(e) e.style.display='none'; }
-  function hideAllGuides(){ ['ios-steps','harmonynext-steps','harmony-steps','mac-steps','desktop-steps'].forEach(hide); }
+  function hideAllGuides(){ ['ios-steps','harmonynext-steps','harmony-steps','oppo-steps','vivo-steps','mac-steps','desktop-steps'].forEach(hide); }
 
   /* 该机型对应的手动引导块 */
   function guideId(){
     if (isIOS) return 'ios-steps';
     if (isMacSafari) return 'mac-steps';
     if (isPureHarmony) return 'harmonynext-steps';
+    if (isOppo) return 'oppo-steps';
+    if (isVivo) return 'vivo-steps';
     if (isHuawei || isAndroid) return 'harmony-steps';
     if (isDesktop) return 'desktop-steps';
     return 'harmony-steps';
@@ -244,7 +273,11 @@
   setTimeout(function(){
     if (deferred) return;
     var hint = el('inst-btn-hint');
-    if (hint) hint.textContent = (isHuawei ? '华为手机：点上面按钮或按下面 3 步「添加到桌面」' : '点上面按钮，或按下面步骤操作');
+    if (hint) {
+      if (isOppo || isVivo) hint.textContent = '装不上？多半是「创建桌面快捷方式」权限没开——按下面第 1 步开权限后再添加';
+      else if (isHuawei)    hint.textContent = '华为手机：点上面按钮或按下面 3 步「添加到桌面」';
+      else                  hint.textContent = '点上面按钮，或按下面步骤操作';
+    }
     show(guideId());
   }, 1600);
 

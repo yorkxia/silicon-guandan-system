@@ -417,6 +417,40 @@ router.get('/api/gd/billing', async (req, res) => {
   }
 });
 
+// ── 计分器微信登录：开页强制输入微信姓名，记录名册 + IP位置 + 设备 + 登录时间 ──
+const gdWxLoginLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30,
+  message: '操作过于频繁，请稍后再试' });
+router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
+  try {
+    const { device_id, name } = req.body || {};
+    if (!device_id || !name || !String(name).trim()) return res.json({ ok: false, error: 'missing' });
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
+    let city = '', region = '';
+    try {
+      const geo = (await geoLocate(ip)) || {};
+      city = geo.city || '';
+      region = geo.country || geo.region_code || '';
+    } catch (e) { /* 定位失败静默 */ }
+    const deviceInfo = (req.headers['user-agent'] || '').slice(0, 200);
+    await query(
+      `INSERT INTO gd_wx_users (device_id, wx_name, user_city, user_region, device_info)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (device_id) DO UPDATE SET
+         wx_name       = EXCLUDED.wx_name,
+         user_city     = EXCLUDED.user_city,
+         user_region   = EXCLUDED.user_region,
+         device_info   = EXCLUDED.device_info,
+         login_count   = gd_wx_users.login_count + 1,
+         last_login_at = NOW()`,
+      [String(device_id).slice(0, 80), String(name).trim().slice(0, 40),
+       city.slice(0, 80), region.slice(0, 40), deviceInfo]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 // ── 在线客服：用户发消息给管理员 ──
 const gdSupportLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60,
   message: '发送过于频繁，请稍后再试' });

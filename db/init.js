@@ -582,6 +582,20 @@ async function initDB() {
   await query(`ALTER TABLE gd_support_messages ADD COLUMN IF NOT EXISTS user_region TEXT DEFAULT ''`);
   await query(`ALTER TABLE gd_support_messages ADD COLUMN IF NOT EXISTS device_info TEXT DEFAULT ''`);
 
+  // 计分器微信登录名册：开页强制输入微信姓名 + 采集IP位置/设备/首末登录时间（一设备一条，upsert）
+  await query(`
+    CREATE TABLE IF NOT EXISTS gd_wx_users (
+      device_id      TEXT PRIMARY KEY,
+      wx_name        TEXT DEFAULT '',
+      user_city      TEXT DEFAULT '',
+      user_region    TEXT DEFAULT '',
+      device_info    TEXT DEFAULT '',
+      login_count    INTEGER DEFAULT 1,
+      first_login_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_login_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   console.log('✅ Database initialized');
 }
 
