@@ -425,13 +425,13 @@ router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
     const { device_id, name } = req.body || {};
     if (!device_id || !name || !String(name).trim()) return res.json({ ok: false, error: 'missing' });
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
-    let city = '', region = '';
-    try {
-      const geo = (await geoLocate(ip)) || {};
-      city = geo.city || '';
-      region = geo.country || geo.region_code || '';
-    } catch (e) { /* 定位失败静默 */ }
+    let geo = {};
+    try { geo = (await geoLocate(ip)) || {}; } catch (e) { /* 定位失败静默 */ }
+    const city = geo.city || '';
+    const region = geo.country || geo.region_code || '';
     const deviceInfo = (req.headers['user-agent'] || '').slice(0, 200);
+    const nameClean = String(name).trim().slice(0, 40);
+    const iph = ipHash(ip);
     await query(
       `INSERT INTO gd_wx_users (device_id, wx_name, user_city, user_region, device_info)
        VALUES ($1,$2,$3,$4,$5)
@@ -442,22 +442,32 @@ router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
          device_info   = EXCLUDED.device_info,
          login_count   = gd_wx_users.login_count + 1,
          last_login_at = NOW()`,
-      [String(device_id).slice(0, 80), String(name).trim().slice(0, 40),
+      [String(device_id).slice(0, 80), nameClean,
        city.slice(0, 80), region.slice(0, 40), deviceInfo]
     );
-    // 把本次微信昵称回填到刚刚 GET /guandan 记录的那条访问行（同 IP、近2分钟、尚未署名）
-    // 让监控台「最近访问记录」能显示"谁在何时何地登陆计分器"
-    query(
-      `UPDATE sb_visits SET wx_name = $1
-       WHERE id = (
-         SELECT id FROM sb_visits
-         WHERE page = 'guandan' AND ip_hash = $2
-           AND (wx_name IS NULL OR wx_name = '')
-           AND visited_at > NOW() - INTERVAL '2 minutes'
-         ORDER BY visited_at DESC LIMIT 1
-       )`,
-      [String(name).trim().slice(0, 40), ipHash(ip)]
-    ).catch(function () {});
+    // 让监控台「最近访问记录」显示"谁在何时何地登陆计分器"：
+    // 先把昵称回填到刚刚 GET /guandan 记录的那条访问行（同 IP、近2分钟、尚未署名）；
+    // 若匹配不到（如 PWA 从缓存直开、未走服务端渲染），就补一条带昵称的访问记录。
+    try {
+      const updated = await query(
+        `UPDATE sb_visits SET wx_name = $1
+         WHERE id = (
+           SELECT id FROM sb_visits
+           WHERE page = 'guandan' AND ip_hash = $2
+             AND (wx_name IS NULL OR wx_name = '')
+             AND visited_at > NOW() - INTERVAL '2 minutes'
+           ORDER BY visited_at DESC LIMIT 1
+         ) RETURNING id`,
+        [nameClean, iph]
+      );
+      if (!updated || updated.length === 0) {
+        await query(
+          `INSERT INTO sb_visits (ip_hash, country, region_code, city, page, user_agent, wx_name)
+           VALUES ($1,$2,$3,$4,'guandan',$5,$6)`,
+          [iph, geo.country || '', geo.region_code || '', city.slice(0, 80), deviceInfo, nameClean]
+        );
+      }
+    } catch (e) { /* 访问表回填失败不影响登录记录 */ }
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false, error: e.message });
