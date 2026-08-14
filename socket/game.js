@@ -6,6 +6,7 @@ const {
   detectType6p, canBeat6p, settle6p, computeTribute6p
 } = require('../utils/cardTypes');
 const { pickBotPlay } = require('../utils/bot');
+const { buildTributeJson } = require('../utils/tribute');
 const gameStates = require('./gameState');
 
 /* ─── 回合计时配置（阶段九：断线重连稳定性）──────────
@@ -332,15 +333,13 @@ function applyAWinRule(state, result, a1, a2) {
 /* ─── 四人赛事结算 ──────────────────────────────── */
 async function finishRound(io, state) {
   const result = settle(state.finishOrder, state.levelTeam1, state.levelTeam2);
-  const room = await queryOne('SELECT a_fails_team1, a_fails_team2 FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
+  const room = await queryOne('SELECT a_fails_team1, a_fails_team2, room_type FROM gdo_rooms WHERE room_code=$1', [state.roomCode]);
   const adj = applyAWinRule(state, result, parseInt(room.a_fails_team1 || 0), parseInt(room.a_fails_team2 || 0));
   result.newLv1 = adj.newLv1; result.newLv2 = adj.newLv2; result.guoA = adj.guoA;
 
-  /* 四人进贡（写入下局使用；过A重开则不进贡）*/
-  const tributeInfo = adj.guoA ? { exchanges: [] } : computeTribute4p(state.finishOrder, result.winnerTeam);
-  const tributeJson = tributeInfo.exchanges.length > 0
-    ? JSON.stringify({ ...tributeInfo, delta: result.delta })
-    : null;
+  /* 四人进贡（写入下局使用；过A重开则不进贡）。
+     控制台「是否进贡」设为 NO 时：不供不还，改由本局头游先出（buildTributeJson 内处理）。*/
+  const tributeJson = await buildTributeJson(state, result, adj, '4p', room.room_type, computeTribute4p);
 
   await _writeRoundResult(io, state, result, false, adj.aFail1, adj.aFail2, tributeJson);
 }
@@ -420,6 +419,18 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
 async function startTributePhase(io, roomCode, tributeInfo) {
   const state = gameStates.get(roomCode);
   if (!state) return false;
+
+  /* 不进贡模式（控制台设 NO）：无供还，直接由本局头游先出（复用抗贡效果）*/
+  if (tributeInfo && tributeInfo.noTribute) {
+    const headObj = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
+    if (headObj) { state.turnSeat = headObj.seat; state.leadSeat = headObj.seat; }
+    state.tributePhase = null;
+    await persistState(state);
+    await query(`UPDATE gdo_rooms SET tribute_json=NULL WHERE room_code=$1`, [roomCode]);
+    io.to(roomCode).emit('game:starting', { roomCode, roundId: state.roundId });
+    startTurnTimer(io, state);
+    return true;
+  }
 
   const headSeatObj = state.seats.find(s => s.playerId === tributeInfo.headPlayerId);
   const teamSize    = Math.floor(state.totalPlayers / 2);   // 4人=2
