@@ -338,6 +338,8 @@
     #combo-bar .cb-lock  { background: linear-gradient(#ff7a7a, #D32029); }  /* 红=锁牌 */
     #combo-bar .cb-undo  { background: linear-gradient(#6aa8ff, #1E6BE5); }  /* 蓝=撤销 */
     #combo-bar .cb-reset { background: linear-gradient(#ffd657, #F2B705); color: #6a4e00; }  /* 黄=重置 */
+    #combo-bar .cb-flush { background: linear-gradient(#c99bff, #7B3FE4); }  /* 紫=同花顺(智能凑牌) */
+    #combo-bar .cb-straight { background: linear-gradient(#ffc061, #E67E22); }  /* 橙=顺子(智能凑牌·可换头尾) */
 
     /* 发消息药丸（底栏最右）*/
     #chat-fab {
@@ -1061,6 +1063,8 @@
   <button type="button" class="cb-pill cb-lock"  onclick="comboTapBall(this, lockCombo)">锁牌</button>
   <button type="button" class="cb-pill cb-undo"  onclick="comboTapBall(this, unlockCombo)">撤销</button>
   <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
+  <button type="button" class="cb-pill cb-flush" onclick="comboTapBall(this, findFlushStraight)">同花顺</button>
+  <button type="button" class="cb-pill cb-straight" onclick="comboTapBall(this, findStraight)">顺子</button>
   <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
 </div>
 <div id="chat-backdrop" onclick="closeChatPanel()"></div>
@@ -2673,6 +2677,23 @@ function remapCombos(newHand){
   });
   lockedCombos = keep;
 }
+/* 「锁牌」把所有已锁定组合搬到手牌最左端（组内大牌在左）；其余散牌照常级牌排序。
+   撤销/重置后散牌自动归位到原始排列。*/
+function reorderHandLockedFirst(){
+  var inCombo = {}, front = [];
+  lockedCombos.forEach(function(combo){
+    var cards = [];
+    combo.keys.forEach(function(key){
+      var idx = parseInt(key.slice(key.lastIndexOf('_') + 1), 10);
+      if (!inCombo[idx]) { inCombo[idx] = true; cards.push(myHand[idx]); }
+    });
+    front = front.concat(sortHandLevel(cards, levelCard));
+  });
+  var rest = [];
+  myHand.forEach(function(code, idx){ if (!inCombo[idx]) rest.push(code); });
+  myHand = front.concat(sortHandLevel(rest, levelCard));
+  remapCombos(myHand);
+}
 function comboReRender(){
   if (GAME_MODE === '6p') { render6pHand(myHand); syncButtons6p(); updateSelInfo6p(); }
   else                    { renderHand(myHand);   syncButtons();   updateSelInfo();   }
@@ -2686,6 +2707,7 @@ function lockCombo(){
   if(!pt || LOCKABLE_TYPES.indexOf(pt.type) < 0){ showToast('⚠️ 非法组合，无法锁定'); return; }
   lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合' });
   selected = [];
+  reorderHandLockedFirst();   // 搬到手牌最左端
   comboReRender();
   showToast('✅ 已锁定：' + (pt.label || '组合'));
 }
@@ -2695,6 +2717,7 @@ function unlockCombo(){
   if(!target){ showToast('请先点要撤销的组合里的任意一张牌，再点撤销设置'); return; }
   lockedCombos = lockedCombos.filter(function(c){ return c !== target; });
   selected = [];
+  reorderHandLockedFirst();   // 撤销后：该组牌归位，剩余锁定组仍在左
   comboReRender();
   showToast('↩️ 已撤销该组合');
 }
@@ -2702,9 +2725,133 @@ function resetCombos(){
   if(!lockedCombos.length){ showToast('还没有锁定任何组合'); return; }
   lockedCombos = [];
   selected = [];
+  reorderHandLockedFirst();   // 全部归位到原始排列
   comboReRender();
   showToast('🗑️ 已清除全部组合');
 }
+/* ══════ 同花顺智能凑牌 ══════
+   用法：先点「牌型里的一张牌」当锚点(可不选)，再点「同花顺」按钮。
+   系统自动从手牌里凑出一副同花顺(5张同花色连牌)；缺哪张就用红桃级牌(逢人配)顶上；
+   实在凑不齐则提示「同花顺缺牌」。凑齐后自动选中这5张，玩家再点绿色「出牌」或「锁牌」。*/
+function findFlushStraight(){
+  var wild = levelCard ? ('H' + _rankChar(levelCard)) : null;   // 逢人配=红桃级牌
+  /* 1) 可用牌(未锁定的散牌)：按 code 收集手牌下标；逢人配单独收集 */
+  var availByCode = {}, wildIdx = [];
+  myHand.forEach(function(code, idx){
+    if (comboOfKey(code + '_' + idx)) return;           // 已锁定的组不参与
+    if (wild && code === wild) { wildIdx.push(idx); return; }
+    (availByCode[code] = availByCode[code] || []).push(idx);
+  });
+  /* 2) 锚点：当前选中里第一张「普通花色牌」的花色+点数(逢人配/王不当锚) */
+  var anchor = null;
+  for (var s = 0; s < selected.length; s++){
+    var ac = selected[s].split('_')[0];
+    if (ac === 'BJ' || ac === 'LJ' || (wild && ac === wild)) continue;
+    anchor = { suit: ac[0], rank: RANK_ORD[ac.slice(1)], idx: parseInt(selected[s].split('_')[1], 10) };
+    break;
+  }
+  var suits   = anchor ? [anchor.suit] : ['S','H','D','C'];
+  /* 3) 所有 5 连窗口：top 14..6 自然连 + A2345(A当1)轮顺 */
+  var windows = [];
+  for (var top = 14; top >= 6; top--) windows.push([top, top-1, top-2, top-3, top-4]);
+  windows.push([14,5,4,3,2]);
+  var best = null;   // {idxs, wilds, top, suit}
+  suits.forEach(function(S){
+    windows.forEach(function(win){
+      if (anchor && (S !== anchor.suit || win.indexOf(anchor.rank) < 0)) return;
+      var usedIdx = {}, pick = [], wUsed = 0, ok = true;
+      win.forEach(function(r){
+        if (!ok) return;
+        if (anchor && S === anchor.suit && r === anchor.rank && !usedIdx[anchor.idx]){
+          usedIdx[anchor.idx] = true; pick.push(anchor.idx); return;   // 锚点这一格用锚点实体牌
+        }
+        var list = availByCode[S + _rankChar(r)] || [], got = -1;
+        for (var i = 0; i < list.length; i++){ if(!usedIdx[list[i]]){ got = list[i]; break; } }
+        if (got >= 0){ usedIdx[got] = true; pick.push(got); return; }
+        /* 缺这张 → 用逢人配顶 */
+        var wi = -1;
+        for (var j = 0; j < wildIdx.length; j++){ if(!usedIdx[wildIdx[j]]){ wi = wildIdx[j]; break; } }
+        if (wi >= 0){ usedIdx[wi] = true; pick.push(wi); wUsed++; return; }
+        ok = false;
+      });
+      if (ok && pick.length === 5){
+        var t = (win[0] === 14 && win[4] === 2) ? 5 : win[0];   // 轮顺 A2345 记作顶5
+        if (!best || wUsed < best.wilds || (wUsed === best.wilds && t < best.top))
+          best = { idxs: pick.slice(), wilds: wUsed, top: t, suit: S };
+      }
+    });
+  });
+  if (!best){ showToast('⚠️ 同花顺缺牌'); return; }
+  selected = best.idxs.map(function(idx){ return myHand[idx] + '_' + idx; });
+  comboReRender();
+  var sym = ({S:'♠',H:'♥',D:'♦',C:'♣'})[best.suit] || '';
+  showToast('✅ 已凑齐同花顺 ' + sym + (best.wilds ? '（用了'+best.wilds+'张逢人配）' : ''));
+}
+
+/* ══════ 顺子智能凑牌（不限花色 · 可循环换头尾）══════
+   用法：点「一张牌」当锚点(可不选)，再点「顺子」→ 自动凑一副 5 张连牌；缺牌用红桃级牌(逢人配)顶；
+   再点一次「顺子」在包含锚点的多副顺子间循环(换头尾)。凑齐后自动选中，玩家再点绿色「出牌」或「锁牌」。*/
+var _straightCycle = null;   // { lastSel, anchor, pos }
+function findStraight(){
+  var wild = levelCard ? ('H' + _rankChar(levelCard)) : null;   // 逢人配=红桃级牌
+  /* 1) 可用牌(未锁定的散牌)按点数收集(不限花色)；逢人配单独收集；王不入顺子 */
+  var availByRank = {}, wildIdx = [];
+  myHand.forEach(function(code, idx){
+    if (comboOfKey(code + '_' + idx)) return;
+    if (wild && code === wild) { wildIdx.push(idx); return; }
+    if (code === 'BJ' || code === 'LJ') return;
+    var r = RANK_ORD[code.slice(1)]; if (!r) return;
+    (availByRank[r] = availByRank[r] || []).push(idx);
+  });
+  /* 2) 锚点：延续上次(选中未变=循环换一副)则沿用；否则取当前选中里第一张普通牌 */
+  var selSig  = selected.slice().sort().join(',');
+  var cycling = !!(_straightCycle && _straightCycle.lastSel === selSig);
+  var anchor  = null;
+  if (cycling) { anchor = _straightCycle.anchor; }
+  else {
+    for (var s = 0; s < selected.length; s++){
+      var ac = selected[s].split('_')[0];
+      if (ac === 'BJ' || ac === 'LJ' || (wild && ac === wild)) continue;
+      var ar = RANK_ORD[ac.slice(1)]; if (!ar) continue;
+      anchor = { rank: ar, idx: parseInt(selected[s].split('_')[1], 10) };
+      break;
+    }
+  }
+  /* 3) 所有 5 连窗口：top 14..6 自然连 + A2345(A当1)轮顺 */
+  var windows = [];
+  for (var top = 14; top >= 6; top--) windows.push([top, top-1, top-2, top-3, top-4]);
+  windows.push([14, 5, 4, 3, 2]);
+  var cands = [];
+  windows.forEach(function(win){
+    if (anchor && win.indexOf(anchor.rank) < 0) return;
+    var usedIdx = {}, pick = [], wUsed = 0, ok = true;
+    win.forEach(function(r){
+      if (!ok) return;
+      if (anchor && r === anchor.rank && !usedIdx[anchor.idx]) { usedIdx[anchor.idx] = true; pick.push(anchor.idx); return; }
+      var list = availByRank[r] || [], got = -1;
+      for (var i = 0; i < list.length; i++){ if (!usedIdx[list[i]]) { got = list[i]; break; } }
+      if (got >= 0){ usedIdx[got] = true; pick.push(got); return; }
+      /* 缺这张 → 用逢人配顶 */
+      var wi = -1;
+      for (var j = 0; j < wildIdx.length; j++){ if (!usedIdx[wildIdx[j]]) { wi = wildIdx[j]; break; } }
+      if (wi >= 0){ usedIdx[wi] = true; pick.push(wi); wUsed++; return; }
+      ok = false;
+    });
+    if (ok && pick.length === 5){
+      var t = (win[0] === 14 && win[4] === 2) ? 5 : win[0];   // 轮顺 A2345 记作顶5
+      cands.push({ idxs: pick.slice(), wilds: wUsed, top: t });
+    }
+  });
+  if (!cands.length){ showToast('⚠️ 顺子缺牌'); _straightCycle = null; return; }
+  cands.sort(function(a, b){ return a.wilds - b.wilds || b.top - a.top; });   // 少用逢人配、点数高者优先
+  var pos    = cycling ? ((_straightCycle.pos + 1) % cands.length) : 0;
+  var chosen = cands[pos];
+  selected = chosen.idxs.map(function(idx){ return myHand[idx] + '_' + idx; });
+  _straightCycle = { lastSel: selected.slice().sort().join(','), anchor: anchor, pos: pos };
+  comboReRender();
+  showToast('✅ 已凑齐顺子' + (chosen.wilds ? '（用了' + chosen.wilds + '张逢人配）' : '') + (cands.length > 1 ? '　再点「顺子」换一副' : ''));
+}
+
 /* 点圆球：执行动作，并短暂浮现该球的文字标签（触屏无悬停）*/
 function comboTapBall(el, fn){
   if (el) { el.classList.add('show-tip'); clearTimeout(el._tipT);
