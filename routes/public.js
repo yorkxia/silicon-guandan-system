@@ -445,6 +445,19 @@ router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
       [String(device_id).slice(0, 80), String(name).trim().slice(0, 40),
        city.slice(0, 80), region.slice(0, 40), deviceInfo]
     );
+    // 把本次微信昵称回填到刚刚 GET /guandan 记录的那条访问行（同 IP、近2分钟、尚未署名）
+    // 让监控台「最近访问记录」能显示"谁在何时何地登陆计分器"
+    query(
+      `UPDATE sb_visits SET wx_name = $1
+       WHERE id = (
+         SELECT id FROM sb_visits
+         WHERE page = 'guandan' AND ip_hash = $2
+           AND (wx_name IS NULL OR wx_name = '')
+           AND visited_at > NOW() - INTERVAL '2 minutes'
+         ORDER BY visited_at DESC LIMIT 1
+       )`,
+      [String(name).trim().slice(0, 40), ipHash(ip)]
+    ).catch(function () {});
     res.json({ ok: true });
   } catch (e) {
     res.json({ ok: false, error: e.message });

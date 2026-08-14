@@ -162,6 +162,9 @@ async function initDB() {
       visited_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  // 计分器访问行回填微信昵称（wxlogin 时按 ip_hash+近2分钟匹配本次 guandan 访问）
+  await query(`ALTER TABLE sb_visits ADD COLUMN IF NOT EXISTS wx_name TEXT DEFAULT ''`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_sb_visits_iphash_time ON sb_visits(ip_hash, visited_at)`);
   await query(`
     CREATE TABLE IF NOT EXISTS sb_user_regions (
       id SERIAL PRIMARY KEY,
