@@ -287,6 +287,12 @@
     }
     .trick-cards { display: flex; justify-content: center; flex-wrap: wrap; gap: 2px; }
     .trick-cards.nowrap { flex-wrap: nowrap; }   /* 出牌≤5张：强制单行不换行 */
+    /* #5 三带二(三带对)：上排三张 / 下排一对 */
+    .tk-fh { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .tk-fh .tk-row { display: flex; gap: 2px; justify-content: center; }
+    /* #5 三连对(姊妹对)：小→大三对横排，每对成组、组间留空 */
+    .tk-pairs { display: flex; gap: 11px; justify-content: center; align-items: flex-end; }
+    .tk-pair  { display: flex; gap: 2px; }
 
     /* 迷你牌面（中央出牌区）—— 高清矢量牌，放大便于适老 */
     .mc {
@@ -506,6 +512,11 @@
     }
     .hand-col:first-child { margin-left: 0; }
     .hand-col .hand-card { margin-left: 0; }
+    /* #3 锁定组竖叠列：整组一竖列相叠(只露角标)+彩色外框，固定在最左，与右侧散牌明显分隔 */
+    .hand-col.combo-col {
+      border: 2px solid var(--combo, #FFD54A); border-radius: 9px;
+      padding: 3px; margin-right: 9px; background: rgba(255,255,255,.07); align-self: flex-end;
+    }
     .hand-col .hand-card.stacked { margin-top: var(--hcstack, -47px); }   /* 露出约30%角标(随牌高缩放) */
     body.mode-6p .hand-col .hand-card.stacked { margin-top: -39px; }  /* 55-39=16px 露出角标 */
     body.mode-6p .hand-col { margin-left: 3px; }
@@ -1731,6 +1742,7 @@ socket.on('game:hand_update', function(d){
   myHand   = sortHandLevel(d.hand, levelCard);   // 级牌感知排序
   selected = [];
   remapCombos(myHand);   // 出牌后：锁定组重新对应新手牌 idx；已打出的组自动移除
+  if (lockedCombos.length) reorderHandLockedFirst();   // #4 仍在手里的锁定组继续固定在最左，出牌后不还原
   if (GAME_MODE === '6p') {
     render6pHand(myHand);
     syncButtons6p();
@@ -1958,10 +1970,9 @@ function renderCenterPlay(lastPlay){
   document.getElementById('trick-who').textContent = esc(lastPlay.name) + ' · ' + esc(lastPlay.label);
 
   var cardsEl = document.getElementById('trick-cards');
-  cardsEl.innerHTML = '';
   var show = Math.min((lastPlay.cards||[]).length, 13);
   cardsEl.className = 'trick-cards' + (show <= 5 ? ' nowrap' : '');   // ≤5张强制单行
-  for(var i=0;i<show;i++) cardsEl.innerHTML += miniCardHtml(lastPlay.cards[i]);
+  cardsEl.innerHTML = trickCardsHtml(lastPlay);   // #5 三带二/三连对结构化排列，其它平铺
 
   var moreEl = document.getElementById('trick-more');
   moreEl.textContent = lastPlay.cards.length>13 ? '共'+lastPlay.cards.length+'张' : '';
@@ -1969,6 +1980,39 @@ function renderCenterPlay(lastPlay){
 
 function miniCardHtml(code){
   return '<div class="mc">' + GDCard.faceSVG(code) + '</div>';
+}
+
+/* #5 出牌牌型结构化排列：三带二=上三下二；三连对(姊妹对)=小→大三对横排；其它平铺 */
+function _groupByRank(cards){
+  var m = {}; cards.forEach(function(c){ var r = _rv(c); (m[r] = m[r] || []).push(c); }); return m;
+}
+function trickCardsHtml(lastPlay){
+  var cards = (lastPlay.cards || []);
+  var pt = gdDetect(cards, levelCard);
+  var type = pt && pt.type;
+  /* 三带二(三带对)：上排三张、下排一对 */
+  if (type === 'fullhouse' && cards.length === 5){
+    var g = _groupByRank(cards), trip = [], pair = [];
+    Object.keys(g).forEach(function(r){ if (g[r].length >= 3) trip = g[r].slice(0,3); else pair = g[r].slice(0,2); });
+    if (trip.length === 3 && pair.length === 2){
+      return '<div class="tk-fh"><div class="tk-row">' + trip.map(miniCardHtml).join('') +
+             '</div><div class="tk-row">' + pair.map(miniCardHtml).join('') + '</div></div>';
+    }
+  }
+  /* 三连对(姊妹对)：三对，小→大横排(A2233 时 A 当 1 放最前) */
+  if (type === 'dbl_straight' && cards.length === 6){
+    var g2 = _groupByRank(cards);
+    var ranks = Object.keys(g2).map(Number).sort(function(a,b){ return a - b; });
+    if (ranks.length === 3){
+      if (ranks.indexOf(14) >= 0 && ranks.indexOf(2) >= 0)   // A 当最小 1
+        ranks = [14].concat(ranks.filter(function(r){ return r !== 14; }));
+      var html = '<div class="tk-pairs">';
+      ranks.forEach(function(r){ html += '<div class="tk-pair">' + g2[r].slice(0,2).map(miniCardHtml).join('') + '</div>'; });
+      return html + '</div>';
+    }
+  }
+  /* 其它牌型：平铺(最多13张) */
+  return cards.slice(0, 13).map(miniCardHtml).join('');
 }
 
 /* ═══════ 掼蛋级牌排序 + 竖排分组 ═══════ */
@@ -2233,14 +2277,15 @@ function unlockCombo(){
   comboReRender();
   showToast('↩️ 已撤销该组合');
 }
-/* 全部重置：清除所有已锁定组合 */
+/* 全部重置（万能急救键）：任何情况下都把牌恢复到原始排列组合，并清空一切选中/锁定状态，
+   确保之后可以点选任意大牌正常出牌——绝不出现"卡住出不去牌"。 */
 function resetCombos(){
-  if(!lockedCombos.length){ showToast('还没有锁定任何组合'); return; }
-  lockedCombos = [];
-  selected = [];
-  reorderHandLockedFirst();   // 全部归位到原始排列
-  comboReRender();
-  showToast('🗑️ 已清除全部组合');
+  lockedCombos   = [];
+  selected       = [];
+  _straightCycle = null;                         // 清顺子/同花顺凑牌循环状态
+  myHand = sortHandLevel(myHand, levelCard);     // 恢复原始级牌排序（不再有锁定组置左）
+  comboReRender();                               // 重绘 + 刷新出牌按钮状态
+  showToast('🔄 已重置，牌型已复原');
 }
 /* ══════ 同花顺智能凑牌 ══════
    用法：先点「牌型里的一张牌」当锚点(可不选)，再点「同花顺」按钮。
@@ -2447,10 +2492,13 @@ function renderHand(hand){
   scroll.innerHTML = '';
   var curKey = null, colEl = null;
   hand.forEach(function(code, idx){
-    var k = rankKeyOf(code);
+    /* #3 锁定组(顺子/同花顺/炸弹等)整组竖向相叠成"一列"，固定在最左；散牌仍按点数分列 */
+    var cmb = comboOfKey(code + '_' + idx);
+    var k   = cmb ? ('cmb_' + lockedCombos.indexOf(cmb)) : rankKeyOf(code);
     if (k !== curKey) {
       colEl = document.createElement('div');
-      colEl.className = 'hand-col';
+      colEl.className = 'hand-col' + (cmb ? ' combo-col' : '');
+      if (cmb) colEl.style.setProperty('--combo', cmb.color);
       scroll.appendChild(colEl);
       curKey = k;
     }

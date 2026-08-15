@@ -313,21 +313,26 @@ async function rebuildState(roomCode, seat, round) {
 function applyAWinRule(state, result, a1, a2) {
   const preLv = { 1: state.levelTeam1, 2: state.levelTeam2 };
   const winner = result.winnerTeam;
-  const loser  = winner === 1 ? 2 : 1;
   const newLv  = { 1: result.newLv1, 2: result.newLv2 };
-  const aFail  = { 1: 0, 2: 0 };
+  const fails  = { 1: a1, 2: a2 };
   let guoA = false;
 
-  if (preLv[winner] === 14) {
-    /* 过A → 整盘完成，两队从2重开 */
-    guoA = true; newLv[1] = 2; newLv[2] = 2;
-  } else if (preLv[loser] === 14) {
-    /* 输方在A：A级失败累积，满3退回2 */
-    let f = (loser === 1 ? a1 : a2) + 1;
-    if (f >= 3) { newLv[loser] = 2; f = 0; }
-    aFail[loser] = f;
+  /* 过A(成功)：在A(14)的队本局头游、且队友未垫底(delta≥2=双下/头游+三游 等) → 整盘完成，两队从2重开。
+     六人同理：头游队无人垫底(delta≥2)才算过A。 */
+  if (preLv[winner] === 14 && result.delta >= 2) {
+    guoA = true; newLv[1] = 2; newLv[2] = 2; fails[1] = 0; fails[2] = 0;
+  } else {
+    /* 不过A(两种)：①对方拿头游(A队没头游)；②A队头游+末游(delta==1，队友垫底)。
+       对每个"本局开始在A、却没过A"的队：A级失败+1；累计满3退回2(计数清零)。 */
+    [1, 2].forEach(function (t) {
+      if (preLv[t] === 14) {
+        let f = fails[t] + 1;
+        if (f >= 3) { newLv[t] = 2; f = 0; }
+        fails[t] = f;
+      }
+    });
   }
-  return { newLv1: newLv[1], newLv2: newLv[2], aFail1: aFail[1], aFail2: aFail[2], guoA };
+  return { newLv1: newLv[1], newLv2: newLv[2], aFail1: fails[1], aFail2: fails[2], guoA };
 }
 
 /* ─── 四人赛事结算 ──────────────────────────────── */
