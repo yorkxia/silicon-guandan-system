@@ -70,6 +70,42 @@
     }
     #exit-btn:active { transform: scale(.88); }
 
+    /* 右上角「客服」按钮：置于退出圆钮左侧，与网上赛事管理员对话 */
+    #support-btn {
+      position: fixed; top: 6px; right: 44px; z-index: 200;
+      height: 32px; padding: 0 12px; border-radius: 16px;
+      border: 1.5px solid rgba(255,255,255,.55); cursor: pointer;
+      background: rgba(15,158,69,.92); color: #fff; font-size: 13px; font-weight: 800; line-height: 1;
+      display: flex; align-items: center; gap: 4px;
+      box-shadow: 0 2px 9px rgba(0,0,0,.5); -webkit-tap-highlight-color: transparent;
+      transition: transform .1s;
+    }
+    #support-btn:active { transform: scale(.9); }
+    #support-btn .sb-dot {                 /* 客服有新回复时的红点 */
+      display: none; width: 8px; height: 8px; border-radius: 50%;
+      background: #ff3b30; box-shadow: 0 0 0 1.5px #fff;
+    }
+    #support-btn.has-unread .sb-dot { display: inline-block; }
+
+    /* 客服对话浮层（与计分器同款；随大屏一起旋转，落在牌桌正上方）*/
+    #kf-overlay { display: none; position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,.55);
+      align-items: center; justify-content: center; padding: 16px; }
+    #kf-overlay.open { display: flex; }
+    #kf-box { background: #fff; width: 100%; max-width: 440px; height: 82vh; max-height: 440px; border-radius: 16px;
+      display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+    #kf-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+      background: linear-gradient(135deg,#0f9e45,#0a7d38); color: #fff; font-weight: 800; font-size: .95rem; flex-shrink: 0; }
+    #kf-close { cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 0 4px; }
+    #kf-msgs { flex: 1; overflow-y: auto; padding: 14px; background: #f4f6f8; display: flex; flex-direction: column; gap: 8px; }
+    .kf-tip { background: #fff; border: 1px dashed #cbd5e1; color: #64748b; font-size: .8rem; border-radius: 10px; padding: 10px 12px; text-align: center; }
+    .kf-msg { max-width: 80%; padding: 9px 13px; border-radius: 14px; font-size: .9rem; line-height: 1.4; word-break: break-word; white-space: pre-wrap; }
+    .kf-user { align-self: flex-end; background: #25c05a; color: #fff; border-bottom-right-radius: 4px; }
+    .kf-admin { align-self: flex-start; background: #fff; color: #1a1a2e; border: 1px solid #e2e8f0; border-bottom-left-radius: 4px; }
+    .kf-who { display: block; font-size: .68rem; opacity: .7; margin-bottom: 2px; }
+    #kf-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e5e7eb; background: #fff; flex-shrink: 0; }
+    #kf-input { flex: 1; min-width: 0; border: 1px solid #cbd5e1; border-radius: 20px; padding: 10px 14px; font-size: .92rem; outline: none; }
+    #kf-send { border: none; border-radius: 20px; padding: 0 18px; background: #0f9e45; color: #fff; font-weight: 800; font-size: .9rem; cursor: pointer; }
+
     /* ═══════════════ 对家区域（上方） ═══════════════ */
     #zone-top {
       flex: 1 1 0; min-width: 0; display: flex; justify-content: center; align-items: center;
@@ -969,6 +1005,21 @@
 
 <!-- 右上角：退出比赛圆形开关 -->
 <button type="button" id="exit-btn" title="退出比赛" aria-label="退出比赛" onclick="exitGame()">✕</button>
+
+<!-- 右上角：客服按钮（退出键左侧）→ 与网上赛事管理员对话 -->
+<button type="button" id="support-btn" title="联系客服" aria-label="联系客服" onclick="kfOpen()">客服<span class="sb-dot"></span></button>
+
+<!-- 客服对话浮层 -->
+<div id="kf-overlay" onclick="if(event.target===this)kfClose()">
+  <div id="kf-box">
+    <div id="kf-header"><span>💬 在线客服 · 网上赛事</span><span id="kf-close" onclick="kfClose()">✕</span></div>
+    <div id="kf-msgs"></div>
+    <div id="kf-input-row">
+      <input type="text" id="kf-input" placeholder="输入消息…" maxlength="500" autocomplete="off">
+      <button id="kf-send" onclick="kfSend()">发送</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── 顶部状态栏 ── -->
 <div id="top-bar">
@@ -2507,6 +2558,82 @@ function exitGame(){
     location.href = '/play';
   }
 }
+
+/* ══════════ 在线客服（与网上赛事管理员对话）══════════
+   会话键 = 本人token#4p（同设备四人/六人分成两条会话，互不串）；
+   昵称带【4人】前缀 → 管理端「客服交流·网上赛事」一眼区分来源；source=online。*/
+var KF_MODE = '4p', KF_TAG = '【4人】';
+function kfTok(){
+  var t = ''; try { t = window.MY_TOKEN || ''; } catch(e){}
+  if(!t){ t = gdLS.get('gd-token',''); if(!t){ t = 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); gdLS.set('gd-token', t); } }
+  return t + '#' + KF_MODE;
+}
+function kfName(){ var n = ''; try { n = window.MY_NAME_LS || ''; } catch(e){} return KF_TAG + (n || '玩家'); }
+var _kfLastId = 0, _kfSeenId = 0, _kfPoll = null, _kfBgPoll = null, _kfOpen = false;
+function _kfEl(id){ return document.getElementById(id); }
+function _kfEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _kfRender(list, append){
+  var box = _kfEl('kf-msgs'); if(!box) return;
+  if(!append){ box.innerHTML = '<div class="kf-tip">有任何问题（报名、规则、账号）请留言，网上赛事管理员会尽快回复。</div>'; }
+  list.forEach(function(m){
+    var d = document.createElement('div');
+    d.className = 'kf-msg ' + (m.sender==='admin'?'kf-admin':'kf-user');
+    d.innerHTML = '<span class="kf-who">'+(m.sender==='admin'?'客服':'我')+'</span>' + _kfEsc(m.body);
+    box.appendChild(d);
+    if(m.id > _kfLastId) _kfLastId = m.id;
+    if(m.id > _kfSeenId) _kfSeenId = m.id;
+  });
+  box.scrollTop = box.scrollHeight;
+}
+function _kfPollNow(){
+  fetch('/api/gd/support/messages?device_id='+encodeURIComponent(kfTok())+'&after='+_kfLastId)
+    .then(function(r){return r.json();})
+    .then(function(d){ if(d.ok && d.messages && d.messages.length){ _kfRender(d.messages, true); _kfMark(false); } })
+    .catch(function(){});
+}
+/* 后台轻量轮询：面板关闭时探测管理员新回复 → 客服键亮红点 */
+function _kfBgCheck(){
+  if(_kfOpen) return;
+  fetch('/api/gd/support/messages?device_id='+encodeURIComponent(kfTok())+'&after='+_kfSeenId)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok && d.messages && d.messages.length){
+        d.messages.forEach(function(m){ if(m.id>_kfSeenId) _kfSeenId=m.id; });
+        if(d.messages.some(function(m){ return m.sender==='admin'; })) _kfMark(true);
+      }
+    }).catch(function(){});
+}
+function _kfMark(on){ var b=_kfEl('support-btn'); if(b){ if(on) b.classList.add('has-unread'); else b.classList.remove('has-unread'); } }
+function kfOpen(){
+  var ov = _kfEl('kf-overlay'); if(!ov) return;
+  ov.classList.add('open'); _kfOpen = true; _kfLastId = 0; _kfMark(false);
+  _kfRender([], false);
+  _kfPollNow();
+  if(_kfPoll) clearInterval(_kfPoll);
+  _kfPoll = setInterval(_kfPollNow, 4000);
+  setTimeout(function(){ try{ _kfEl('kf-input').focus(); }catch(e){} }, 200);
+}
+function kfClose(){
+  var ov = _kfEl('kf-overlay'); if(ov) ov.classList.remove('open');
+  _kfOpen = false; if(_kfPoll){ clearInterval(_kfPoll); _kfPoll=null; }
+}
+function kfSend(){
+  var inp = _kfEl('kf-input'); if(!inp) return;
+  var body = (inp.value||'').trim(); if(!body) return;
+  inp.value = '';
+  fetch('/api/gd/support/send', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ device_id: kfTok(), name: kfName(), body: body, source: 'online' })
+  }).then(function(){ setTimeout(_kfPollNow, 300); }).catch(function(){ setTimeout(_kfPollNow, 300); });
+}
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter'){
+    var ov = _kfEl('kf-overlay');
+    if(ov && ov.classList.contains('open') && document.activeElement===_kfEl('kf-input')) kfSend();
+  }
+});
+_kfBgPoll = setInterval(_kfBgCheck, 20000);
+setTimeout(_kfBgCheck, 3000);
 
 /* ── 工具 ── */
 function setHint(msg, cls){

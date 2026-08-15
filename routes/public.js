@@ -479,8 +479,10 @@ const gdSupportLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60,
   message: '发送过于频繁，请稍后再试' });
 router.post('/api/gd/support/send', gdSupportLimiter, async (req, res) => {
   try {
-    const { device_id, name, body } = req.body || {};
+    const { device_id, name, body, source } = req.body || {};
     if (!device_id || !body || !String(body).trim()) return res.json({ ok: false, error: 'missing' });
+    // 来源App白名单：online=网上赛事大屏(四人/六人)；其余一律按计分器 scorer 处理
+    const src = (source === 'online') ? 'online' : 'scorer';
     // IP 自动定位登录位置（免用户授权，城市级）+ 记录设备
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
     let city = '', region = '';
@@ -492,9 +494,9 @@ router.post('/api/gd/support/send', gdSupportLimiter, async (req, res) => {
     const deviceInfo = (req.headers['user-agent'] || '').slice(0, 200);
     await query(
       `INSERT INTO gd_support_messages (device_id, user_name, sender, body, source, user_city, user_region, device_info)
-       VALUES ($1,$2,'user',$3,'scorer',$4,$5,$6)`,
+       VALUES ($1,$2,'user',$3,$7,$4,$5,$6)`,
       [String(device_id).slice(0, 80), String(name || '').slice(0, 40), String(body).trim().slice(0, 1000),
-       city.slice(0, 80), region.slice(0, 40), deviceInfo]
+       city.slice(0, 80), region.slice(0, 40), deviceInfo, src]
     );
     res.json({ ok: true });
   } catch (e) {
