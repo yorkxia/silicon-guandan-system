@@ -392,7 +392,9 @@
       您受邀加入房间：
     </div>
     <div id="scan-join-code" style="font-size:2rem;font-weight:900;color:#FFE066;
-         letter-spacing:8px;font-family:monospace;margin-bottom:24px;"></div>
+         letter-spacing:8px;font-family:monospace;margin-bottom:16px;"></div>
+    <div id="scan-join-msg" style="min-height:20px;font-size:0.85rem;line-height:1.4;
+         color:#ffd27a;margin-bottom:14px;"></div>
     <button onclick="doScanJoin()" id="scan-join-btn"
       style="width:100%;padding:14px;border-radius:12px;border:none;
       background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;
@@ -543,17 +545,37 @@ function initScanJoin() {
   window._scanJoinCode = joinCode;
 }
 
+function setScanMsg(msg) { var el = document.getElementById('scan-join-msg'); if (el) el.textContent = msg || ''; }
+function resetScanBtn() {
+  var b = document.getElementById('scan-join-btn');
+  if (b) { b.disabled = false; b.textContent = '立即加入游戏'; }
+}
 function doScanJoin() {
   var code = window._scanJoinCode;
   if (!code) return;
   if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(doScanJoin); return; }
+  setScanMsg('');
   document.getElementById('scan-join-btn').textContent = '加入中...';
   document.getElementById('scan-join-btn').disabled = true;
   gdRoomAction = 'join';
+  clearTimeout(window._scanJoinTimer);
+  var waited = 0;
   function tryJoin() {
     if (window.gdSocket && window.gdSocket.connected) {
       window.gdSocket.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
-    } else { setTimeout(tryJoin, 300); }
+      /* 兜底：发出后 8 秒内没有 room:joined / room:error 回应 → 可见提示可重试（避免永远卡"加入中"）*/
+      window._scanJoinTimer = setTimeout(function(){
+        resetScanBtn(); setScanMsg('⚠️ 服务器无响应，请点上方按钮重试；如仍不行请改用系统自带浏览器打开（避免微信内置浏览器）。');
+      }, 8000);
+    } else {
+      waited += 300;
+      if (waited >= 8000) {
+        resetScanBtn();
+        setScanMsg('⚠️ 连接服务器超时，请检查网络后重试；建议改用系统自带浏览器打开（避免微信/QQ内置浏览器）。');
+        return;
+      }
+      setTimeout(tryJoin, 300);
+    }
   }
   tryJoin();
 }
@@ -577,6 +599,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     window.gdSocket.on('room:joined', function(d) {
+      clearTimeout(window._scanJoinTimer);
       document.getElementById('overlay-scan-join').style.display = 'none';
       if (gdRoomAction === 'create') {
         /* 创建者：显示邀请层，等待"准备就绪"点击 */
@@ -587,9 +610,12 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     window.gdSocket.on('room:error', function(d) {
-      document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').disabled = false);
-      document.getElementById('scan-join-btn') && (document.getElementById('scan-join-btn').textContent = '立即加入游戏');
-      setRoomMsg('❌ ' + d.message);
+      clearTimeout(window._scanJoinTimer);
+      resetScanBtn();
+      /* 扫码卡片打开时错误显示在卡片内(原来写进隐藏的 room-msg，用户看不到→像"进不去")；否则写手动加入弹窗 */
+      var scan = document.getElementById('overlay-scan-join');
+      if (scan && scan.style.display !== 'none') setScanMsg('❌ ' + d.message);
+      else setRoomMsg('❌ ' + d.message);
     });
   }
   attachEvents();
