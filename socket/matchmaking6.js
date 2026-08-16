@@ -317,7 +317,7 @@ module.exports = function(io, socket) {
     } catch (e) { console.error('[room:ready]', e.message); }
   });
 
-  /* ── 续局兜底：客户端局间 45 秒倒计时到点（也是"开放纳新"窗口结束）→ 强制发下一局 ── */
+  /* ── 续局兜底：客户端局间 15 秒倒计时到点（也是"开放纳新"窗口结束）→ 强制发下一局 ── */
   socket.on('round:autostart', async function(data) {
     try {
       await tryStartNextRound(io, (data && data.roomCode), true);

@@ -199,6 +199,34 @@
   <a href="<%= locals.otBase || '/admin' %>/tournaments-online" class="ms-back">← 返回赛事首页</a>
 </div>
 
+<!-- 返回进行中的对局：仅当本机记住过在玩的房间时显示（由下方脚本控制）-->
+<a id="gd-resume-bar" href="#" style="display:none;align-items:center;gap:12px;
+   margin-bottom:16px;padding:14px 18px;border-radius:14px;text-decoration:none;
+   background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;
+   box-shadow:0 6px 18px rgba(39,174,96,.35);">
+  <span style="font-size:1.6rem;line-height:1;">🎮</span>
+  <span style="flex:1;min-width:0;">
+    <span style="display:block;font-weight:800;font-size:1rem;letter-spacing:1px;">返回进行中的对局</span>
+    <span style="display:block;font-size:.78rem;opacity:.9;margin-top:2px;">
+      房间 <b id="gd-resume-code"></b> · 座位仍为您保留，点此回到赛事大屏
+    </span>
+  </span>
+  <span style="font-size:1.2rem;">›</span>
+</a>
+<script>
+/* 记住本机上次进行中的四人房间 → 允许玩家随时返回赛事大屏（若已被他人接管，进房后会收到道歉提示）*/
+(function(){
+  try {
+    var code = (window.gdLS && gdLS.get('gd-active-room-4p','')) || '';
+    if (code) {
+      var bar = document.getElementById('gd-resume-bar');
+      var cd  = document.getElementById('gd-resume-code');
+      if (bar && cd) { cd.textContent = code; bar.href = '/play/game/' + code; bar.style.display = 'flex'; }
+    }
+  } catch(e){}
+})();
+</script>
+
 <div class="ms-wrap">
 
   <!-- 主推：个人随机参赛 -->

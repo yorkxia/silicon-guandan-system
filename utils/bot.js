@@ -1,11 +1,15 @@
-/* 掼蛋 · 规则型托管机器人（智能优化版）
-   为掉线(托管)座位挑一手合法出牌：
+/* 掼蛋 · 规则型托管机器人（协作智能版）
+   为掉线(托管)座位挑一手合法出牌，核心是「与队友配合、只压对手」：
    - 领出(无上家牌)：打「最小的普通牌」——绝不率先甩出级牌 / 红桃级牌(逢人配) / 大小王，
      这些是掼蛋里最值钱的牌，浪费在领出上等于自杀。优先甩掉不成对的低散牌以保留对子。
-   - 跟牌：枚举 单/对/三张/三带二/炸弹 中「能压过上家」的组合，代价最小者优先；
-     代价把「用掉级牌/逢人配/王」计为高成本，能用普通牌压过就绝不动大牌；压不过则不出。
+   - 跟牌：先看「当前这墩是谁领先」——
+       · 若领先的是【自己队友】(且队友尚未出完)：默认「不压」，把这一墩让给队友，
+         只有当自己能「一手出完(走牌)」时才越过队友出牌抢跑。
+       · 若领先的是【对手】(或已出完的队友)：枚举 单/对/三张/三带二/炸弹 中能压过的组合，
+         优先用「普通牌」压，能不动级牌/逢人配/王就绝不动；且不为对手一手小的单/对
+         白扔炸弹(除非能顺势走完、对手即将跑牌、或对手本身就出的大牌/炸弹)。
    正确性由 detectType/canBeat 保证——只返回通过压牌校验的组合，applyPlay 还会二次校验。
-   四人六人共用同一策略。*/
+   四人六人共用同一策略(队伍归属用 state.seats[].team 判定，与人数无关)。*/
 const { sortHand, rankVal } = require('./cards');
 const {
   detectType, canBeat, isBomb,
@@ -65,8 +69,15 @@ function pickBotPlay(state, seatObj) {
     return [lead];
   }
 
-  /* ── 跟牌：枚举候选组合，保留能压过上家的 ── */
+  /* ── 跟牌：先判断「当前这墩」是谁在领先 ── */
   const curPt = state.lastPlay.playType;
+  const lastSeatObj  = state.seats.find(s => s.seat === state.lastPlay.seat);
+  const lastTeam     = lastSeatObj ? lastSeatObj.team : null;
+  const lastFinished = (state.finishOrder || []).some(f => f.seat === state.lastPlay.seat);
+  /* 队友领先 = 领先者与我同队且尚未出完；已出完的队友不再从"赢墩"获益，按对手处理以免把主动权白送对家 */
+  const teammateLeads = (lastTeam != null && lastTeam === seatObj.team && !lastFinished);
+
+  /* 枚举能压过上家的候选组合 */
   const cands = [];
   const push  = (cards) => {
     const pt = detectFn(cards, level);
@@ -85,7 +96,34 @@ function pickBotPlay(state, seatObj) {
   groups.forEach(g => { for (let k = 4; k <= g.length; k++) push(g.slice(0, k)); }); // 炸弹(4+同点)
 
   if (!cands.length) return null;   // 压不过 → 不出
-  /* 优先级：不用炸弹 → 张数少 → 用掉的贵牌代价最小(尽量保住级牌/逢人配/王) */
+
+  const emptiesHand = (c) => c.cards.length === hand.length;         // 一手打光=走牌
+
+  /* ① 队友正领先：默认让墩(不压)，唯一例外——能一手走完就抢跑，锁定本队一个名次 */
+  if (teammateLeads) {
+    const goOut = cands.filter(emptiesHand)
+                       .sort((a, b) => a.bomb - b.bomb || a.waste - b.waste)[0];
+    return goOut ? goOut.cards : null;                              // 否则 pass，把这墩留给队友
+  }
+
+  /* ② 对手(或已出完的队友)领先：要压，但用最省的方式 */
+  const nonBomb = cands.filter(c => c.bomb === 0);
+  if (nonBomb.length) {
+    /* 有普通牌型能压 → 张数少、用掉的贵牌最少者优先(尽量保住级牌/逢人配/王) */
+    nonBomb.sort((a, b) => a.cards.length - b.cards.length || a.waste - b.waste);
+    return nonBomb[0].cards;
+  }
+
+  /* 只能靠炸弹才压得过：别为对手一手「便宜的小单/小对」白扔炸弹 */
+  const lastLen    = state.lastPlay.cards.length;
+  const lastIsBomb = bombFn(curPt) ? 1 : 0;
+  const oppRemain  = lastSeatObj ? (state.hands[String(lastSeatObj.playerId)] || []).length : 99;
+  const canGoOut   = cands.some(emptiesHand);
+  const cheapPlay  = lastLen <= 2 && !lastIsBomb;                   // 对手出的是小单/小对
+  /* 值得炸：能顺势走完 / 对手本身就是炸弹或大牌组 / 对手快跑了(剩牌≤6) / 不是便宜小牌 */
+  const worthBomb  = canGoOut || lastIsBomb || oppRemain <= 6 || !cheapPlay;
+  if (!worthBomb) return null;                                      // 省下炸弹，这一小墩不接
+
   cands.sort((a, b) => a.bomb - b.bomb || a.cards.length - b.cards.length || a.waste - b.waste);
   return cands[0].cards;
 }

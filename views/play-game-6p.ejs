@@ -2,19 +2,38 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>掼蛋 · <%= roomCode %></title>
   <link rel="stylesheet" href="/css/style.css">
   <%- include('partials/pwa-head') %>
+  <script>
+  /* ── 全端满屏兜底：按真实视口(innerWidth/innerHeight)注入 --app-w/--app-h，
+     不依赖 dvh/dvw 支持 → 微信/华为/OPPO/小米/安卓/苹果一致铺满整屏；
+     输入框聚焦(键盘弹出)时不重算，避免牌桌被压缩 ── */
+  (function(){
+    var root = document.documentElement;
+    function fit(){
+      var ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+      root.style.setProperty('--app-w', window.innerWidth  + 'px');
+      root.style.setProperty('--app-h', window.innerHeight + 'px');
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    window.addEventListener('pageshow', fit);
+    window.addEventListener('orientationchange', function(){ setTimeout(fit,60); setTimeout(fit,300); });
+    document.addEventListener('DOMContentLoaded', fit);
+  })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; overflow: hidden; height: 100vh; height: 100dvh; }
+    html, body { margin: 0; overflow: hidden; height: var(--app-h, 100dvh); }
     body {
       /* 硅谷海滩实景背景 */
       background: #0a7d73;   /* 赛事桌布：整屏纯平青绿毡面 */
       display: flex; flex-direction: column;
       font-family: -apple-system, "PingFang SC", sans-serif;
-      width: 100vw; height: 100vh; height: 100dvh;   /* 满屏，无上下白条 */
+      width: var(--app-w, 100vw); height: var(--app-h, 100dvh);   /* 满屏：--app-w/h 由 JS 按真实视口注入，dvh 兜底 */
     }
     /* 牌桌改为整屏纯平青绿毡面（去除椭圆桌与上下阴影，桌面平整光滑）*/
     #beach-table { display: none; }
@@ -26,11 +45,10 @@
       html, body { overflow: hidden; }
       body {
         position: fixed; top: 0; left: 0;
-        width: 100vh;   width: 100dvh;   /* 旋转后：宽=屏高（长边），dvh 排除动态地址栏 */
-        height: 100vw;  height: 100dvw;  /* 旋转后：高=屏宽（短边）*/
+        width: var(--app-h, 100dvh);    /* 旋转后：宽=屏高（长边），--app-h 为真实视口高 */
+        height: var(--app-w, 100dvw);   /* 旋转后：高=屏宽（短边），--app-w 为真实视口宽 */
         transform-origin: top left;
-        transform: translateX(100vw) rotate(90deg);
-        transform: translateX(100dvw) rotate(90deg);   /* 支持 dvw 的手机用此行，真满屏 */
+        transform: translateX(var(--app-w, 100dvw)) rotate(90deg);   /* 真满屏，不依赖 dvw 支持 */
       }
     }
 
@@ -1429,7 +1447,7 @@ function continueNext() {
 var _continueTimer = null;
 function startRoundContinueCountdown(majorityOffline) {
   clearInterval(_continueTimer);
-  var left = 40;
+  var left = 15;
   var pbtn = document.getElementById('result-continue-btn');
   var noteEl = document.getElementById('result-afk-note');
   if (noteEl) noteEl.style.display = majorityOffline ? 'block' : 'none';
@@ -1463,6 +1481,7 @@ socket.on('game:hand', function(d){
   myPlayerId = d.myPlayerId;
   players    = d.players;
   GAME_MODE  = d.gameMode || '4p';
+  try { gdLS.set('gd-active-room-' + GAME_MODE, ROOM_CODE); } catch(e){}   // 记住在玩房间→入口页可随时返回
   levelTeam1 = d.levelTeam1 || 2;
   levelTeam2 = d.levelTeam2 || 2;
   levelCard  = d.levelCard || 0;                           // 当前级牌(坐庄方级数)
@@ -1755,14 +1774,23 @@ socket.on('game:error', function(d){
   document.getElementById('err-box').style.display = 'flex';
 });
 
-/* ── 座位已被其他新玩家接手（开放纳新）→ 自动为你重新随机匹配，不再卡死 ── */
+/* ── 座位已被其他新玩家接手（开放纳新）→ 明确告知并给按钮重新随机参赛 ── */
 socket.on('game:seat_taken', function(d){
   document.getElementById('loading-overlay').style.display = 'none';
-  document.getElementById('err-msg').textContent = '您的座位已被其他玩家接手，正在为您匹配新的赛事…';
+  var mode = (d && d.mode === '6p') ? '6p' : '4p';
+  try { gdLS.set('gd-active-room-' + mode, ''); } catch(e){}   // 已被接管→清掉返回入口，避免再点回来
+  var inner = document.querySelector('#err-box .err-inner');
+  if (inner) {
+    inner.innerHTML =
+      '<p id="err-msg" style="color:#F08080;margin:0 0 20px;font-size:.98rem;line-height:1.7;font-weight:700;">' +
+        '您的被托管的位置已经被新的用户占据，抱歉！' +
+      '</p>' +
+      '<a href="/play/' + mode + '?auto=1" style="display:inline-block;padding:12px 28px;border-radius:12px;' +
+        'background:linear-gradient(135deg,#27AE60,#1A7A40);color:#fff;font-weight:800;font-size:.92rem;' +
+        'text-decoration:none;letter-spacing:1px;box-shadow:0 4px 14px rgba(39,174,96,.4);">🔄 重新随机参赛</a>' +
+      '<div style="margin-top:16px;"><a href="/play" style="color:#FFE066;font-size:.82rem;">← 返回参赛大厅</a></div>';
+  }
   document.getElementById('err-box').style.display = 'flex';
-  setTimeout(function(){
-    location.href = '/play/' + ((d && d.mode === '6p') ? '6p' : '4p') + '?auto=1';
-  }, 1800);
 });
 
 /* ── 局结算 ── */
@@ -2526,6 +2554,7 @@ socket.on('room:closing_cancel', function() {
 });
 socket.on('room:closed', function() {
   clearInterval(_closingTimer);
+  try { gdLS.set('gd-active-room-4p',''); gdLS.set('gd-active-room-6p',''); } catch(e){}   // 房间已关→清返回入口
   alert('房间已关闭，返回参赛大厅。');
   location.href = '/play';
 });
