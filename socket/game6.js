@@ -1054,6 +1054,25 @@ module.exports = function(io, socket) {
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
 
+/* 供机器人测试系统"停止/撤组"时即时清场：仅当房间【无真人在线】才强制关闭，绝不踢真人 */
+module.exports.closeRoomByCode = async function(io, roomCode) {
+  try {
+    if (!roomCode) return;
+    const human = await query(
+      `SELECT 1 FROM gdo6_seats s JOIN gdo_players p ON p.id=s.player_id
+       JOIN gdo6_rooms r ON r.id=s.room_id
+       WHERE r.room_code=$1 AND p.is_bot IS NOT TRUE AND s.is_connected=TRUE LIMIT 1`,
+      [roomCode]
+    );
+    if (human.length) return;
+    const state = gameStates.get(roomCode);
+    if (state) { await closeAbandonedRoom(io, state); return; }
+    await query(`UPDATE gdo6_rooms SET status='abandoned', is_full=FALSE WHERE room_code=$1`, [roomCode]);
+    await query(`DELETE FROM gdo6_seats WHERE room_id=(SELECT id FROM gdo6_rooms WHERE room_code=$1)`, [roomCode]);
+    io.to(roomCode).emit('room:closed', {});
+  } catch (e) { console.error('[closeRoomByCode6]', e.message); }
+};
+
 /* 供 matchmaking6 在发牌开局时调用：把开局即离线(未回座)的座位直接置为机器人托管 */
 module.exports.seedDisconnectedFromDb = function(io, state, seatConnMap) {
   for (const s of state.seats) {

@@ -47,13 +47,12 @@ const RUN = {
   enabled:   false,
   startedAt: 0,
   lastError: '',
-  groups:    {},          // gid -> { bots:[], startedAt, timer }
-  staggerTimer: null,
-  pollTimer:    null,
-  cleanupTimer: null,
-  statusTimer:  null
+  groups:    {},          // gid('A'|'B') -> { bots:[], startedAt, startNextTimer, stopTimer }
+  pollTimer: null
 };
-let _io = null;           // 主 Server(仅用于日志/在线数，非必须)
+const OTHER = { A: 'B', B: 'A' };
+let _io  = null;          // 四人默认命名空间
+let _io6 = null;          // 六人 /g6 命名空间
 const _errReported = {};  // 错误上报节流
 
 /* ── gd_settings 读写 ── */
@@ -112,7 +111,9 @@ function makeBot(gid, mode) {
   const sock = ioClient(url, {
     transports: ['websocket', 'polling'],
     query: { botsecret: SECRET, channel: 'botsim', name },
-    reconnection: true, reconnectionDelay: 3000, reconnectionDelayMax: 15000, timeout: 15000
+    /* 关闭自动重连：停止/掉线的机器人保持"死"，杜绝重连幽灵把已关房间又拉活；
+       分组换届会周期性刷新机器人，无需靠重连续命 */
+    reconnection: false, timeout: 15000
   });
 
   const emit = (ev, data) => { try { if (st.alive && sock.connected) sock.emit(ev, data); } catch (e) {} };
@@ -236,29 +237,57 @@ function makeBot(gid, mode) {
   };
 }
 
-/* ═══════════════ 分组调度 ═══════════════ */
+/* ═══════════════ 分组调度（接力：任何时刻通常只有一组在跑）═══════════════
+   一组 = 一桌4人 + 一桌6人(共10人)。本组开跑后 staggerH(默认11h50m) 启动"另一组"，
+   两组仅共存 (groupLifeH - staggerH)=10 分钟；本组满 groupLifeH(默认12h) 撤离。
+   ⇒ A→(11h50m)→A&B 共存10min→(12h)A撤→只剩B→(B的11h50m)→B&A共存…周而复始，绝不长期双桌。*/
 async function launchGroup(gid) {
+  if (RUN.groups[gid]) return;                 // 该组已在跑 → 不重复开桌（修复"两组长期共存导致双倍人数"）
   const cfg = await getConfig();
-  const bots = [];
-  for (let i = 0; i < (cfg.fourPerTable || 4); i++) bots.push(makeBot(gid, '4p'));
-  for (let i = 0; i < (cfg.sixPerTable  || 6); i++) bots.push(makeBot(gid, '6p'));
-  const lifeMs = Math.max(0.05, cfg.groupLifeH || 12) * 3600 * 1000;
-  const timer = setTimeout(() => {
-    teardownGroup(gid);
-    if (RUN.enabled) launchGroup(gid).catch(() => {});   // 满 12h → 撤离并立即重启，保持不间断
-  }, lifeMs);
-  if (timer && timer.unref) timer.unref();
-  RUN.groups[gid] = { bots, startedAt: Date.now(), timer };
-  console.log(`[botsim] ▶ 组 ${gid} 启动：${bots.length} 个机器人(4人×${cfg.fourPerTable||4} + 6人×${cfg.sixPerTable||6})`);
+  const four = cfg.fourPerTable || 4, six = cfg.sixPerTable || 6;
+  const g = { bots: [], startedAt: Date.now(), startNextTimer: null, stopTimer: null };
+  RUN.groups[gid] = g;
+
+  /* 同组机器人错峰 300ms 依次加入 → 让第一个先建好房，其余依次填入同一桌，
+     避免并发 findOrCreateOpenRoom 竞态各自开出多张半空桌 */
+  const specs = [];
+  for (let i = 0; i < four; i++) specs.push('4p');
+  for (let i = 0; i < six;  i++) specs.push('6p');
+  specs.forEach((mode, idx) => {
+    const t = setTimeout(() => { if (RUN.groups[gid] === g) g.bots.push(makeBot(gid, mode)); }, idx * 300);
+    if (t && t.unref) t.unref();
+  });
+
+  const startNextMs = Math.max(0.02, cfg.staggerH   || 11.8333) * 3600 * 1000;
+  const stopMs      = Math.max(0.03, cfg.groupLifeH || 12)      * 3600 * 1000;
+  g.startNextTimer = setTimeout(() => { if (RUN.enabled) launchGroup(OTHER[gid]).catch(() => {}); }, startNextMs);
+  g.stopTimer      = setTimeout(() => { if (RUN.enabled) teardownGroup(gid); }, stopMs);
+  if (g.startNextTimer && g.startNextTimer.unref) g.startNextTimer.unref();
+  if (g.stopTimer && g.stopTimer.unref) g.stopTimer.unref();
+
+  console.log(`[botsim] ▶ 组 ${gid} 启动：4人×${four} + 6人×${six}`);
   markBotPlayers().catch(() => {});
 }
 function teardownGroup(gid) {
   const g = RUN.groups[gid];
   if (!g) return;
-  clearTimeout(g.timer);
-  g.bots.forEach(b => { try { b.stop(); } catch (e) {} });
+  clearTimeout(g.startNextTimer); clearTimeout(g.stopTimer);
+  const rooms4 = new Set(), rooms6 = new Set();
+  g.bots.forEach(b => {
+    if (b.st && b.st.roomCode) (b.st.mode === '6p' ? rooms6 : rooms4).add(b.st.roomCode);
+    try { b.stop(); } catch (e) {}
+  });
   delete RUN.groups[gid];
-  console.log(`[botsim] ⏹ 组 ${gid} 撤离`);
+  /* 机器人断开后即时清场：仅关"无真人在线"的机器人房，绝不踢真人（closeRoomByCode 内有守卫）*/
+  setTimeout(() => {
+    try {
+      const game  = require('./game');
+      const game6 = require('./game6');
+      rooms4.forEach(rc => { if (_io  && game.closeRoomByCode)  game.closeRoomByCode(_io,  rc).catch(() => {}); });
+      rooms6.forEach(rc => { if (_io6 && game6.closeRoomByCode) game6.closeRoomByCode(_io6, rc).catch(() => {}); });
+    } catch (e) {}
+  }, 900);
+  console.log(`[botsim] ⏹ 组 ${gid} 撤离（清 ${rooms4.size} 张4人桌 + ${rooms6.size} 张6人桌）`);
 }
 
 /* 给机器人玩家打 is_bot 标记，便于统计时排除 */
@@ -266,21 +295,45 @@ async function markBotPlayers() {
   try { await query(`UPDATE gdo_players SET is_bot=TRUE WHERE player_token LIKE 'botsim:%' AND is_bot IS NOT TRUE`); } catch (e) {}
 }
 
+/* 兜底清场：DB 级扫描【所有】含机器人(token botsim: 或 is_bot)且【无真人在线】的活跃随机房并强制关闭。
+   用于"停止"时彻底终结机器人赛事——即便有内存未跟踪的残留房/旧实例/重连幽灵也一并清掉。绝不动真人房。*/
+async function closeAllBotRooms() {
+  try {
+    const game  = require('./game');
+    const game6 = require('./game6');
+    const r4 = await query(`
+      SELECT DISTINCT r.room_code FROM gdo_rooms r
+      JOIN gdo_seats s ON s.room_id=r.id JOIN gdo_players p ON p.id=s.player_id
+      WHERE r.status IN ('waiting','playing')
+        AND (p.player_token LIKE 'botsim:%' OR p.is_bot=TRUE)
+        AND NOT EXISTS (SELECT 1 FROM gdo_seats s2 JOIN gdo_players p2 ON p2.id=s2.player_id
+                        WHERE s2.room_id=r.id AND s2.is_connected=TRUE
+                          AND p2.is_bot IS NOT TRUE AND p2.player_token NOT LIKE 'botsim:%')`);
+    for (const row of r4) { if (_io  && game.closeRoomByCode)  await game.closeRoomByCode(_io,  row.room_code); }
+    const r6 = await query(`
+      SELECT DISTINCT r.room_code FROM gdo6_rooms r
+      JOIN gdo6_seats s ON s.room_id=r.id JOIN gdo_players p ON p.id=s.player_id
+      WHERE r.status IN ('waiting','playing')
+        AND (p.player_token LIKE 'botsim:%' OR p.is_bot=TRUE)
+        AND NOT EXISTS (SELECT 1 FROM gdo6_seats s2 JOIN gdo_players p2 ON p2.id=s2.player_id
+                        WHERE s2.room_id=r.id AND s2.is_connected=TRUE
+                          AND p2.is_bot IS NOT TRUE AND p2.player_token NOT LIKE 'botsim:%')`);
+    for (const row of r6) { if (_io6 && game6.closeRoomByCode) await game6.closeRoomByCode(_io6, row.room_code); }
+    if (r4.length || r6.length) console.log(`[botsim] 🧹 兜底清场：关闭机器人房 4人 ${r4.length} + 6人 ${r6.length}`);
+  } catch (e) {}
+}
+
 /* ── 启停 ── */
 async function start() {
   if (RUN.enabled) return;
   RUN.enabled = true; RUN.startedAt = Date.now(); RUN.lastError = '';
-  const cfg = await getConfig();
-  await launchGroup('A');
-  const staggerMs = Math.max(0, cfg.staggerH || 11.8333) * 3600 * 1000;
-  RUN.staggerTimer = setTimeout(() => { if (RUN.enabled) launchGroup('B').catch(() => {}); }, staggerMs);
-  if (RUN.staggerTimer && RUN.staggerTimer.unref) RUN.staggerTimer.unref();
-  console.log('[botsim] ✅ 机器人测试系统已启动');
+  await launchGroup('A');    // 接力自持：A 到点(11h50m)拉起 B、A 到点(12h)撤离，B 同理，周而复始
+  console.log('[botsim] ✅ 机器人测试系统已启动（接力模式，任何时刻通常只一桌4人+一桌6人）');
 }
 function stop() {
   RUN.enabled = false;
-  if (RUN.staggerTimer) { clearTimeout(RUN.staggerTimer); RUN.staggerTimer = null; }
   Object.keys(RUN.groups).forEach(teardownGroup);
+  closeAllBotRooms().catch(() => {});     // 立即兜底清场，彻底终结机器人赛事
   console.log('[botsim] ⏹ 机器人测试系统已停止');
 }
 
@@ -330,13 +383,14 @@ async function maybeCleanup() {
   }
 }
 
-/* ── 主轮询：跟随管理员开关启停 + 写状态 + 每日清理（每 20s）── */
+/* ── 主轮询：跟随管理员开关启停 + 写状态 + 每日清理（每 12s）── */
 async function poll() {
   try {
     const want = (await getSetting('bot_sim_enabled', '0')) === '1';
     if (want && !RUN.enabled) await start();
-    if (!want && RUN.enabled) stop();
-    if (RUN.enabled) await markBotPlayers();   // 补标记(玩家行在 queue:join 后才创建)
+    else if (!want && RUN.enabled) stop();
+    await markBotPlayers();                    // 给机器人玩家打标记(玩家行在 queue:join 后才创建)
+    if (!want) await closeAllBotRooms();        // 停止态：持续兜底清掉任何残留机器人房(旧实例/重连幽灵也清)
     await writeStatus();
     await maybeCleanup();
   } catch (e) { /* 轮询绝不抛 */ }
@@ -344,10 +398,11 @@ async function poll() {
 
 /* ── 对外接口 ── */
 function init(io) {
-  _io = io;
-  RUN.pollTimer = setInterval(() => { poll().catch(() => {}); }, 20 * 1000);
+  _io  = io;
+  _io6 = io && io.of ? io.of('/g6') : null;   // 六人命名空间(强制清场/关房时用)
+  RUN.pollTimer = setInterval(() => { poll().catch(() => {}); }, 12 * 1000);
   if (RUN.pollTimer && RUN.pollTimer.unref) RUN.pollTimer.unref();
-  poll().catch(() => {});   // 启动即对齐一次（若开机时开关=1则自动拉起，Render 重启后可恢复）
+  poll().catch(() => {});   // 启动即对齐一次（开机 flag=1 自动拉起；flag=0 则顺带清残留机器人房，Render 重启后自愈）
   console.log('[botsim] botRunner 就绪（默认关闭，等待监控台「机器人」开关）');
 }
 function snapshot() {

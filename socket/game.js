@@ -1084,6 +1084,25 @@ module.exports.seedDisconnectedFromDb = function(io, state, seatConnMap) {
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
 
+/* 供机器人测试系统"停止/撤组"时即时清场：仅当房间【无真人在线】才强制关闭，绝不踢真人 */
+module.exports.closeRoomByCode = async function(io, roomCode) {
+  try {
+    if (!roomCode) return;
+    const human = await query(
+      `SELECT 1 FROM gdo_seats s JOIN gdo_players p ON p.id=s.player_id
+       JOIN gdo_rooms r ON r.id=s.room_id
+       WHERE r.room_code=$1 AND p.is_bot IS NOT TRUE AND s.is_connected=TRUE LIMIT 1`,
+      [roomCode]
+    );
+    if (human.length) return;                       // 有真人在玩 → 不动
+    const state = gameStates.get(roomCode);
+    if (state) { await closeAbandonedRoom(io, state); return; }
+    await query(`UPDATE gdo_rooms SET status='abandoned', is_full=FALSE WHERE room_code=$1`, [roomCode]);
+    await query(`DELETE FROM gdo_seats WHERE room_id=(SELECT id FROM gdo_rooms WHERE room_code=$1)`, [roomCode]);
+    io.to(roomCode).emit('room:closed', {});
+  } catch (e) { console.error('[closeRoomByCode]', e.message); }
+};
+
 /* 供离线集成测试使用（阶段十）*/
 module.exports._test = {
   applyPlay, applyPass, onTurnTimeout, startTurnTimer, clearTurnTimer,
