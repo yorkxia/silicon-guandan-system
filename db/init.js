@@ -568,14 +568,17 @@ async function initDB() {
   `);
 
   // ── 机器人测试系统：玩家标记 + 默认配置（幂等；默认关闭，等管理员在监控台开启）──
-  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`);
-  await query(`
-    INSERT INTO gd_settings(skey, sval) VALUES
-      ('bot_sim_enabled',         '0'),
-      ('bot_sim_cleanup_enabled', '0'),
-      ('bot_sim_cleanup_months',  '2')
-    ON CONFLICT (skey) DO NOTHING
-  `);
+  // 包 try/catch：即使这段 DDL 因锁/权限异常，也不让 initDB 整体失败(避免部署崩溃循环)。
+  try {
+    await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`);
+    await query(`
+      INSERT INTO gd_settings(skey, sval) VALUES
+        ('bot_sim_enabled',         '0'),
+        ('bot_sim_cleanup_enabled', '0'),
+        ('bot_sim_cleanup_months',  '2')
+      ON CONFLICT (skey) DO NOTHING
+    `);
+  } catch (e) { console.error('[init] 机器人设置 DDL 跳过：', e && (e.message || e)); }
   await query(`
     CREATE TABLE IF NOT EXISTS gd_support_messages (
       id          SERIAL PRIMARY KEY,

@@ -14,7 +14,10 @@
  *   - 保 Render 唤醒需靠"外部 ping"(见 .github/workflows/keepalive.yml)，机器人本身唤不醒睡着的实例。
  * ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
-const { io: ioClient } = require('socket.io-client');
+/* 惰性/防御式加载 socket.io-client：万一依赖没装好，也不让 require 链崩溃拖垮整个游戏服启动 */
+let ioClient = null;
+try { ioClient = require('socket.io-client').io; }
+catch (e) { console.error('[botsim] socket.io-client 未就绪，机器人功能不可用（不影响主服务）：', e && (e.message || e)); }
 const { query } = require('../db/init');
 const { pickBotPlay } = require('../utils/bot');
 const { detectType, detectType6p } = require('../utils/cardTypes');
@@ -242,6 +245,7 @@ function makeBot(gid, mode) {
    两组仅共存 (groupLifeH - staggerH)=10 分钟；本组满 groupLifeH(默认12h) 撤离。
    ⇒ A→(11h50m)→A&B 共存10min→(12h)A撤→只剩B→(B的11h50m)→B&A共存…周而复始，绝不长期双桌。*/
 async function launchGroup(gid) {
+  if (!ioClient) { reportProblem('依赖缺失', 'socket.io-client 未安装，无法启动机器人'); return; }
   if (RUN.groups[gid]) return;                 // 该组已在跑 → 不重复开桌（修复"两组长期共存导致双倍人数"）
   const cfg = await getConfig();
   const four = cfg.fourPerTable || 4, six = cfg.sixPerTable || 6;

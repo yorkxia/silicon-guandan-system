@@ -55,19 +55,18 @@ app.use('/ot-staff', otStaffRoutes);
 require('./socket/index')(io);
 
 const PORT = process.env.PORT || 3000;
-initDB().then(() => {
-  try { botRunner.init(io); } catch (e) { console.error('[botsim] init 失败:', e.message); }
-  server.listen(PORT, () => {
-    console.log(`\n✅ 掼蛋比赛系统已启动 | Guandan Tournament System running`);
-    console.log(`   访问地址 URL: http://localhost:${PORT}`);
-    console.log(`   管理后台 Admin: http://localhost:${PORT}/admin/login`);
-    console.log(`   掼蛋计分器 Game:   http://localhost:${PORT}/guandan`);
-    console.log(`   网上赛事入口: http://localhost:${PORT}/play`);
-    console.log(`   默认账号 Default: admin / Admin2025!`);
-    console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ set' : '❌ NOT SET'}`);
-    console.log(`   EMAIL_FROM: ${process.env.EMAIL_FROM || '(not set)'}\n`);
+/* 先绑定端口(让 Render 健康检查立即通过、绝不卡在 deploying)，再后台初始化数据库/机器人。
+   DB 初始化失败也不再 process.exit(退出会导致崩溃循环、部署永远转圈)，只记录、保持监听。*/
+server.listen(PORT, () => {
+  console.log(`\n✅ 掼蛋比赛系统已监听端口 ${PORT}，正在初始化数据库…`);
+  initDB().then(() => {
+    try { botRunner.init(io); } catch (e) { console.error('[botsim] init 失败:', e.message); }
+    console.log(`   ✅ 数据库就绪 | 管理后台 /admin/login | 计分器 /guandan | 网上赛事 /play`);
+    console.log(`   RESEND_API_KEY: ${process.env.RESEND_API_KEY ? '✅ set' : '❌ NOT SET'} | EMAIL_FROM: ${process.env.EMAIL_FROM || '(not set)'}\n`);
+  }).catch(err => {
+    console.error('❌ 数据库初始化失败（服务保持监听，可稍后修复重试，不退出以免部署卡死）:', err && (err.message || err));
   });
-}).catch(err => {
-  console.error('❌ Database init failed:', err);
+}).on('error', (err) => {
+  console.error('❌ 端口监听失败:', err && (err.message || err));
   process.exit(1);
 });
