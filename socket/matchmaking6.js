@@ -168,9 +168,9 @@ module.exports = function(io, socket) {
   /* ── 随机参赛：立即分配进开放房间 ── */
   socket.on('queue:join', async function(data) {
     try {
-      /* 反机器人：同一 IP 每分钟随机参赛过频 → 判定机器人，踢出并临时封禁 */
+      /* 反机器人：同一 IP 每分钟随机参赛过频 → 判定机器人，踢出并临时封禁（内部测试机器人豁免）*/
       const ip = rateGuard.ipOf(socket);
-      if (!rateGuard.allow(ip, 'queue:join')) {
+      if (!rateGuard.isBot(socket) && !rateGuard.allow(ip, 'queue:join')) {
         rateGuard.kickIp(io, ip, '检测到疑似机器人：短时间内大量参赛请求，已被临时限制，请稍后再试');
         return;
       }

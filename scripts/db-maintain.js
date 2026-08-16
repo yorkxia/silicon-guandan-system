@@ -25,7 +25,6 @@ const fs = require('fs');
 const path = require('path');
 
 const url = process.env.DATABASE_URL;
-if (!url) { console.error('❌ 缺少 DATABASE_URL 环境变量'); process.exit(1); }
 
 const mode = process.argv[2];                                   // backup | cleanup
 const arg = process.argv.slice(3).join(' ');
@@ -140,7 +139,20 @@ async function runCleanup(pool, months, dryRun) {
   }
 }
 
-(async () => {
+/* 供程序内调用（机器人测试系统的每日自动清理）：只清绿灯表、不做 pg_dump 备份。
+   自建短连接池，用完即关，不干扰主应用连接池。months=保留月数。 */
+async function autoCleanup(months) {
+  const m = Math.max(1, parseInt(months, 10) || 2);
+  if (!process.env.DATABASE_URL) throw new Error('缺少 DATABASE_URL');
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  try { await runCleanup(pool, m, false); }   // dryRun=false，runCleanup 本身不做备份
+  finally { await pool.end(); }
+}
+
+module.exports = { greenlightPlan, runCleanup, doBackup, autoCleanup };
+
+if (require.main === module) (async () => {
+  if (!url) { console.error('❌ 缺少 DATABASE_URL 环境变量'); process.exit(1); }
   if (mode === 'backup') {
     try { doBackup(); } catch (e) { console.error('❌ ' + e.message); process.exit(2); }
     return;

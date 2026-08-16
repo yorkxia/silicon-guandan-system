@@ -1,0 +1,36 @@
+name: Keep Render Awake + Bot Sim Tick
+
+# 每 10 分钟从 GitHub 外部访问一次游戏服 /internal/bot-tick：
+#   1) 这一次"外部进来的请求"让 Render 免费实例保持唤醒(不休眠) —— 机器人自己唤不醒睡着的实例；
+#   2) 顺带对齐机器人开关、写状态、判定每日清理，Render 冷启后自愈。
+#
+# 需在仓库 Settings → Secrets and variables → Actions 里配置：
+#   BOT_TICK_KEY  必填，与游戏服环境变量 BOT_TICK_KEY(或 BOT_SECRET) 一致
+#   BOT_TICK_URL  选填，游戏服根地址(默认 https://silicon-guandan-system.onrender.com)
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      URL: ${{ secrets.BOT_TICK_URL }}
+      KEY: ${{ secrets.BOT_TICK_KEY }}
+    steps:
+      - name: Ping bot-tick (wake + self-heal)
+        run: |
+          BASE="${URL:-https://silicon-guandan-system.onrender.com}"
+          echo "Pinging $BASE/internal/bot-tick ..."
+          # 冷启动可能要 ~50s，给足超时；失败不让整个 job 报红(避免噪音)
+          curl -fsS --retry 2 --retry-delay 15 --max-time 90 \
+            "$BASE/internal/bot-tick?key=$KEY" \
+            && echo "" && echo "OK" \
+            || echo "ping failed (instance may be cold-starting or key missing)"

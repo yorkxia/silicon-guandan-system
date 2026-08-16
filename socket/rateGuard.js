@@ -22,6 +22,16 @@ function ipOf(socket) {
   return xff.split(',')[0].trim() || h.address || (socket && socket.id) || '';
 }
 
+/* 内部机器人测试系统的虚拟客户端：握手带正确 botsecret → 豁免反机器人限流
+   (10 个机器人共用 localhost 同一 IP，会误触发 queue:join 限流)。*/
+function isBot(socket) {
+  try {
+    const q = socket && socket.handshake && socket.handshake.query;
+    const secret = process.env.BOT_SECRET || 'guandan-botsim-2026';
+    return !!(q && q.botsecret && q.botsecret === secret);
+  } catch (e) { return false; }
+}
+
 function isBlocked(ip) {
   const until = blockedUntil.get(ip);
   if (!until) return false;
@@ -77,4 +87,4 @@ const _sweep = setInterval(function () {
 }, WINDOW_MS);
 if (_sweep && typeof _sweep.unref === 'function') _sweep.unref();
 
-module.exports = { ipOf, isBlocked, allow, kickIp, blockIp, LIMITS };
+module.exports = { ipOf, isBot, isBlocked, allow, kickIp, blockIp, LIMITS };

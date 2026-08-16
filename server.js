@@ -11,6 +11,8 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const guandanRoutes = require('./routes/guandan');
 const otStaffRoutes = require('./routes/otStaff');
+const internalRoutes = require('./routes/internal');
+const botRunner = require('./socket/botRunner');
 
 const app = express();
 const server = http.createServer(app);
@@ -44,6 +46,7 @@ app.use((req, res, next) => {
 
 app.get('/promo.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'promo.html')));
 app.use('/', publicRoutes);
+app.use('/', internalRoutes);
 app.use('/admin', adminRoutes);
 app.use('/guandan', guandanRoutes);
 app.use('/ot-staff', otStaffRoutes);
@@ -53,6 +56,7 @@ require('./socket/index')(io);
 
 const PORT = process.env.PORT || 3000;
 initDB().then(() => {
+  try { botRunner.init(io); } catch (e) { console.error('[botsim] init 失败:', e.message); }
   server.listen(PORT, () => {
     console.log(`\n✅ 掼蛋比赛系统已启动 | Guandan Tournament System running`);
     console.log(`   访问地址 URL: http://localhost:${PORT}`);

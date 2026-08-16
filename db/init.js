@@ -566,6 +566,16 @@ async function initDB() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // ── 机器人测试系统：玩家标记 + 默认配置（幂等；默认关闭，等管理员在监控台开启）──
+  await query(`ALTER TABLE gdo_players ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE`);
+  await query(`
+    INSERT INTO gd_settings(skey, sval) VALUES
+      ('bot_sim_enabled',         '0'),
+      ('bot_sim_cleanup_enabled', '0'),
+      ('bot_sim_cleanup_months',  '2')
+    ON CONFLICT (skey) DO NOTHING
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS gd_support_messages (
       id          SERIAL PRIMARY KEY,
