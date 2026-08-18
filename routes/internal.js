@@ -24,6 +24,11 @@ async function getStatus() {
   } catch (e) { return null; }
 }
 
+// 保活健康检查：无需 key、不查库、不走机器人 poll。供外部定时器(cron-job.org / UptimeRobot /
+// GitHub Actions)每 ≤5 分钟访问一次，让 Render 免费实例保持唤醒不休眠。与监控台 /healthz 对齐，
+// 两台服务器外部监控配置完全一致。返回极简 200，开销可忽略。
+router.get('/healthz', (req, res) => res.json({ ok: true, service: 'game', ts: Date.now() }));
+
 router.get('/internal/bot-tick', async (req, res) => {
   if (!keyOK(req)) return res.status(403).json({ ok: false, error: 'forbidden' });
   try { await botRunner.poll(); } catch (e) {}      // 对齐开关 + 写状态 + 每日清理判定
