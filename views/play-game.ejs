@@ -1592,8 +1592,8 @@ function ensureTimerEl(){
   if(!el){
     el = document.createElement('div');
     el.id = 'gd-turn-center';
-    /* top/left 由 positionTurnBall 每帧按当前出牌方设置；此处仅给初始兜底(中央) */
-    el.style.cssText = 'position:fixed;top:41%;left:50%;transform:translate(-50%,-50%);' +
+    /* 固定在大屏中央偏上(37%)——比正中略高，避免遮住底部(我)出牌 */
+    el.style.cssText = 'position:fixed;top:37%;left:50%;transform:translate(-50%,-50%);' +
       'z-index:70;display:none;flex-direction:column;align-items:center;gap:1px;pointer-events:none;';
     el.innerHTML =
       '<div id="gd-turn-num" style="width:36px;height:36px;border-radius:50%;display:flex;' +
@@ -1610,23 +1610,16 @@ function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
   var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
 }
-/* 倒计时球：固定停在赛事大屏正中央；箭头(指针)旋转精确指向当前出牌方座位。
-   方向在 body 本地坐标系里算(中心与座位都用 gdToLocal 换算)，箭头旋转与 body 一起转，
-   无需竖屏补偿，横屏/竖屏、4/6 人都精确。球体已缩小并半透明，不会遮住牌型。*/
-function positionTurnBall(seat){
-  var el = document.getElementById('gd-turn-center'); if(!el) return;
-  var cx = window.innerWidth/2, cy = window.innerHeight/2;
-  var c  = gdToLocal(cx, cy);                               // 球固定在正中央
-  el.style.left = c.x + 'px';
-  el.style.top  = c.y + 'px';
-  var arr = document.getElementById('gd-turn-arrow'); if(!arr) return;
-  var panel = seatPanelEl(seat);
-  var r = panel && panel.getBoundingClientRect();
-  if(!r || (r.width===0 && r.height===0)){ arr.style.opacity = '0'; return; }
-  arr.style.opacity = '1';
-  var ls  = gdToLocal(r.left + r.width/2, r.top + r.height/2);   // 座位中心(本地坐标)
-  var deg = Math.atan2(-(ls.x - c.x), (ls.y - c.y)) * 180/Math.PI;   // ▼(本地下)转向该座位
-  arr.style.transform = 'rotate(' + deg + 'deg)';
+/* ▼默认朝下(=我/下方)，按出牌方相对位置旋转(与 body 一起旋转，横竖屏都对)。
+   4 人：四个座位精确对应 下/右/上/左；球固定在大屏中央偏上，不随座位移动。*/
+function turnArrowDeg(seat){
+  var total = (GAME_MODE === '6p') ? 6 : 4;
+  var rel = buildRelMap(mySeat, total)[seat];
+  if (rel === 'bottom') return 0;
+  if (rel === 'left')   return 90;
+  if (rel === 'top')    return 180;
+  if (rel === 'right')  return 270;
+  return 0;
 }
 function tickTurn(){
   var c = ensureTimerEl();
@@ -1643,7 +1636,7 @@ function tickTurn(){
   numEl.style.borderColor = col;
   numEl.style.color = (remain <= 5) ? '#FF8080' : '#fff';
   arrEl.style.color = col;
-  positionTurnBall(_turnSeatCur);   // 球移到出牌方内圈 + 箭头指向其座位
+  arrEl.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';   // 指针指向出牌方
   if(remain <= 0) stopTurnCountdown();
 }
 socket.on('game:turn_timer', function(d){
@@ -1744,9 +1737,13 @@ function renderSeatPlays(sp){
       el.className = 'seat-play';
       el.innerHTML = '<span class="sp-pass">不出</span>';
     } else {
-      /* 结构化分列排列：同点数竖叠成列，列按点数升序，姊妹对/钢板/三代二/顺子皆对齐平衡 */
-      el.className = 'seat-play';
-      el.innerHTML = seatPlayColumnsHtml(play.cards || []);
+      /* 原有横向平铺：级牌感知排序后一张张横排；≤5张单行，>5张换行(每行≤5) */
+      var cards = sortHandLevel(play.cards || [], levelCard), html = '';
+      var show = Math.min(cards.length, 14);
+      for (var i = 0; i < show; i++) html += miniCardHtml(cards[i]);
+      if (cards.length > show) html += '<span class="sp-more">共'+cards.length+'</span>';
+      el.className = 'seat-play' + (show > 5 ? ' sp-wrap' : '');
+      el.innerHTML = html;
     }
     var px = r.left + r.width/2, py = r.top + r.height/2;
     var dx = cx - px, dy = cy - py, len = Math.sqrt(dx*dx + dy*dy) || 1;
