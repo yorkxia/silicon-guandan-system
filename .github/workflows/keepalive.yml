@@ -18,6 +18,9 @@ name: Keep Render Awake (game + scorer) + Bot Sim Tick
 #   BOT_TICK_URL     选填，游戏服根地址(默认 https://silicon-guandan-system.onrender.com)
 #   SCORER_TICK_URL  选填，计分器/监控后台根地址(默认 https://silicon-guandan-scoreboard.onrender.com)
 #                    ↑ 请到 Render 后台核对这台服务的真实域名，填错了保活对象就错了
+#   MONITOR_URL      选填，流量监控台(监控系统)完整地址
+#                    (默认 https://silicon-guandan-scoreboard.onrender.com/scoreboard/dashboard)
+#                    ↑ 与计分器同一台 Render 服务，多 ping 这个面板一次，确保监控台本身也被唤醒
 
 on:
   schedule:
@@ -58,3 +61,16 @@ jobs:
             "$SBASE/healthz" \
             && echo "" && echo "scorer OK" \
             || echo "scorer ping non-200 (cold start / URL 未核对) —— 若 URL 正确实例仍被唤醒"
+
+      - name: Ping traffic monitor / dashboard (wake)
+        if: always()
+        env:
+          MURL: ${{ secrets.MONITOR_URL }}
+        run: |
+          MBASE="${MURL:-https://silicon-guandan-scoreboard.onrender.com/scoreboard/dashboard}"
+          echo "Pinging traffic monitor $MBASE ..."
+          # 监控台面板可能需要登录，返回 401/302 都正常——请求到达实例即已唤醒，保活不受影响。
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
+            "$MBASE" \
+            && echo "" && echo "monitor OK" \
+            || echo "monitor ping non-200 (cold start / 需登录) —— 请求已到达,实例仍被唤醒"
