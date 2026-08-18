@@ -372,10 +372,11 @@
       0%, 100% { opacity: 1;   box-shadow: 0 0 0 0 rgba(255,224,102,.0);  transform: scale(1); }
       50%      { opacity: .5;  box-shadow: 0 0 12px 3px rgba(255,224,102,.75); transform: scale(1.06); }
     }
-    /* ── 出牌倒计时圆盘：随出牌方持续脉冲发光，颜色由 --turn-col 动态注入 ── */
+    /* ── 出牌倒计时圆盘：随出牌方持续脉冲发光，颜色由 --turn-col 动态注入。
+         光晕收敛(小半径)以免遮住玩家牌型 ── */
     @keyframes turnBallPulse {
-      0%, 100% { box-shadow: 0 0 5px 0 var(--turn-col, #35d24a), 0 2px 12px rgba(0,0,0,.45); transform: scale(1); }
-      50%      { box-shadow: 0 0 18px 5px var(--turn-col, #35d24a), 0 2px 12px rgba(0,0,0,.45); transform: scale(1.1); }
+      0%, 100% { box-shadow: 0 0 3px 0 var(--turn-col, #35d24a), 0 1px 5px rgba(0,0,0,.3); transform: scale(1); }
+      50%      { box-shadow: 0 0 7px 1px var(--turn-col, #35d24a), 0 1px 5px rgba(0,0,0,.3); transform: scale(1.05); }
     }
     @keyframes turnArrowBlink { 0%,100% { opacity: 1; } 50% { opacity: .28; } }
     #gd-turn-num   { animation: turnBallPulse 1.1s ease-in-out infinite; }
@@ -884,32 +885,33 @@
       display: none; position: fixed; inset: 0; z-index: 150;
       background: radial-gradient(ellipse at 50% 40%, #1d5c1d 0%, #0d2d0d 55%, #061306 100%);
       flex-direction: column; align-items: center; justify-content: center; gap: 0;
-      padding: 20px;
+      padding: 12px; overflow: auto;   /* 内容极端偏多时可滚动，不再裁掉座位 */
     }
-    .wait-logo { width: 52px; height: 52px; border-radius: 50%; margin-bottom: 14px; }
+    .wait-logo { width: 40px; height: 40px; border-radius: 50%; margin-bottom: 7px; }
     .wait-title {
-      font-size: 1rem; font-weight: 900; color: #FFE066; letter-spacing: 3px; margin-bottom: 4px;
+      font-size: .95rem; font-weight: 900; color: #FFE066; letter-spacing: 3px; margin-bottom: 3px;
     }
     .wait-sub {
-      font-size: .72rem; color: rgba(255,255,255,.4); letter-spacing: 2px; margin-bottom: 22px;
+      font-size: .68rem; color: rgba(255,255,255,.4); letter-spacing: 2px; margin-bottom: 12px;
     }
     /* 进度条 */
     .wait-progress {
-      font-size: 1.6rem; font-weight: 900; color: #fff; letter-spacing: 2px; margin-bottom: 4px;
+      font-size: 1.35rem; font-weight: 900; color: #fff; letter-spacing: 2px; margin-bottom: 3px;
     }
     .wait-progress span { color: #FFE066; }
     .wait-progress-label {
-      font-size: .72rem; color: rgba(255,255,255,.4); letter-spacing: 3px; margin-bottom: 20px;
+      font-size: .68rem; color: rgba(255,255,255,.4); letter-spacing: 3px; margin-bottom: 10px;
     }
     /* 座位格 */
+    /* 全部座位排成一行(四人=4格)，整体更矮 → 旋转后不再溢出屏幕、四个座位都可见 */
     .wait-seats {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-      width: 100%; max-width: 320px; margin-bottom: 20px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+      width: 100%; max-width: 560px; margin-bottom: 10px;
     }
     .wait-seat {
-      border-radius: 12px; padding: 12px 14px;
+      border-radius: 12px; padding: 9px 11px;
       background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
       transition: all .3s;
     }
     .wait-seat.filled { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
@@ -930,14 +932,14 @@
     /* 房间号分享区（私人房间显示） */
     #wait-room-code-box {
       display: none; text-align: center; background: rgba(0,0,0,.3);
-      border: 1px solid rgba(212,172,13,.25); border-radius: 14px;
-      padding: 14px 20px; width: 100%; max-width: 320px; margin-bottom: 14px;
+      border: 1px solid rgba(212,172,13,.25); border-radius: 12px;
+      padding: 10px 18px; width: 100%; max-width: 320px; margin-bottom: 10px;
     }
-    #wait-room-code-box .wrc-label { font-size: .65rem; color: rgba(212,172,13,.7); letter-spacing: 4px; margin-bottom: 6px; }
-    #wait-room-code-box .wrc-value { font-size: 2rem; font-weight: 900; color: #FFE066; letter-spacing: 10px; }
+    #wait-room-code-box .wrc-label { font-size: .62rem; color: rgba(212,172,13,.7); letter-spacing: 4px; margin-bottom: 4px; }
+    #wait-room-code-box .wrc-value { font-size: 1.6rem; font-weight: 900; color: #FFE066; letter-spacing: 9px; }
     #wait-room-code-box .wrc-copy  {
-      margin-top: 8px; font-size: .72rem; color: rgba(212,172,13,.7); cursor: pointer;
-      padding: 4px 14px; border: 1px solid rgba(212,172,13,.3); border-radius: 12px;
+      margin-top: 6px; font-size: .68rem; color: rgba(212,172,13,.7); cursor: pointer;
+      padding: 3px 12px; border: 1px solid rgba(212,172,13,.3); border-radius: 12px;
       display: inline-block; letter-spacing: 1px;
     }
     #wait-room-code-box .wrc-copy:hover { color: #FFE066; border-color: rgba(212,172,13,.5); }
@@ -1594,11 +1596,12 @@ function ensureTimerEl(){
     el.style.cssText = 'position:fixed;top:41%;left:50%;transform:translate(-50%,-50%);' +
       'z-index:70;display:none;flex-direction:column;align-items:center;gap:1px;pointer-events:none;';
     el.innerHTML =
-      '<div id="gd-turn-num" style="width:54px;height:54px;border-radius:50%;display:flex;' +
-        'align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;' +
-        'background:rgba(0,0,0,.55);border:3px solid #35d24a;box-shadow:0 2px 12px rgba(0,0,0,.45);">20</div>' +
-      '<div id="gd-turn-arrow" style="font-size:30px;line-height:.8;color:#35d24a;' +
-        'text-shadow:0 2px 6px rgba(0,0,0,.5);transition:transform .25s;">▼</div>';
+      '<div id="gd-turn-num" style="width:36px;height:36px;border-radius:50%;display:flex;' +
+        'align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;' +
+        'text-shadow:0 1px 3px rgba(0,0,0,.9);background:rgba(0,0,0,.34);border:2px solid #35d24a;' +
+        'box-shadow:0 1px 5px rgba(0,0,0,.3);">20</div>' +
+      '<div id="gd-turn-arrow" style="font-size:20px;line-height:.8;color:#35d24a;' +
+        'text-shadow:0 1px 4px rgba(0,0,0,.7);transition:transform .25s;">▼</div>';
     document.body.appendChild(el);
   }
   return el;
@@ -1607,28 +1610,22 @@ function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
   var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
 }
-/* 倒计时球：固定停在中央的「右下死区」(四方向出牌落点之间的空档)，杜绝遮挡任何玩家的出牌；
-   箭头再从球精确指向当前出牌方座位。右下对角每轴 64px → 直线约 90px ≈ 1.65×球径(54)，
-   经计算足以避开各方向出牌簇(出牌落点在四条正轴上，对角处到最近轴的垂距 64px > 球半径27+牌簇半宽)。
-   物理坐标 + gdToLocal 换算，竖屏/横屏、4/6 人一致。*/
+/* 倒计时球：固定停在赛事大屏正中央；箭头(指针)旋转精确指向当前出牌方座位。
+   方向在 body 本地坐标系里算(中心与座位都用 gdToLocal 换算)，箭头旋转与 body 一起转，
+   无需竖屏补偿，横屏/竖屏、4/6 人都精确。球体已缩小并半透明，不会遮住牌型。*/
 function positionTurnBall(seat){
   var el = document.getElementById('gd-turn-center'); if(!el) return;
   var cx = window.innerWidth/2, cy = window.innerHeight/2;
-  var K  = 64;                                              // 右下对角每轴偏移
-  var bx = cx + K, by = cy + K;                             // 球心(物理坐标)：中央右下死区
-  var pos = gdToLocal(bx, by);
-  el.style.left = pos.x + 'px';
-  el.style.top  = pos.y + 'px';
-  /* 箭头从球精确指向当前出牌方座位 */
+  var c  = gdToLocal(cx, cy);                               // 球固定在正中央
+  el.style.left = c.x + 'px';
+  el.style.top  = c.y + 'px';
   var arr = document.getElementById('gd-turn-arrow'); if(!arr) return;
   var panel = seatPanelEl(seat);
   var r = panel && panel.getBoundingClientRect();
   if(!r || (r.width===0 && r.height===0)){ arr.style.opacity = '0'; return; }
   arr.style.opacity = '1';
-  var sx = r.left + r.width/2, sy = r.top + r.height/2;
-  var dx = sx - bx, dy = sy - by;                           // 从球指向座位(物理方向)
-  var deg = Math.atan2(-dx, dy) * 180/Math.PI;              // ▼ 旋转到该方向
-  if(gdPortrait()) deg -= 90;                               // 竖屏 body 已 rotate(90deg)，抵消之
+  var ls  = gdToLocal(r.left + r.width/2, r.top + r.height/2);   // 座位中心(本地坐标)
+  var deg = Math.atan2(-(ls.x - c.x), (ls.y - c.y)) * 180/Math.PI;   // ▼(本地下)转向该座位
   arr.style.transform = 'rotate(' + deg + 'deg)';
 }
 function tickTurn(){
@@ -1810,8 +1807,15 @@ socket.on('game:baopai', function(d){
 
 /* ── 赢回出牌权 ── */
 socket.on('game:trick_won', function(d){
-  if(d.seat === mySeat) flashWon('您赢回出牌权！');
-  else {
+  /* 一墩结束、桌面清空：本地立即解除"必须压过"。若我是赢墩者(新先出方)，即使随后的
+     game:state 广播丢包，也能自由出牌，杜绝"轮到我先出却永远压不过"死锁。*/
+  hasLastPlay = false; lastPlayType = null;
+  if(d.seat === mySeat){
+    isMyTurn = true; _turnSeatCur = mySeat;
+    syncButtons();
+    flashWon('您赢回出牌权！');
+  } else {
+    syncButtons();
     var p = players.find(function(x){ return x.seat===d.seat; });
     if(p) flashWon(esc(p.name) + ' 先出');
   }
@@ -2649,7 +2653,8 @@ function doPlay(){
   var cards = selected.map(function(key){ return key.split('_')[0]; });
   var pt = gdDetect(cards, levelCard);
   if(!pt){ showToast('无效牌型，请重新选择'); return; }
-  if(hasLastPlay && lastPlayType && !gdCanBeat(pt, lastPlayType)){ showToast('压不过上家，请重选或不出'); return; }
+  /* 牌型合法就发给服务端，由服务端做最终裁判(压不过会回 play:invalid 提示)。
+     不再本地硬挡「压不过」——避免弱网/状态残留误判导致「明明轮到我却永远出不了牌」。*/
   socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
 }
 

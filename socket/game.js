@@ -195,43 +195,60 @@ function startTurnTimer(io, state) {
   }, secs * 1000);
 }
 
-/* 超时处理：托管座位→AI 接替出牌选择；在线玩家挂机→有上家牌自动不出、先出自动最小单张 */
+/* 先出兜底：手里最小的一张单牌（单牌永远是合法先出）。保证先出方一定能出、绝不冻结。 */
+function smallestSingleLead(state, seatObj) {
+  const h = sortHand(state.hands[String(seatObj.playerId)] || []);
+  return h.length ? [h[0]] : null;
+}
+/* 强制跳过当前回合（最后兜底，任何情况都不让牌桌卡死） */
+async function forceSkipTurn(io, state, seatObj) {
+  state.turnSeat = nextSeat(seatObj.seat, state.seats, state.finishOrder);
+  delete state.seatPlays[state.turnSeat];
+  await persistState(state);
+  broadcastState(io, state);
+  startTurnTimer(io, state);
+}
+
+/* 超时处理：托管座位→AI 接替出牌选择；在线玩家挂机→有上家牌自动不出、先出自动最小单张。
+   核心保证：无论哪条分支，回合一定推进（出牌 / 不出 / 兜底最小单张 / 强制跳过），绝不冻结。 */
 async function onTurnTimeout(io, state) {
   /* 防止对已被替换/结束的旧 state 触发 */
   if (gameStates.get(state.roomCode) !== state) return;
   const seatObj = state.seats.find(s => s.seat === state.turnSeat);
   if (!seatObj) return;
 
-  /* 托管（掉线）座位：规则机器人接替 */
-  if (isSeatDisconnected(state, state.turnSeat)) {
-    const botCards = pickBotPlay(state, seatObj);
-    if (botCards && botCards.length) {
-      const r = await applyPlay(io, state, seatObj.playerId, botCards, true);
-      if (r && r.error) {                       // 兜底：AI 出牌意外失败
-        if (state.lastPlay) await applyPass(io, state, seatObj.playerId, true);
+  const disconnected = isSeatDisconnected(state, state.turnSeat);
+
+  if (state.lastPlay) {
+    /* 有上家牌：AI 尝试压过；压不过或非托管挂机 → 自动不出。始终推进。 */
+    if (disconnected) {
+      const botCards = pickBotPlay(state, seatObj);
+      if (botCards && botCards.length) {
+        const r = await applyPlay(io, state, seatObj.playerId, botCards, true);
+        if (r && r.error) await applyPass(io, state, seatObj.playerId, true);
+      } else {
+        await applyPass(io, state, seatObj.playerId, true);
       }
-    } else if (state.lastPlay) {
-      await applyPass(io, state, seatObj.playerId, true);  // 压不过 → 不出
+    } else {
+      await applyPass(io, state, seatObj.playerId, true);
     }
     return;
   }
 
-  if (state.lastPlay) {
-    /* 有上家牌 → 自动不出 */
-    await applyPass(io, state, seatObj.playerId, true);
-  } else {
-    /* 先出方(在线玩家挂机) → 用机器人策略挑「最小的普通牌」领出，避免误甩级牌/逢人配/王 */
-    const lead = pickBotPlay(state, seatObj);
-    if (lead && lead.length) {
-      const r = await applyPlay(io, state, seatObj.playerId, lead, true);
-      /* 万一被判无效（理论上不会），退化为跳过一手 */
-      if (r && r.error) {
-        state.turnSeat = nextSeat(seatObj.seat, state.seats, state.finishOrder);
-        await persistState(state);
-        broadcastState(io, state);
-        startTurnTimer(io, state);
-      }
+  /* 先出方（无上家牌）：一定要出牌，绝不能什么都不做导致冻结 */
+  let lead = pickBotPlay(state, seatObj);
+  if (!lead || !lead.length) lead = smallestSingleLead(state, seatObj);   // 兜底最小单张
+  if (lead && lead.length) {
+    const r = await applyPlay(io, state, seatObj.playerId, lead, true);
+    if (r && r.error) {
+      /* 连最小单张都被判无效（理论不可能）→ 再退化为最小单张一次，仍失败则强制跳过 */
+      const s2 = smallestSingleLead(state, seatObj);
+      const r2 = s2 ? await applyPlay(io, state, seatObj.playerId, s2, true) : { error: 'empty' };
+      if (r2 && r2.error) await forceSkipTurn(io, state, seatObj);
     }
+  } else {
+    /* 先出方手里没有牌（理论不可能，先出方必未打完）→ 强制跳过防冻结 */
+    await forceSkipTurn(io, state, seatObj);
   }
 }
 
