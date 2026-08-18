@@ -708,13 +708,13 @@
       z-index: 5;
     }
 
-    /* 六个座位格：绝对定位在六边形顶点。干净方框：只显示昵称+(≤10)报数/名次 */
+    /* 六个座位格：绝对定位在六边形顶点。干净方框：只显示昵称+(≤10)报数/名次；再缩小25%(96→72) */
     .h-pbox {
       position: absolute;
-      width: 96px;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      width: 72px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
       z-index: 10;
-      padding: 5px 6px; border-radius: 11px;
+      padding: 4px 5px; border-radius: 10px;
       border: 2px solid rgba(255,255,255,.06); background: rgba(0,0,0,.3);
       transition: border-color .3s, box-shadow .3s;
     }
@@ -735,9 +735,9 @@
     .h-pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
     .h-pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
-    .h-pbox-name { font-size: .64rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 84px; line-height: 1.15; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 130px; }
-    .h-pbox-info { font-size: .6rem; color: rgba(255,255,255,.4); text-align: center; }
+    .h-pbox-name { font-size: .54rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 64px; line-height: 1.12; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 120px; }
+    .h-pbox-info { font-size: .54rem; color: rgba(255,255,255,.4); text-align: center; }
     /* 顶部中央（对家）提到顶栏那一行：与左积分榜、右房号同一水平线，避免被顶栏框线切断 */
     .h-pbox.h-top-slot {
       position: fixed; top: 9px; left: 50%; transform: translateX(-50%);
@@ -1589,25 +1589,26 @@ function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
   var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
 }
-/* 倒计时球实时移到当前出牌方(内圈)，箭头精确指向其座位；
-   与 renderSeatPlays 同一套物理坐标测量，保证球在内圈、牌在外圈互不遮挡(六人六边形通用) */
+/* 倒计时球：固定停在中央的「右下死区」(各方向出牌落点之间的空档)，杜绝遮挡任何玩家的出牌；
+   箭头再从球精确指向当前出牌方座位。右下对角每轴 64px → 直线约 90px ≈ 1.65×球径(54)。
+   物理坐标 + gdToLocal 换算，竖屏/横屏、六边形各座位一致。*/
 function positionTurnBall(seat){
   var el = document.getElementById('gd-turn-center'); if(!el) return;
   var cx = window.innerWidth/2, cy = window.innerHeight/2;
-  var panel = seatPanelEl(seat);
-  var r = panel && panel.getBoundingClientRect();
-  if(!r || (r.width===0 && r.height===0)){                 // 兜底：留在中央
-    var pc = gdToLocal(cx, cy); el.style.left = pc.x+'px'; el.style.top = pc.y+'px'; return;
-  }
-  var sx = r.left + r.width/2, sy = r.top + r.height/2;
-  var dx = sx - cx, dy = sy - cy, len = Math.sqrt(dx*dx + dy*dy) || 1;
-  var R = 56;                                               // 内圈半径：球贴近中央、远离座位与牌
-  var pos = gdToLocal(cx + dx/len*R, cy + dy/len*R);
+  var K  = 64;                                              // 右下对角每轴偏移
+  var bx = cx + K, by = cy + K;                             // 球心(物理坐标)：中央右下死区
+  var pos = gdToLocal(bx, by);
   el.style.left = pos.x + 'px';
   el.style.top  = pos.y + 'px';
-  var arr = document.getElementById('gd-turn-arrow');
-  if(arr){
-    var deg = Math.atan2(-dx, dy) * 180/Math.PI;            // ▼ 旋转指向该座位(物理方向)
+  var arr = document.getElementById('gd-turn-arrow'); if(!arr) return;
+  var panel = seatPanelEl(seat);
+  var r = panel && panel.getBoundingClientRect();
+  if(!r || (r.width===0 && r.height===0)){ arr.style.opacity = '0'; return; }
+  arr.style.opacity = '1';
+  var sx = r.left + r.width/2, sy = r.top + r.height/2;
+  var dx = sx - bx, dy = sy - by;                           // 从球指向座位(物理方向)
+  {
+    var deg = Math.atan2(-dx, dy) * 180/Math.PI;            // ▼ 旋转到该方向
     if(gdPortrait()) deg -= 90;                             // 竖屏 body 已 rotate(90deg)，抵消之
     arr.style.transform = 'rotate(' + deg + 'deg)';
   }
@@ -1729,9 +1730,7 @@ function renderSeatPlays(sp){
     }
     var px = r.left + r.width/2, py = r.top + r.height/2;
     var dx = cx - px, dy = cy - py, len = Math.sqrt(dx*dx + dy*dy) || 1;
-    var off = Math.min(len * 0.4, 105);
-    /* 当前出牌方：牌推到更外圈，给内圈的倒计时球让位，绝不重叠 */
-    if (seat === _turnSeatCur) off = Math.min(Math.max(off, 100) + 20, 150);
+    var off = Math.min(len * 0.4, 105);   /* 倒计时球已停在右下死区，各家出牌统一贴座位即可 */
     var pos = gdToLocal(px + dx/len*off, py + dy/len*off);   // 竖屏旋转换算
     el.style.display = 'flex';
     el.style.left = pos.x + 'px';
