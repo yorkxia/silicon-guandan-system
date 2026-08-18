@@ -1,16 +1,27 @@
-name: Keep Render Awake + Bot Sim Tick
+name: Keep Render Awake (game + scorer) + Bot Sim Tick
 
-# 每 10 分钟从 GitHub 外部访问一次游戏服 /internal/bot-tick：
-#   1) 这一次"外部进来的请求"让 Render 免费实例保持唤醒(不休眠) —— 机器人自己唤不醒睡着的实例；
-#   2) 顺带对齐机器人开关、写状态、判定每日清理，Render 冷启后自愈。
+# 每 5 分钟从 GitHub 外部各访问一次两台 Render 服务，保持免费实例唤醒(不休眠)：
+#   ① 游戏服 /internal/bot-tick  —— 唤醒 + 对齐机器人开关 + 每日清理自愈；
+#   ② 计分器/监控后台 /healthz   —— 唤醒(不查库不登录的轻量心跳)。
 #
-# 需在仓库 Settings → Secrets and variables → Actions 里配置：
-#   BOT_TICK_KEY  必填，与游戏服环境变量 BOT_TICK_KEY(或 BOT_SECRET) 一致
-#   BOT_TICK_URL  选填，游戏服根地址(默认 https://silicon-guandan-system.onrender.com)
+# 为什么是 5 分钟而不是 10 分钟：
+#   Render 免费实例「15 分钟无外部请求」就休眠。GitHub 的 schedule 定时任务在高峰会被
+#   延迟甚至丢弃(官方明说)，10 分钟间隔只剩 5 分钟余量，迟到/漏跑一次就睡了。改成 5 分钟
+#   等于给 15 分钟休眠线留了 3 倍余量：连丢两次仍不超时。
+#
+#   ⚠️ 但 GitHub Actions cron 本质上无法保证 100% 准时/不漏。真正的 24×7 请再加一个专业
+#      外部监控(cron-job.org 或 UptimeRobot，免费且准时)作为主力，本 workflow 作备份。
+#   ⚠️ 仓库 60 天无提交，GitHub 会自动停用 schedule —— 若长期不动，需到 Actions 页手动重新启用。
+#
+# 需在本仓库 Settings → Secrets and variables → Actions 配置：
+#   BOT_TICK_KEY     必填，与游戏服环境变量 BOT_TICK_KEY(或 BOT_SECRET) 一致
+#   BOT_TICK_URL     选填，游戏服根地址(默认 https://silicon-guandan-system.onrender.com)
+#   SCORER_TICK_URL  选填，计分器/监控后台根地址(默认 https://silicon-guandan-scoreboard.onrender.com)
+#                    ↑ 请到 Render 后台核对这台服务的真实域名，填错了保活对象就错了
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 concurrency:
@@ -20,17 +31,30 @@ concurrency:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      URL: ${{ secrets.BOT_TICK_URL }}
-      KEY: ${{ secrets.BOT_TICK_KEY }}
+    timeout-minutes: 8
     steps:
-      - name: Ping bot-tick (wake + self-heal)
+      - name: Ping game server (wake + bot self-heal)
+        env:
+          URL: ${{ secrets.BOT_TICK_URL }}
+          KEY: ${{ secrets.BOT_TICK_KEY }}
         run: |
           BASE="${URL:-https://silicon-guandan-system.onrender.com}"
-          echo "Pinging $BASE/internal/bot-tick ..."
-          # 冷启动可能要 ~50s，给足超时；失败不让整个 job 报红(避免噪音)
-          curl -fsS --retry 2 --retry-delay 15 --max-time 90 \
+          echo "Pinging game server $BASE/internal/bot-tick ..."
+          # 冷启动可能要 ~50s，给足超时；失败不让 job 报红(避免噪音)。
+          # 注意：即使 key 错(403)或路径 404，请求仍到达了实例，同样能唤醒——保活不受影响。
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
             "$BASE/internal/bot-tick?key=$KEY" \
-            && echo "" && echo "OK" \
-            || echo "ping failed (instance may be cold-starting or key missing)"
+            && echo "" && echo "game OK" \
+            || echo "game ping non-200 (cold start / key missing) —— 实例仍被唤醒"
+
+      - name: Ping scorer / console server (wake)
+        if: always()
+        env:
+          SURL: ${{ secrets.SCORER_TICK_URL }}
+        run: |
+          SBASE="${SURL:-https://silicon-guandan-scoreboard.onrender.com}"
+          echo "Pinging scorer/console server $SBASE/healthz ..."
+          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
+            "$SBASE/healthz" \
+            && echo "" && echo "scorer OK" \
+            || echo "scorer ping non-200 (cold start / URL 未核对) —— 若 URL 正确实例仍被唤醒"
