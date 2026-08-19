@@ -54,6 +54,7 @@
 
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
+      position: relative;   /* #zone-top 用 absolute+50% 定位，脱离本行 flex，不受左右 padding 是否对称影响 */
       display: flex; align-items: center; justify-content: space-between;
       padding: 5px 96px 5px 14px;   /* 右侧留 96px 让开客服+退出两个圆钮，房间号不被盖住 */
       gap: 10px;
@@ -125,9 +126,12 @@
     #kf-send { border: none; border-radius: 20px; padding: 0 18px; background: #0f9e45; color: #fff; font-weight: 800; font-size: .9rem; cursor: pointer; }
 
     /* ═══════════════ 对家区域（上方） ═══════════════ */
+    /* 用 absolute+50% 定位在 #top-bar 正中央，脱离左右两侧(积分榜/房间号)的 flex 流：
+       不管左右 padding 将来怎么调整(比如再加按钮要挪房间号)，对家框永远保持真正的顶部居中，
+       不会再因为两侧不对称而被带偏。*/
     #zone-top {
-      flex: 1 1 0; min-width: 0; display: flex; justify-content: center; align-items: center;
-      padding: 0;
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      display: flex; justify-content: center; align-items: center; z-index: 5;
     }
     /* 对家在顶栏内需紧凑：隐藏牌背、缩小内边距 */
     #top-bar .pbox-top { padding: 2px 5px; gap: 2px; }
