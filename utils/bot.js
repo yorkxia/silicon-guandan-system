@@ -2,14 +2,23 @@
    为掉线(托管)座位挑一手合法出牌，核心是「与队友配合、只压对手」：
    - 领出(无上家牌)：打「最小的普通牌」——绝不率先甩出级牌 / 红桃级牌(逢人配) / 大小王，
      这些是掼蛋里最值钱的牌，浪费在领出上等于自杀。优先甩掉不成对的低散牌以保留对子。
+     若队友最近一手出的是对子，优先领出对子而非单张，喂队友想要的牌型。
    - 跟牌：先看「当前这墩是谁领先」——
        · 若领先的是【自己队友】(且队友尚未出完)：默认「不压」，把这一墩让给队友，
          只有当自己能「一手出完(走牌)」时才越过队友出牌抢跑。
-       · 若领先的是【对手】(或已出完的队友)：枚举 单/对/三张/三带二/炸弹 中能压过的组合，
-         优先用「普通牌」压，能不动级牌/逢人配/王就绝不动；且不为对手一手小的单/对
-         白扔炸弹(除非能顺势走完、对手即将跑牌、或对手本身就出的大牌/炸弹)。
+       · 若领先的是【活着的对手】、且我这一 pass 不会让本墩直接收官、且 pass 后下一个
+         出牌人正是活着的队友(接风位)：同样默认「不压」，让队友接风，唯一例外仍是能一手走完。
+       · 其余情况(领先的是对手/已出完的队友，且不满足接风位)：枚举 单/对/三张/三带二/炸弹
+         中能压过的组合，优先用「普通牌」压，能不动级牌/逢人配/王就绝不动；
+         且不为对手一手小的单/对白扔炸弹——除非能顺势走完、对手本身出的是大牌/炸弹、
+         对手快跑了(剩牌≤6)、或队友快跑了(剩牌≤3)且需要抢回牌权。
    正确性由 detectType/canBeat 保证——只返回通过压牌校验的组合，applyPlay 还会二次校验。
-   四人六人共用同一策略(队伍归属用 state.seats[].team 判定，与人数无关)。*/
+   四人六人共用同一策略(队伍归属用 state.seats[].team 判定，与人数无关)。
+
+   安全约定(绝不允许出牌卡死)：本函数外层包一层 try/catch，任何未预期异常一律按「压不过/
+   无牌可出」处理返回 null——调用方(socket/game.js、game6.js 的超时托管、socket/botRunner.js)
+   本身就已经把 null 当作合法结果处理(有上家牌→自动不出；无上家牌→兜底出最小单张)，
+   所以这里即使出 bug 也只会退化成「保守出牌」，不会冻结回合。*/
 const { sortHand, rankVal } = require('./cards');
 const {
   detectType, canBeat, isBomb,
@@ -35,7 +44,20 @@ function makeCardTools(level) {
   return { wild, isJoker, isWild, isLevel, wasteCost };
 }
 
-function pickBotPlay(state, seatObj) {
+/* 座位序号工具：跳过已出完的座位找下一个。与 socket/game.js、game6.js 里的 nextSeat 逻辑一致，
+   这里独立实现一份是为了不反向依赖 game.js(它本身 require 了本文件，避免循环依赖)。*/
+function nextActiveSeat(fromSeat, seats, finishOrder) {
+  const done = new Set((finishOrder || []).map(f => f.seat));
+  const nums = seats.map(s => s.seat).sort((a, b) => a - b);
+  const idx  = nums.indexOf(fromSeat);
+  for (let i = 1; i <= nums.length; i++) {
+    const s = nums[(idx + i) % nums.length];
+    if (!done.has(s)) return s;
+  }
+  return fromSeat;
+}
+
+function pickBotPlayInner(state, seatObj) {
   const is6      = state.gameMode === '6p';
   const detectFn = is6 ? detectType6p : detectType;
   const beatFn   = is6 ? canBeat6p   : canBeat;
@@ -60,6 +82,17 @@ function pickBotPlay(state, seatObj) {
       .filter(g => !g.some(c => T.isJoker(c) || T.isLevel(c) || T.isWild(c)))
       .sort((a, b) => rankVal(a[0]) - rankVal(b[0]) || a.length - b.length);
     if (plainGroups.length) {
+      /* 队友最近一手若是对子 → 优先领出对子(有则用)，喂其想要的牌型 */
+      const teammateSeats = (state.seats || [])
+        .filter(s => s.team === seatObj.team && s.seat !== seatObj.seat &&
+                     !(state.finishOrder || []).some(f => f.seat === s.seat))
+        .map(s => s.seat);
+      const seatLastType   = state.seatLastType || {};
+      const teammateWantsPair = teammateSeats.some(s => seatLastType[s] === 'pair');
+      if (teammateWantsPair) {
+        const pairGroup = plainGroups.find(g => g.length >= 2);
+        if (pairGroup) return pairGroup.slice(0, 2);
+      }
       const g = plainGroups[0];
       return [ g[g.length - 1] ];                  // 该组最小的一张
     }
@@ -106,7 +139,28 @@ function pickBotPlay(state, seatObj) {
     return goOut ? goOut.cards : null;                              // 否则 pass，把这墩留给队友
   }
 
-  /* ② 对手(或已出完的队友)领先：要压，但用最省的方式 */
+  /* ①-a 队友接风位：领先的是活着的对手，且我这一 pass 不会让本墩直接收官(收官会转回对手手上，
+     让不让都一样，不特殊处理)，且 pass 后下一个出牌人正是活着的队友 → 优先让墩，
+     唯一例外仍是能一手走完。范围只限"领先者是活着的对手"，已出完的队友领先维持原有处理方式不变。*/
+  const opponentLeading = (lastTeam != null && lastTeam !== seatObj.team && !lastFinished);
+  if (opponentLeading) {
+    const doneSeats   = new Set((state.finishOrder || []).map(f => f.seat));
+    const activeSeats = (state.seats || []).filter(s => !doneSeats.has(s.seat));
+    const passCount   = state.passCount || 0;
+    const needed      = activeSeats.length - 1;   // 领先者(对手)活着，人数已在 opponentLeading 里保证
+    const wouldClose  = (passCount + 1) >= needed;
+    if (!wouldClose) {
+      const nextSeatNum = nextActiveSeat(seatObj.seat, state.seats, state.finishOrder);
+      const nextObj = (state.seats || []).find(s => s.seat === nextSeatNum);
+      if (nextObj && nextObj.team === seatObj.team) {
+        const goOut = cands.filter(emptiesHand)
+                           .sort((a, b) => a.bomb - b.bomb || a.waste - b.waste)[0];
+        return goOut ? goOut.cards : null;                          // pass，让队友接风
+      }
+    }
+  }
+
+  /* ② 对手(或已出完的队友)领先、且不在队友接风位：要压，但用最省的方式 */
   const nonBomb = cands.filter(c => c.bomb === 0);
   if (nonBomb.length) {
     /* 有普通牌型能压 → 张数少、用掉的贵牌最少者优先(尽量保住级牌/逢人配/王) */
@@ -120,12 +174,54 @@ function pickBotPlay(state, seatObj) {
   const oppRemain  = lastSeatObj ? (state.hands[String(lastSeatObj.playerId)] || []).length : 99;
   const canGoOut   = cands.some(emptiesHand);
   const cheapPlay  = lastLen <= 2 && !lastIsBomb;                   // 对手出的是小单/小对
-  /* 值得炸：能顺势走完 / 对手本身就是炸弹或大牌组 / 对手快跑了(剩牌≤6) / 不是便宜小牌 */
-  const worthBomb  = canGoOut || lastIsBomb || oppRemain <= 6 || !cheapPlay;
+  /* 队友是否正在冲刺(活着、剩牌≤3)且需要牌权：值得为其主动炸开对手的把持 */
+  const teammateCritical = (state.seats || []).some(s => {
+    if (s.team !== seatObj.team || s.seat === seatObj.seat) return false;
+    if ((state.finishOrder || []).some(f => f.seat === s.seat)) return false;
+    const n = (state.hands[String(s.playerId)] || []).length;
+    return n > 0 && n <= 3;
+  });
+  /* 值得炸：能顺势走完 / 对手本身就是炸弹或大牌组 / 对手快跑了(剩牌≤6) / 队友快跑了需要夺权 / 不是便宜小牌 */
+  const worthBomb  = canGoOut || lastIsBomb || oppRemain <= 6 || teammateCritical || !cheapPlay;
   if (!worthBomb) return null;                                      // 省下炸弹，这一小墩不接
 
   cands.sort((a, b) => a.bomb - b.bomb || a.cards.length - b.cards.length || a.waste - b.waste);
   return cands[0].cards;
 }
 
-module.exports = { pickBotPlay };
+function pickBotPlay(state, seatObj) {
+  try {
+    return pickBotPlayInner(state, seatObj);
+  } catch (e) {
+    return null;   // 任何未预期异常一律退化为"压不过/无牌可出"，调用方已保证不会因此卡死回合
+  }
+}
+
+/* 机器人还贡：合法牌(≤10、非逢人配、非级牌)里优先选「孤立单张」(该点数在整手牌里只有1张，
+   不拆散已成型的对子/三张)，其次按点数从小到大；无合法牌则回退最小非逢人配、再回退最小任意牌。
+   四人(socket/game.js)、六人(socket/game6.js)的机器人还贡共用这一份实现。*/
+function pickReturnCard(hand, level) {
+  hand = hand || [];
+  if (!hand.length) return null;
+  const wild = level ? ('H' + (RANK_CHAR[level] || String(level))) : null;
+  const byRank = {};
+  hand.forEach(c => {
+    const r = (c === 'BJ' || c === 'LJ') ? c : c.slice(1);
+    (byRank[r] = byRank[r] || []).push(c);
+  });
+  const rankOf = (c) => (c === 'BJ' || c === 'LJ') ? c : c.slice(1);
+  const pick = (pool) => {
+    if (!pool.length) return null;
+    return pool.slice().sort((a, b) => {
+      const isoA = (byRank[rankOf(a)] || []).length === 1 ? 0 : 1;
+      const isoB = (byRank[rankOf(b)] || []).length === 1 ? 0 : 1;
+      return isoA - isoB || rankVal(a) - rankVal(b);
+    })[0];
+  };
+  const legal = hand.filter(c => c !== wild && !(level && rankVal(c) === level) && rankVal(c) <= 10);
+  if (legal.length) return pick(legal);
+  const fallback = hand.filter(c => c !== wild);
+  return pick(fallback.length ? fallback : hand.slice());
+}
+
+module.exports = { pickBotPlay, pickReturnCard };

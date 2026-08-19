@@ -5,7 +5,7 @@ const {
   detectType, canBeat, settle, removeCards,
   detectType6p, canBeat6p, settle6p, computeTribute6p
 } = require('../utils/cardTypes');
-const { pickBotPlay } = require('../utils/bot');
+const { pickBotPlay, pickReturnCard } = require('../utils/bot');
 const { buildTributeJson } = require('../utils/tribute');
 const gameStates = require('./gameState6');
 
@@ -39,7 +39,8 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     turnTimer:    null,   // setTimeout 句柄
     turnDeadline: 0,      // 当前回合截止时间戳（毫秒）
     firstMove:    true,   // 开局第一手（用于40秒看牌时间）
-    seatPlays:    {}      // 各座位最近一手 { seat: {cards,label} | {pass:true} }
+    seatPlays:    {},     // 各座位最近一手 { seat: {cards,label} | {pass:true} }
+    seatLastType: {}      // 座位→最近一次实际出牌的 playType.type，不清空(供辅助手参考队友出牌习惯)
   };
   gameStates.set(roomCode, state);
   return state;
@@ -545,15 +546,9 @@ function _maxGiveCard(hand, wild, level) {
   return _maxGiveCandidates(hand, wild, level)[0] || null;
 }
 
-/* 机器人还贡：合法牌(≤10、非逢人配、非级牌)里最小的一张；极端无合法牌则回退最小非逢人配 */
+/* 机器人还贡：委托 utils/bot.js 的 pickReturnCard(优先还"孤立单张"，不拆己方已成型的对子/三张) */
 function _botReturnCard(hand, state) {
-  const wild = _wildCard(state.levelCard);
-  const legal = hand.filter(c =>
-    c !== wild && !(state.levelCard && _rankVal(c) === state.levelCard) && _rankVal(c) <= 10
-  );
-  const pool = legal.length ? legal : hand.filter(c => c !== wild);
-  const src  = pool.length ? pool : hand.slice();
-  return src.sort((a, b) => _rankVal(a) - _rankVal(b))[0] || null;
+  return pickReturnCard(hand, state.levelCard);
 }
 
 /* 私发某玩家最新手牌（仅当其 socket 在线）*/
@@ -684,6 +679,7 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   state.passCount = 0;
   state.firstMove = false;
   state.seatPlays[mySeat.seat] = { cards: cards.slice(), label: playType.label };  // 该家出牌贴座位
+  state.seatLastType[mySeat.seat] = playType.type;   // 记录最近出牌类型(不随本墩结束清空)，供辅助手喂牌参考
 
   /* 出牌方位置提示"出"（跟随出牌方）*/
   io.to(state.roomCode).emit('player:played', { seat: mySeat.seat, name: mySeat.name });
