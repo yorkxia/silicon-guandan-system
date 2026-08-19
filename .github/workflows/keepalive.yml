@@ -1,8 +1,15 @@
 name: Keep Render Awake (game + scorer) + Bot Sim Tick
 
-# 每 5 分钟从 GitHub 外部各访问一次两台 Render 服务，保持免费实例唤醒(不休眠)：
-#   ① 游戏服 /internal/bot-tick  —— 唤醒 + 对齐机器人开关 + 每日清理自愈；
-#   ② 计分器/监控后台 /healthz   —— 唤醒(不查库不登录的轻量心跳)。
+# 每 5 分钟从 GitHub 外部 ping 一次 SiliconGuandanSystem(游戏服，同一实例也挂着
+# /guandan 计分器)，保持这一台免费实例全天不休眠。
+#
+# ⚠️ 只保活这一台，是刻意的：Render 免费额度「每 workspace 每月 750 实例小时」是
+#    账号内所有免费 Web 服务共享的。之前同时保活 4 台服务(游戏服+计分器同实例+
+#    监控台+老 GuandanSystem)，等于 4 台同时 24/7 不休眠，每月约第 7~8 天就把
+#    750 小时额度耗尽，之后 Render 会把 workspace 下所有免费服务整体 Suspended
+#    直到下月初重置——ping 越勤快反而死得越早。现在只保活涉及真实对局/报名费的
+#    这一台，让监控台和老 GuandanSystem 按需自然休眠(访问时冷启动~50秒)，全月
+#    总小时数才压得进 750 小时以内。
 #
 # 为什么是 5 分钟而不是 10 分钟：
 #   Render 免费实例「15 分钟无外部请求」就休眠。GitHub 的 schedule 定时任务在高峰会被
@@ -16,13 +23,6 @@ name: Keep Render Awake (game + scorer) + Bot Sim Tick
 # 需在本仓库 Settings → Secrets and variables → Actions 配置：
 #   BOT_TICK_KEY     必填，与游戏服环境变量 BOT_TICK_KEY(或 BOT_SECRET) 一致
 #   BOT_TICK_URL     选填，游戏服根地址(默认 https://silicon-guandan-system.onrender.com)
-#   SCORER_TICK_URL  选填，计分器/监控后台根地址(默认 https://silicon-guandan-scoreboard.onrender.com)
-#                    ↑ 请到 Render 后台核对这台服务的真实域名，填错了保活对象就错了
-#   MONITOR_URL      选填，流量监控台(监控系统)完整地址
-#                    (默认 https://silicon-guandan-scoreboard.onrender.com/scoreboard/dashboard)
-#                    ↑ 与计分器同一台 Render 服务，多 ping 这个面板一次，确保监控台本身也被唤醒
-#   GUANDAN_SYSTEM_URL 选填，另一台 GuandanSystem 服务根地址(默认 https://guandan-system.onrender.com)
-#                    ↑ Python/Flask 的独立 Render 服务，与本仓库不是同一台，单独保活防休眠
 
 on:
   schedule:
@@ -51,41 +51,3 @@ jobs:
             "$BASE/internal/bot-tick?key=$KEY" \
             && echo "" && echo "game OK" \
             || echo "game ping non-200 (cold start / key missing) —— 实例仍被唤醒"
-
-      - name: Ping scorer / console server (wake)
-        if: always()
-        env:
-          SURL: ${{ secrets.SCORER_TICK_URL }}
-        run: |
-          SBASE="${SURL:-https://silicon-guandan-scoreboard.onrender.com}"
-          echo "Pinging scorer/console server $SBASE/healthz ..."
-          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
-            "$SBASE/healthz" \
-            && echo "" && echo "scorer OK" \
-            || echo "scorer ping non-200 (cold start / URL 未核对) —— 若 URL 正确实例仍被唤醒"
-
-      - name: Ping traffic monitor / dashboard (wake)
-        if: always()
-        env:
-          MURL: ${{ secrets.MONITOR_URL }}
-        run: |
-          MBASE="${MURL:-https://silicon-guandan-scoreboard.onrender.com/scoreboard/dashboard}"
-          echo "Pinging traffic monitor $MBASE ..."
-          # 监控台面板可能需要登录，返回 401/302 都正常——请求到达实例即已唤醒，保活不受影响。
-          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
-            "$MBASE" \
-            && echo "" && echo "monitor OK" \
-            || echo "monitor ping non-200 (cold start / 需登录) —— 请求已到达,实例仍被唤醒"
-
-      - name: Ping GuandanSystem server (wake)
-        if: always()
-        env:
-          GURL: ${{ secrets.GUANDAN_SYSTEM_URL }}
-        run: |
-          GBASE="${GURL:-https://guandan-system.onrender.com}"
-          echo "Pinging GuandanSystem $GBASE ..."
-          # 另一台独立的 Flask 服务；返回任何状态码都算到达实例，即可唤醒防休眠。
-          curl -fsS --retry 3 --retry-delay 15 --retry-all-errors --max-time 90 \
-            "$GBASE/" \
-            && echo "" && echo "guandan-system OK" \
-            || echo "guandan-system ping non-200 (cold start) —— 请求已到达,实例仍被唤醒"
