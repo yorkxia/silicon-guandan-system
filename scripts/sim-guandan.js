@@ -57,7 +57,7 @@ function simRound(mode, level, roundTag) {
      passCount/leadSeat 是基本类型，每次调用 pickBotPlay 前手动同步一次即可，
      确保跟牌分支(接风位判断、炸弹夺权等)吃到的是本局真实进度，而不是史前的空壳 state。*/
   const state = { gameMode: mode, levelCard: level, hands, lastPlay: null,
-                   seats, finishOrder, passCount: 0, seatLastType: {} };
+                   seats, finishOrder, passCount: 0, seatLastType: {}, playLog: [] };
   let turnSeat = 1 + Math.floor(Math.random() * total);
   let leadSeat = turnSeat, passCount = 0;
 
@@ -82,6 +82,7 @@ function simRound(mode, level, roundTag) {
       for (const c of play) { const idx = h.indexOf(c); check(idx >= 0, `${roundTag} 出了手里没有的牌 ${c}`); if (idx >= 0) h.splice(idx, 1); }
       state.lastPlay = { seat: turnSeat, playType: pt };
       state.seatLastType[turnSeat] = pt.type;
+      state.playLog.push({ seat: turnSeat, cards: play.slice() });
       leadSeat = turnSeat; passCount = 0;
       if (h.length === 0) finishOrder.push({ position: finishOrder.length + 1, seat: turnSeat, playerId: pidOf(turnSeat), team: so.team });
       turnSeat = nextSeat(turnSeat, seats, finishOrder);

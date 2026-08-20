@@ -1,8 +1,10 @@
 /* 掼蛋 · 规则型托管机器人（协作智能版）
    为掉线(托管)座位挑一手合法出牌，核心是「与队友配合、只压对手」：
-   - 领出(无上家牌)：打「最小的普通牌」——绝不率先甩出级牌 / 红桃级牌(逢人配) / 大小王，
-     这些是掼蛋里最值钱的牌，浪费在领出上等于自杀。优先甩掉不成对的低散牌以保留对子。
-     若队友最近一手出的是对子，优先领出对子而非单张，喂队友想要的牌型。
+   - 领出(无上家牌)：先按 determineRole 判定自己是主攻手(carry)还是辅助手(support)——
+       · 主攻手：优先出「张数最多的一组」尽快清空手牌(对子/三张优先于单张)。
+       · 辅助手(或角色不明，默认)：打「最小的普通牌」——绝不率先甩出级牌 / 红桃级牌(逢人配) /
+         大小王，这些是掼蛋里最值钱的牌，浪费在领出上等于自杀；若队友最近一手出的是对子，
+         优先领出对子而非单张，喂队友想要的牌型。
    - 跟牌：先看「当前这墩是谁领先」——
        · 若领先的是【自己队友】(且队友尚未出完)：默认「不压」，把这一墩让给队友，
          只有当自己能「一手出完(走牌)」时才越过队友出牌抢跑。
@@ -44,6 +46,54 @@ function makeCardTools(level) {
   return { wild, isJoker, isWild, isLevel, wasteCost };
 }
 
+/* 角色动态判定：每次调用都重新评估，不缓存。参照 PDF 阈值：
+   主攻手 carry / 辅助手 support，满足两条门槛项即判定为该角色；
+   同花顺子集探测成本高、暂不做，"持有强控场牌"简化为"手里有≥1个四张以上炸弹"。
+   平局或都不满足 → 默认 support(与现有"领出打最小单张"的行为保持一致，不引入新行为)。 */
+function determineRole(state, seatObj, is6) {
+  const level   = state.levelCard;
+  const T       = makeCardTools(level);
+  const hand    = state.hands[String(seatObj.playerId)] || [];
+  const handLen = hand.length;
+  if (!handLen) return 'support';
+
+  const byRank = {};
+  hand.forEach(c => { const r = (c === 'BJ' || c === 'LJ') ? c : c.slice(1); (byRank[r] = byRank[r] || []).push(c); });
+  const groups = Object.values(byRank);
+  const hasBomb     = groups.some(g => g.length >= 4);
+  const hasControl  = hand.some(c => c === 'BJ' || T.isLevel(c) || T.isWild(c));
+  const pairPlusCnt = groups.filter(g => g.length >= 2).length;
+
+  const teammates = (state.seats || []).filter(s =>
+    s.team === seatObj.team && s.seat !== seatObj.seat &&
+    !(state.finishOrder || []).some(f => f.seat === s.seat));
+  const tmLens = teammates.map(s => (state.hands[String(s.playerId)] || []).length);
+
+  const carryThresh   = is6 ? 9  : 7;
+  const supportThresh = is6 ? 11 : 9;
+
+  let carryScore = 0;
+  if (handLen <= carryThresh) carryScore++;
+  if (hasBomb) carryScore++;
+  if (hasControl) carryScore++;
+  if (tmLens.some(n => n > handLen)) carryScore++;
+
+  let supportScore = 0;
+  if (handLen >= supportThresh) supportScore++;
+  if (pairPlusCnt <= 1) supportScore++;
+  if (!hasBomb) supportScore++;
+  if (tmLens.some(n => n > 0 && n < handLen)) supportScore++;
+
+  let role = (carryScore >= 2 && carryScore > supportScore) ? 'carry' : 'support';
+
+  /* 强制切换：队友剩牌很少 → 优先保护(support)；自己剩牌很少 → 优先冲刺(carry)，
+     两者都满足时以"冲刺自己"为最终结果(直接可执行、收益确定)。 */
+  if (tmLens.some(n => n > 0 && n <= 5)) role = 'support';
+  if (handLen <= 3) role = 'carry';
+
+  return role;
+}
+
 /* 座位序号工具：跳过已出完的座位找下一个。与 socket/game.js、game6.js 里的 nextSeat 逻辑一致，
    这里独立实现一份是为了不反向依赖 game.js(它本身 require 了本文件，避免循环依赖)。*/
 function nextActiveSeat(fromSeat, seats, finishOrder) {
@@ -55,6 +105,14 @@ function nextActiveSeat(fromSeat, seats, finishOrder) {
     if (!done.has(s)) return s;
   }
   return fromSeat;
+}
+
+/* 记牌器(基础版)：只统计"整局已出牌张数 / 总牌数"是否达到残局线(PDF 8.1 第5步 ≥70%已出)。
+   不做逐点数未见牌分布推断(成本高、暂不做)。 */
+function isEndgamePhase(state) {
+  const totalDeck = state.gameMode === '6p' ? 162 : 108;
+  const played = (state.playLog || []).reduce((s, p) => s + (p && p.cards ? p.cards.length : 0), 0);
+  return played / totalDeck >= 0.7;
 }
 
 function pickBotPlayInner(state, seatObj) {
@@ -82,6 +140,19 @@ function pickBotPlayInner(state, seatObj) {
       .filter(g => !g.some(c => T.isJoker(c) || T.isLevel(c) || T.isWild(c)))
       .sort((a, b) => rankVal(a[0]) - rankVal(b[0]) || a.length - b.length);
     if (plainGroups.length) {
+      /* 主攻手：优先出「张数最多的一组」尽快清空手牌(对子/三张优先于单张)，
+         同长度取点数小的、把大牌留到后面；不做同花顺/顺子探测(见文档说明)。
+         注意排除 4 张及以上的组(那已经是炸弹)——领出时绝不主动把炸弹当普通牌甩出去，
+         炸弹的价值在压制/夺权，不在于"清空手牌快一张"；这种情况下退回默认逻辑。
+         辅助手(或角色不明)走下面已有的"喂队友"逻辑，行为不变。 */
+      const role = determineRole(state, seatObj, is6);
+      if (role === 'carry') {
+        const nonBombGroups = plainGroups.filter(g => g.length <= 3);
+        if (nonBombGroups.length) {
+          const big = nonBombGroups.slice().sort((a, b) => b.length - a.length || rankVal(a[0]) - rankVal(b[0]))[0];
+          return big.slice();
+        }
+      }
       /* 队友最近一手若是对子 → 优先领出对子(有则用)，喂其想要的牌型 */
       const teammateSeats = (state.seats || [])
         .filter(s => s.team === seatObj.team && s.seat !== seatObj.seat &&
@@ -181,8 +252,15 @@ function pickBotPlayInner(state, seatObj) {
     const n = (state.hands[String(s.playerId)] || []).length;
     return n > 0 && n <= 3;
   });
-  /* 值得炸：能顺势走完 / 对手本身就是炸弹或大牌组 / 对手快跑了(剩牌≤6) / 队友快跑了需要夺权 / 不是便宜小牌 */
-  const worthBomb  = canGoOut || lastIsBomb || oppRemain <= 6 || teammateCritical || !cheapPlay;
+  /* 残局(整局已出≥70%)且手里有可用的中小炸弹(≤5张，天王炸/大炸弹依然只按上面几条判断)：
+     适度放行控场，不必等到"不是便宜小牌"才动。cands 此处已全是炸弹(nonBomb 为空)，
+     排序仍会优先选最小的那个，不会因为放行就跳去用大炸弹。 */
+  const isEndgame = isEndgamePhase(state);
+  const smallBombAvailable = cands.some(c => c.bomb === 1 && c.cards.length <= 5);
+  /* 值得炸：能顺势走完 / 对手本身就是炸弹或大牌组 / 对手快跑了(剩牌≤6) / 队友快跑了需要夺权 /
+     不是便宜小牌 / 残局且有中小炸弹可用 */
+  const worthBomb  = canGoOut || lastIsBomb || oppRemain <= 6 || teammateCritical || !cheapPlay
+                      || (isEndgame && smallBombAvailable);
   if (!worthBomb) return null;                                      // 省下炸弹，这一小墩不接
 
   cands.sort((a, b) => a.bomb - b.bomb || a.cards.length - b.cards.length || a.waste - b.waste);

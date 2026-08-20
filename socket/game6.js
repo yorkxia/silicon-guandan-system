@@ -40,7 +40,8 @@ function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, leve
     turnDeadline: 0,      // 当前回合截止时间戳（毫秒）
     firstMove:    true,   // 开局第一手（用于40秒看牌时间）
     seatPlays:    {},     // 各座位最近一手 { seat: {cards,label} | {pass:true} }
-    seatLastType: {}      // 座位→最近一次实际出牌的 playType.type，不清空(供辅助手参考队友出牌习惯)
+    seatLastType: {},     // 座位→最近一次实际出牌的 playType.type，不清空(供辅助手参考队友出牌习惯)
+    playLog:      []      // 本局完整出牌历史 { seat, cards }，不清空，供记牌器/残局判定使用
   };
   gameStates.set(roomCode, state);
   return state;
@@ -680,6 +681,7 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   state.firstMove = false;
   state.seatPlays[mySeat.seat] = { cards: cards.slice(), label: playType.label };  // 该家出牌贴座位
   state.seatLastType[mySeat.seat] = playType.type;   // 记录最近出牌类型(不随本墩结束清空)，供辅助手喂牌参考
+  state.playLog.push({ seat: mySeat.seat, cards: cards.slice() });   // 完整出牌历史，供记牌器/残局判定使用
 
   /* 出牌方位置提示"出"（跟随出牌方）*/
   io.to(state.roomCode).emit('player:played', { seat: mySeat.seat, name: mySeat.name });
