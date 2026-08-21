@@ -428,6 +428,8 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     guoA:         !!result.guoA,
     winsTeam1:    parseInt(wrow ? wrow.wins_team1 || 0 : 0),
     winsTeam2:    parseInt(wrow ? wrow.wins_team2 || 0 : 0),
+    aFail1:       new1,
+    aFail2:       new2,
     tributePending: !!tributeJson,
     /* 局间续局：客户端据此起 15 秒倒计时→round:autostart；过半掉线则提示"开放纳新" */
     majorityOffline: state.disconnected ? (state.disconnected.size * 2 > state.seats.length) : false
@@ -845,7 +847,7 @@ module.exports = function(io, socket) {
       const seat = await queryOne(`
         SELECT s.*, r.game_mode, r.status, r.id AS room_id,
                r.level_team1, r.level_team2, r.round_count, r.banker_team,
-               r.wins_team1, r.wins_team2
+               r.wins_team1, r.wins_team2, r.a_fails_team1, r.a_fails_team2
         FROM gdo_seats s JOIN gdo_rooms r ON r.id = s.room_id
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
@@ -928,6 +930,8 @@ module.exports = function(io, socket) {
       /* 胜局(盘胜)=过A次数，存于房间 */
       const winsTeam1 = parseInt(seat.wins_team1 || 0);
       const winsTeam2 = parseInt(seat.wins_team2 || 0);
+      const aFail1 = parseInt(seat.a_fails_team1 || 0);
+      const aFail2 = parseInt(seat.a_fails_team2 || 0);
 
       socket.emit('game:hand', {
         hand: myHand, myPlayerId: player.id,
@@ -938,6 +942,7 @@ module.exports = function(io, socket) {
         levelTeam2: state.levelTeam2,
         levelCard:  state.levelCard,
         winsTeam1, winsTeam2,
+        aFail1, aFail2,
         players
       });
 

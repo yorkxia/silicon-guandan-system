@@ -115,6 +115,7 @@
     .side-row { display: flex; align-items: center; gap: 4.5px; font-size: .45rem; font-weight: 800; white-space: nowrap; }
     .side-lbl { letter-spacing: 1px; }
     .side-lv  { font-size: .64rem; font-weight: 900; min-width: 10px; text-align: center; }
+    .side-lv-sup { font-size: .5em; font-weight: 900; margin-left: 1px; opacity: .9; }   /* A级冲关次数角标：A¹/A²/A³ */
     .side-win { font-size: .44rem; font-weight: 600; opacity: .82; letter-spacing: .5px; }
     .side-win b { font-size: .56rem; }
     .side-row.red  { color: #FF9090; }  .side-row.red  .side-lv { color: #FF6a6a; }
@@ -392,23 +393,22 @@
       box-shadow: 0 0 0 3px var(--combo, #FFD54A), -3px 5px 18px rgba(0,0,0,.55);
       outline: 3px solid #FF2626;
     }
-    /* 底部长条栏：锁牌/撤销/重置 药丸按钮 + 发消息（参考商业大屏底栏）*/
+    /* 底部长条栏：锁牌/重置 药丸按钮 + 发消息（参考商业大屏底栏；撤销键已移除，按钮放大25%并贴底）*/
     #combo-bar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-      display: flex; align-items: center; justify-content: flex-end; gap: 8px;   /* 再缩 25%：10→8 */
-      height: calc(32px + env(safe-area-inset-bottom, 0));                        /* 再缩 25%：42→32 */
-      padding: 0 9px env(safe-area-inset-bottom, 0);                              /* 再缩 25%：12→9 */
+      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+      height: calc(38px + env(safe-area-inset-bottom, 0));
+      padding: 0 9px env(safe-area-inset-bottom, 0);
       background: transparent;   /* 底带透明，露出青绿毡面 */
     }
-    #combo-bar .cb-pill {        /* 六键整体再缩 25% */
-      height: 23px; padding: 0 15px; border-radius: 11px; border: none; cursor: pointer;
-      color: #fff; font-weight: 800; font-size: .63rem; letter-spacing: 2px;
+    #combo-bar .cb-pill {        /* 较原尺寸放大25% */
+      height: 29px; padding: 0 19px; border-radius: 14px; border: none; cursor: pointer;
+      color: #fff; font-weight: 800; font-size: .79rem; letter-spacing: 2px;
       display: flex; align-items: center; box-shadow: 0 2px 7px rgba(0,0,0,.4);
       transition: transform .1s;
     }
     #combo-bar .cb-pill:active { transform: scale(.94); }
     #combo-bar .cb-lock  { background: linear-gradient(#ff7a7a, #D32029); }  /* 红=锁牌 */
-    #combo-bar .cb-undo  { background: linear-gradient(#6aa8ff, #1E6BE5); }  /* 蓝=撤销 */
     #combo-bar .cb-reset { background: linear-gradient(#ffd657, #F2B705); color: #6a4e00; }  /* 黄=重置 */
     #combo-bar .cb-flush { background: linear-gradient(#c99bff, #7B3FE4); }  /* 紫=同花顺(智能凑牌) */
     #combo-bar .cb-straight { background: linear-gradient(#ffc061, #E67E22); }  /* 橙=顺子(智能凑牌·可换头尾) */
@@ -539,37 +539,39 @@
     #action-hint { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
+    /* 不出/出牌 较原尺寸缩小30%，半透明玻璃感：文字仍清晰，被压住的对手出牌能隐约透出 */
     .action-btn {
-      padding: 11px 26px; border-radius: 22px; border: 1px solid rgba(255,255,255,.55);
-      font-size: .95rem; font-weight: 900; letter-spacing: 2px; cursor: pointer;
+      padding: 8px 18px; border-radius: 15px; border: 1px solid rgba(255,255,255,.55);
+      font-size: .67rem; font-weight: 900; letter-spacing: 1.4px; cursor: pointer;
       transition: all .15s; white-space: nowrap;
+      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     }
     /* 不出 = 蓝色玻璃 */
     .action-btn.pass {
-      background: linear-gradient(180deg,#8fd0f7 0%,#3f9be0 55%,#2c82c6 100%); color: #fff;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 3px 9px rgba(0,60,120,.4);
+      background: linear-gradient(180deg,rgba(143,208,247,.5) 0%,rgba(63,155,224,.5) 55%,rgba(44,130,198,.5) 100%); color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 9px rgba(0,60,120,.25);
       text-shadow: 0 1px 2px rgba(0,40,80,.55);
     }
     .action-btn.pass:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
     .action-btn.pass:disabled {
-      background: linear-gradient(180deg,#cccccc,#9a9a9a); color: #eee;
+      background: linear-gradient(180deg,rgba(204,204,204,.5),rgba(154,154,154,.5)); color: #eee;
       box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
     }
     /* 出牌 = 绿色玻璃 */
     .action-btn.play {
-      background: linear-gradient(180deg,#8be06a 0%,#43b52a 55%,#2f9418 100%); color: #fff;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 3px 10px rgba(20,110,0,.4);
+      background: linear-gradient(180deg,rgba(139,224,106,.5) 0%,rgba(67,181,42,.5) 55%,rgba(47,148,24,.5) 100%); color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(20,110,0,.25);
       text-shadow: 0 1px 2px rgba(0,60,0,.5);
     }
     .action-btn.play:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); }
     .action-btn.play:disabled {
-      background: linear-gradient(180deg,#cccccc,#9a9a9a); color: #eee;
+      background: linear-gradient(180deg,rgba(204,204,204,.5),rgba(154,154,154,.5)); color: #eee;
       box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
     }
     /* 选牌无效/压不过：出牌按钮变红 */
     .action-btn.play.invalid:not(:disabled) {
-      background: linear-gradient(180deg,#ff9a9a 0%,#e33030 55%,#c01818 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 3px 10px rgba(180,0,0,.45);
+      background: linear-gradient(180deg,rgba(255,154,154,.5) 0%,rgba(227,48,48,.5) 55%,rgba(192,24,24,.5) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 3px 10px rgba(180,0,0,.3);
       text-shadow: 0 1px 2px rgba(80,0,0,.5);
     }
     /* 各家出的牌贴其座位显示 */
@@ -1174,10 +1176,9 @@
   </div>
 </div>
 
-<!-- ── 底部长条栏：锁牌/撤销/重置 药丸 + 发消息（参考商业大屏底栏）── -->
+<!-- ── 底部长条栏：锁牌/重置 药丸 + 发消息（参考商业大屏底栏）── -->
 <div id="combo-bar">
   <button type="button" class="cb-pill cb-lock"  onclick="comboTapBall(this, lockCombo)">锁牌</button>
-  <button type="button" class="cb-pill cb-undo"  onclick="comboTapBall(this, unlockCombo)">撤销</button>
   <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
   <button type="button" class="cb-pill cb-flush" onclick="comboTapBall(this, findFlushStraight)">同花顺</button>
   <button type="button" class="cb-pill cb-straight" onclick="comboTapBall(this, findStraight)">顺子</button>
@@ -1219,6 +1220,8 @@ var levelTeam2 = 2;        // 乙队级数
 var levelCard  = 0;        // 当前级牌(坐庄方级数)，用于级牌>A提升 + 排序
 var winsTeam1  = 0;        // 甲队胜局
 var winsTeam2  = 0;        // 乙队胜局
+var aFail1     = 0;        // 甲队在A级已失败次数(0~2；满3清零并退回2级)
+var aFail2     = 0;        // 乙队在A级已失败次数
 var selected   = [];       // 已选牌 code+'_'+idx
 var isMyTurn   = false;
 var hasLastPlay = false;
@@ -1227,6 +1230,14 @@ var curFinish  = [];       // 当前已出完座位的 finishOrder
 
 var LVN = ['','','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 function lvName(n){ return LVN[n] || String(n); }
+var A_SUP = ['','¹','²','³'];
+/* 记分牌上的级牌角标：仅A级显示第几次冲关(冲关次数=已失败次数+1，封顶3) */
+function lvBadgeHtml(n, fails){
+  var base = lvName(n);
+  if (n !== 14) return base;
+  var attempt = Math.min((fails || 0) + 1, 3);
+  return base + '<sup class="side-lv-sup">' + A_SUP[attempt] + '</sup>';
+}
 var POS_LABELS = ['','头游','二游','三游','四游','五游','末游'];
 var POS_CLASS  = ['','p1','p2','p3','p3','p3','p4'];
 
@@ -1512,6 +1523,8 @@ socket.on('game:hand', function(d){
   levelCard  = d.levelCard || 0;                           // 当前级牌(坐庄方级数)
   winsTeam1  = d.winsTeam1 || 0;
   winsTeam2  = d.winsTeam2 || 0;
+  aFail1     = d.aFail1 || 0;
+  aFail2     = d.aFail2 || 0;
   myHand     = sortHandLevel(d.hand, levelCard);           // 级牌感知排序
   updateCurrentLevel();
   lockedCombos = [];   // 新一局：清空上一局的锁定牌型组
@@ -1839,6 +1852,8 @@ socket.on('round:result', function(d){
   if (typeof d.newLv2 !== 'undefined') levelTeam2 = d.newLv2;
   if (typeof d.winsTeam1 !== 'undefined') winsTeam1 = d.winsTeam1;   // 胜局=过A盘胜(服务端权威)
   if (typeof d.winsTeam2 !== 'undefined') winsTeam2 = d.winsTeam2;
+  if (typeof d.aFail1 !== 'undefined') aFail1 = d.aFail1;
+  if (typeof d.aFail2 !== 'undefined') aFail2 = d.aFail2;
   updateCurrentLevel();
   var isWin = myTeam === d.winnerTeam;
   var el    = document.getElementById('result-type-text');
@@ -2084,6 +2099,8 @@ function updateCurrentLevel(){
   var opLv  = (myTeam === 2) ? levelTeam1 : levelTeam2;
   var myWin = (myTeam === 2) ? winsTeam2  : winsTeam1;
   var opWin = (myTeam === 2) ? winsTeam1  : winsTeam2;
+  var myFail = (myTeam === 2) ? aFail2 : aFail1;
+  var opFail = (myTeam === 2) ? aFail1 : aFail2;
   var myColor = (myTeam === 1) ? 'red' : 'blue';
   var opColor = (myTeam === 1) ? 'blue' : 'red';
   var myRow = document.getElementById('side-my');
@@ -2091,8 +2108,8 @@ function updateCurrentLevel(){
   if (myRow) myRow.className = 'side-row ' + myColor;
   if (opRow) opRow.className = 'side-row ' + opColor;
   var e;
-  e = document.getElementById('my-side-lv');  if (e) e.textContent = lvName(myLv);
-  e = document.getElementById('op-side-lv');  if (e) e.textContent = lvName(opLv);
+  e = document.getElementById('my-side-lv');  if (e) e.innerHTML = lvBadgeHtml(myLv, myFail);
+  e = document.getElementById('op-side-lv');  if (e) e.innerHTML = lvBadgeHtml(opLv, opFail);
   e = document.getElementById('my-side-win'); if (e) e.textContent = myWin;
   e = document.getElementById('op-side-win'); if (e) e.textContent = opWin;
 }
@@ -2825,6 +2842,8 @@ function init6pBoard(d) {
   levelTeam2 = d.levelTeam2 || 2;
   winsTeam1  = d.winsTeam1 || 0;
   winsTeam2  = d.winsTeam2 || 0;
+  aFail1     = d.aFail1 || 0;
+  aFail2     = d.aFail2 || 0;
   updateCurrentLevel();
   document.getElementById('my-name-6p').textContent = MY_NAME_LS;
   document.getElementById('my-card-count-6p').textContent = fmtCount(myHand.length);
