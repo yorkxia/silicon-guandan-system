@@ -1052,6 +1052,30 @@ module.exports = function(io, socket) {
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
 
+/* 供 matchmaking6 在"局中顶替托管座"时调用；与 game.js 的同名函数逻辑一致(四人六人对称)。 */
+module.exports.remapSeatOwner = function(roomCode, seatNum, oldPlayerId, newPlayerId, newName) {
+  const state = gameStates.get(roomCode);
+  if (!state) return;
+  const s = state.seats.find(x => x.seat === seatNum);
+  if (!s) return;
+  s.playerId = newPlayerId;
+  if (newName) s.name = newName;
+
+  const oldKey = String(oldPlayerId), newKey = String(newPlayerId);
+  if (state.hands && Object.prototype.hasOwnProperty.call(state.hands, oldKey)) {
+    state.hands[newKey] = state.hands[oldKey];
+    delete state.hands[oldKey];
+  }
+
+  if (state.tributePhase) {
+    (state.tributePhase.exchanges || []).forEach(ex => {
+      if (ex.giverId    === oldPlayerId) ex.giverId    = newPlayerId;
+      if (ex.receiverId === oldPlayerId) ex.receiverId = newPlayerId;
+    });
+    if (state.tributePhase.tributeLeadId === oldPlayerId) state.tributePhase.tributeLeadId = newPlayerId;
+  }
+};
+
 /* 供机器人测试系统"停止/撤组"时即时清场：仅当房间【无真人在线】才强制关闭，绝不踢真人 */
 module.exports.closeRoomByCode = async function(io, roomCode) {
   try {

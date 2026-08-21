@@ -5,7 +5,7 @@ const {
   joinRoomByCode, getRoomState
 } = require('../db/gdo6');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
-const { initGameState, startTributePhase, seedDisconnectedFromDb } = require('./game6');
+const { initGameState, startTributePhase, seedDisconnectedFromDb, remapSeatOwner } = require('./game6');
 const rateGuard = require('./rateGuard');
 
 /* 从 socket 握手取玩家来源信息：IP（用于地理定位）+ channel（访问渠道，客户端在连接 query 传入） */
@@ -190,19 +190,22 @@ module.exports = function(io, socket) {
         return;
       }
 
-      /* 局间接替：若有"满员、局间(waiting)、存在机器人托管空座"的随机房，
+      /* 接替：若有"满员、存在机器人托管空座"的随机房(局间/局中均可)，
          优先让新玩家接手一个托管座（座号/队伍不变，本局局分由新玩家继承），把被弃赛事救活。
-         原玩友仍可随时重连回原座（走上面的"回原房"分支，优先级更高）。*/
+         原玩友仍可随时重连回原座（走上面的"回原房"分支，优先级更高）。
+         局中(midRound)接手：要先把正在跑的内存对局态(手牌等)同步成新玩家，
+         再让客户端跳转进游戏页请求手牌，否则会看到空手牌。*/
       const reviveCode = await findRevivalRoom();
       if (reviveCode) {
         const rr = await joinRoomByCode(reviveCode, player.id, socket.id);
         if (!rr.error && rr.takeover) {
+          if (rr.midRound) remapSeatOwner(reviveCode, rr.seat, rr.oldPlayerId, player.id, player.display_name);
           socket.join(reviveCode);
           socket.emit('queue:joined', { roomCode: reviveCode });
           const rst = await getRoomState(reviveCode);
           await broadcastWaiting(io, reviveCode, rst);
           io.to(reviveCode).emit('room:update', { state: rst });
-          return;   // 接手托管座 → 等下一局照常发牌（不即时开局，保留续局窗口）
+          return;   // 接手托管座 → 局间等下一局照常发牌(保留续局窗口)；局中客户端会自行 request_hand 接上当前对局
         }
         /* 竞态：座位已被别人接手/原玩友已回座 → 落到开放房逻辑 */
       }
@@ -269,7 +272,9 @@ module.exports = function(io, socket) {
     }
   });
 
-  /* ── 加入亲友房间 ── */
+  /* ── 加入亲友房间 ──
+     若命中的是"局中接替托管座"(result.midRound)：先同步内存对局态成新玩家，
+     且不再走 dealAndStart(对局已在进行中，不需要也不应该重新发牌)。 */
   socket.on('room:join', async function(data) {
     try {
       const { token, name, roomCode } = data;
@@ -279,6 +284,10 @@ module.exports = function(io, socket) {
       const result = await joinRoomByCode(code, player.id, socket.id);
       if (result.error) return socket.emit('room:error', { message: result.error });
 
+      if (result.takeover && result.midRound) {
+        remapSeatOwner(code, result.seat, result.oldPlayerId, player.id, player.display_name);
+      }
+
       socket.join(code);
       socket.emit('room:joined', { roomCode: code, playerId: player.id });
 
@@ -286,7 +295,7 @@ module.exports = function(io, socket) {
       await broadcastWaiting(io, code, state);
 
       const need = 6;
-      if (state.seats.length >= need) {
+      if (!result.midRound && state.seats.length >= need) {
         await dealAndStart(io, code, state);
       }
     } catch (e) {

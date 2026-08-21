@@ -109,18 +109,24 @@ async function createMatch(entries, mode) {
   return room;
 }
 
-/* ── 私人房间：按房间码加座 ── */
+/* ── 私人房间：按房间码加座 ──
+   2026-08-21：调整判断顺序 + 放开局中接替——
+   ①"是不是本人的座位"必须在"房间是否在开局中"之前判断，否则原玩家中途(对局进行中)
+      从大厅重新输房间号/扫码回来会被误判"对局已开始"而进不去(本人重连不该受此限制)；
+   ②托管空座接手不再局限于 status='waiting'（局间），局中(playing)也放开，
+      让新玩家能随时顶替被机器人托管的座位——局中接手时内存里正在跑的对局状态
+      (手牌/进贡归属等)由调用方(matchmaking.js)拿到 midRound+oldPlayerId 后
+      调用 game.js 的 remapSeatOwner 同步，这里只管数据库层面的座位归属。 */
 async function joinRoomByCode(roomCode, playerId, socketId) {
   const room = await queryOne('SELECT * FROM gdo_rooms WHERE room_code=$1', [roomCode]);
   if (!room) return { error: '房间不存在' };
-  if (room.status === 'playing') return { error: '对局已开始' };
-  if (room.status === 'finished') return { error: '房间已结束' };
+  if (room.status === 'finished')  return { error: '房间已结束' };
   if (room.status === 'abandoned') return { error: '房间已关闭' };
 
   const maxSeat = room.game_mode === '6p' ? 6 : 4;
   const seats = await query('SELECT * FROM gdo_seats WHERE room_id=$1 ORDER BY seat', [room.id]);
 
-  /* 已在房间 → 断线重连：更新 socket_id */
+  /* 已在房间 → 断线重连：本人的座位，局中局间都允许，不受 status 限制 */
   const mine = seats.find(s => s.player_id === playerId);
   if (mine) {
     await query('UPDATE gdo_seats SET socket_id=$1,is_connected=TRUE WHERE id=$2', [socketId, mine.id]);
@@ -128,21 +134,24 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
   }
 
   if (seats.length >= maxSeat) {
-    /* 房间已满：只要存在「掉线(机器人托管)空座」，就允许新玩家局间接手（开放纳新）。
+    /* 房间已满：只要存在「掉线(机器人托管)空座」，就允许新玩家接手（开放纳新，局间/局中均可）。
        接手座号+队伍不变，本局局分由新玩家继承、下一局照常发新牌；
        清掉本局进贡以免按旧玩家ID查手牌错乱。*/
     const offline = seats.filter(s => !s.is_connected);
-    if (room.status === 'waiting' && offline.length > 0) {
+    if (offline.length > 0) {
       const takeover = offline.sort((a, b) => a.seat - b.seat)[0];
+      const oldPlayerId = takeover.player_id;
       await query(
         'UPDATE gdo_seats SET player_id=$1, socket_id=$2, is_connected=TRUE, is_ready=FALSE WHERE id=$3',
         [playerId, socketId, takeover.id]
       );
       await query('UPDATE gdo_rooms SET tribute_json=NULL WHERE id=$1', [room.id]);
-      return { room, seat: takeover.seat, takeover: true };
+      return { room, seat: takeover.seat, takeover: true, oldPlayerId, midRound: room.status === 'playing' };
     }
-    return { error: '房间已满（' + maxSeat + '人）' };
+    return { error: room.status === 'playing' ? '对局已开始（暂无可接手的托管座位）' : ('房间已满（' + maxSeat + '人）') };
   }
+
+  if (room.status === 'playing') return { error: '对局已开始' };   // 局中座位数不足(理论不应发生)，防御性拒绝新增座位
 
   /* 取最小空缺座位号（有人退出后座位可能不连续，需补空位而非追加）*/
   const used = new Set(seats.map(s => s.seat));
@@ -186,13 +195,14 @@ async function findOrCreateOpenRoom(mode) {
   return room.room_code;
 }
 
-/* ── 找一个"待救援"的随机赛事：满员、局间(waiting)、且至少 1 个座位掉线(机器人托管) ──
-   随机参赛优先塞进这类房间接手托管空座，让快抛弃的赛事被救活。*/
+/* ── 找一个"待救援"的随机赛事：满员、局间(waiting)或局中(playing)、且至少 1 个座位掉线(机器人托管) ──
+   随机参赛优先塞进这类房间接手托管空座，让快抛弃的赛事被救活；
+   2026-08-21 放开 status 也匹配 playing，允许局中随时顶替(不再局限于局间)。*/
 async function findRevivalRoom(mode) {
   const maxSeats = mode === '6p' ? 6 : 4;
   const row = await queryOne(`
     SELECT r.room_code FROM gdo_rooms r
-    WHERE r.game_mode=$1 AND r.status='waiting' AND r.room_type='random'
+    WHERE r.game_mode=$1 AND r.status IN ('waiting','playing') AND r.room_type='random'
       AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id) = $2
       AND (SELECT COUNT(*) FROM gdo_seats s WHERE s.room_id=r.id AND s.is_connected=FALSE) > 0
     ORDER BY r.created_at ASC LIMIT 1

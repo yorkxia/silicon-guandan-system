@@ -1104,6 +1104,38 @@ module.exports.seedDisconnectedFromDb = function(io, state, seatConnMap) {
 module.exports.initGameState     = initGameState;
 module.exports.startTributePhase = startTributePhase;
 
+/* 供 matchmaking 在"局中顶替托管座"时调用：数据库座位归属已改，这里把正在跑的内存对局态
+   同步成新玩家——state.hands 按 playerId 存手牌、state.seats[].playerId/name、
+   进贡阶段(若正好赶上)的 giverId/receiverId/tributeLeadId 都是按 playerId 记的，
+   顶替后若不同步，新玩家 request_hand 会查到空手牌。
+   连接状态(解除托管灰态/回合计时器)不在这里处理——统一交给已有的 game:request_hand
+   重连逻辑(按座位号 cancelTakeover+disconnected.delete)，避免出现"座位已解除托管但
+   还没有人真正连上"的空档；这期间若恰好轮到该座出牌，AI 最多再替打一手，不会卡死。
+   若房间当前没有活跃对局(局间/服务器重启后 state 不存在) → 安全跳过，下一局发牌会
+   照常从数据库读到新 playerId，不需要在这里补。 */
+module.exports.remapSeatOwner = function(roomCode, seatNum, oldPlayerId, newPlayerId, newName) {
+  const state = gameStates.get(roomCode);
+  if (!state) return;
+  const s = state.seats.find(x => x.seat === seatNum);
+  if (!s) return;
+  s.playerId = newPlayerId;
+  if (newName) s.name = newName;
+
+  const oldKey = String(oldPlayerId), newKey = String(newPlayerId);
+  if (state.hands && Object.prototype.hasOwnProperty.call(state.hands, oldKey)) {
+    state.hands[newKey] = state.hands[oldKey];
+    delete state.hands[oldKey];
+  }
+
+  if (state.tributePhase) {
+    (state.tributePhase.exchanges || []).forEach(ex => {
+      if (ex.giverId    === oldPlayerId) ex.giverId    = newPlayerId;
+      if (ex.receiverId === oldPlayerId) ex.receiverId = newPlayerId;
+    });
+    if (state.tributePhase.tributeLeadId === oldPlayerId) state.tributePhase.tributeLeadId = newPlayerId;
+  }
+};
+
 /* 供机器人测试系统"停止/撤组"时即时清场：仅当房间【无真人在线】才强制关闭，绝不踢真人 */
 module.exports.closeRoomByCode = async function(io, roomCode) {
   try {
