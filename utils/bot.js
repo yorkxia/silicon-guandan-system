@@ -46,6 +46,60 @@ function makeCardTools(level) {
   return { wild, isJoker, isWild, isLevel, wasteCost };
 }
 
+/* 顺子(5张连续)/三连对(3组连续对子)/钢板(2组连续三张) 的候选点数窗口。
+   自然点 2~14(A)，A 既可作最大(...JQKA)也可作最小(A234...)——这里穷举全部窗口，
+   真正的判定权威仍是 cardTypes.js 的 detectFn，这里只负责"找出手牌里存在哪些窗口"。 */
+const STRAIGHT_WINDOWS = [];
+for (let r = 2; r <= 10; r++) STRAIGHT_WINDOWS.push([r, r + 1, r + 2, r + 3, r + 4]);
+STRAIGHT_WINDOWS.push([14, 2, 3, 4, 5]);            // A2345（A 作最小）
+const DBL_WINDOWS = [];
+for (let r = 2; r <= 12; r++) DBL_WINDOWS.push([r, r + 1, r + 2]);
+DBL_WINDOWS.push([14, 2, 3]);                       // A23（A 作最小）
+const TRIPLE_WINDOWS = [];
+for (let r = 2; r <= 13; r++) TRIPLE_WINDOWS.push([r, r + 1]);
+TRIPLE_WINDOWS.push([14, 2]);                       // A2（A 作最小）
+
+/* 在手牌里搜索「顺子 / 三连对 / 钢板 / 三带二」候选(可能不止一组，各候选可能共用点数，
+   由调用方自行取舍——这里只负责穷举"牌面上存在"的候选，不做全局最优拆分)。
+   leadOnly=true(领出场景)：只用普通牌拼(不动级牌/逢人配/王)，与 plainGroups 同一原则；
+   leadOnly=false(跟牌场景)：被逼出牌不设限，与现有单/对/三候选一致。
+   每个候选都经 detectFn 二次校验——理论上不该出现拼装错误，一旦出现也只会被丢弃，
+   不会产生非法出牌，安全性由这层校验兜底(与 push() 的校验同源同权威)。 */
+function findShapeCandidates(hand, level, T, detectFn, leadOnly) {
+  const byRank = {};
+  for (const c of hand) {
+    if (T.isJoker(c)) continue;
+    if (leadOnly && (T.isLevel(c) || T.isWild(c))) continue;
+    const rv = rankVal(c);
+    (byRank[rv] = byRank[rv] || []).push(c);
+  }
+  Object.values(byRank).forEach(g => g.sort((a, b) => T.wasteCost(a) - T.wasteCost(b)));  // 同点数优先用便宜的那张
+
+  const out = [];
+  const tryWindow = (win, need) => {
+    if (!win.every(r => (byRank[r] || []).length >= need)) return;
+    const cards = [];
+    win.forEach(r => cards.push(...byRank[r].slice(0, need)));
+    const pt = detectFn(cards, level);
+    if (pt) out.push({ cards, pt, waste: cards.reduce((s, c) => s + T.wasteCost(c), 0) });
+  };
+  STRAIGHT_WINDOWS.forEach(w => tryWindow(w, 1));
+  DBL_WINDOWS.forEach(w => tryWindow(w, 2));
+  TRIPLE_WINDOWS.forEach(w => tryWindow(w, 3));
+
+  /* 三带二：任一三张组 + 另一点数的对子组 */
+  const ranks3 = Object.keys(byRank).filter(r => byRank[r].length >= 3);
+  const ranks2 = Object.keys(byRank).filter(r => byRank[r].length >= 2);
+  ranks3.forEach(r3 => ranks2.forEach(r2 => {
+    if (r3 === r2) return;
+    const cards = [...byRank[r3].slice(0, 3), ...byRank[r2].slice(0, 2)];
+    const pt = detectFn(cards, level);
+    if (pt) out.push({ cards, pt, waste: cards.reduce((s, c) => s + T.wasteCost(c), 0) });
+  }));
+
+  return out;
+}
+
 /* 角色动态判定：每次调用都重新评估，不缓存。参照 PDF 阈值：
    主攻手 carry / 辅助手 support，满足两条门槛项即判定为该角色；
    同花顺子集探测成本高、暂不做，"持有强控场牌"简化为"手里有≥1个四张以上炸弹"。
@@ -140,27 +194,44 @@ function pickBotPlayInner(state, seatObj) {
       .filter(g => !g.some(c => T.isJoker(c) || T.isLevel(c) || T.isWild(c)))
       .sort((a, b) => rankVal(a[0]) - rankVal(b[0]) || a.length - b.length);
     if (plainGroups.length) {
-      /* 主攻手：优先出「张数最多的一组」尽快清空手牌(对子/三张优先于单张)，
-         同长度取点数小的、把大牌留到后面；不做同花顺/顺子探测(见文档说明)。
-         注意排除 4 张及以上的组(那已经是炸弹)——领出时绝不主动把炸弹当普通牌甩出去，
+      /* 顺子/三连对/钢板/三带二 候选(只用普通牌拼，同 plainGroups 原则：不动级牌/逢人配/王)；
+         同花顺(flush_straight)按规则属于炸弹体系，领出时同样排除——绝不主动把炸弹当普通牌甩出去。 */
+      const shapeCands = findShapeCandidates(hand, level, T, detectFn, true).filter(sc => !bombFn(sc.pt));
+
+      /* 主攻手：优先出「张数最多的一手」尽快清空手牌——候选池 = 单/对/三(≤3张，排除炸弹)
+         + 顺子/三连对/钢板/三带二；张数相同时选面值小的先出，把面值大的留到后面控场/清尾
+         ("有大顺子先出小顺子" / "有大的三带二先出小的三带二")。
+         注意 plainGroups 里 ≥4 张的同点组已是炸弹——领出时绝不主动把炸弹当普通牌甩出去，
          炸弹的价值在压制/夺权，不在于"清空手牌快一张"；这种情况下退回默认逻辑。
          辅助手(或角色不明)走下面已有的"喂队友"逻辑，行为不变。 */
       const role = determineRole(state, seatObj, is6);
       if (role === 'carry') {
-        const nonBombGroups = plainGroups.filter(g => g.length <= 3);
-        if (nonBombGroups.length) {
-          const big = nonBombGroups.slice().sort((a, b) => b.length - a.length || rankVal(a[0]) - rankVal(b[0]))[0];
-          return big.slice();
+        const pool = plainGroups
+          .filter(g => g.length <= 3)
+          .map(g => ({ cards: g.slice(), size: g.length, value: rankVal(g[0]) }))
+          .concat(shapeCands.map(sc => ({ cards: sc.cards, size: sc.cards.length, value: sc.pt.value })));
+        if (pool.length) {
+          pool.sort((a, b) => b.size - a.size || a.value - b.value);
+          return pool[0].cards;
         }
       }
-      /* 队友最近一手若是对子 → 优先领出对子(有则用)，喂其想要的牌型 */
+      /* 队友最近一手是什么类型 → 优先领出同类型里"面值最小"的那手，喂队友想要的牌型；
+         对子仍走 plainGroups，顺子/三连对/钢板/三带二 走 shapeCands(同类型里选最小的先喂)。 */
       const teammateSeats = (state.seats || [])
         .filter(s => s.team === seatObj.team && s.seat !== seatObj.seat &&
                      !(state.finishOrder || []).some(f => f.seat === s.seat))
         .map(s => s.seat);
-      const seatLastType   = state.seatLastType || {};
-      const teammateWantsPair = teammateSeats.some(s => seatLastType[s] === 'pair');
-      if (teammateWantsPair) {
+      const seatLastType = state.seatLastType || {};
+      const wantTypes = new Set(teammateSeats.map(s => seatLastType[s]).filter(Boolean));
+
+      const SHAPE_WANT_TYPES = ['straight', 'dbl_straight', 'triple_straight', 'fullhouse'];
+      const wantShape = SHAPE_WANT_TYPES.find(t => wantTypes.has(t));
+      if (wantShape) {
+        const sameType = shapeCands.filter(sc => sc.pt.type === wantShape)
+                                    .sort((a, b) => a.pt.value - b.pt.value);
+        if (sameType.length) return sameType[0].cards;
+      }
+      if (wantTypes.has('pair')) {
         const pairGroup = plainGroups.find(g => g.length >= 2);
         if (pairGroup) return pairGroup.slice(0, 2);
       }
@@ -194,9 +265,7 @@ function pickBotPlayInner(state, seatObj) {
   hand.forEach(c => push([c]));                                       // 单张
   groups.forEach(g => { if (g.length >= 2) push(g.slice(0, 2)); });   // 对子
   groups.forEach(g => { if (g.length >= 3) push(g.slice(0, 3)); });   // 三张
-  groups.forEach(g3 => { if (g3.length >= 3)                          // 三带二
-    groups.forEach(g2 => { if (g2 !== g3 && g2.length >= 2) push([...g3.slice(0, 3), ...g2.slice(0, 2)]); });
-  });
+  findShapeCandidates(hand, level, T, detectFn, false).forEach(sc => push(sc.cards)); // 三带二/顺子/三连对/钢板
   groups.forEach(g => { for (let k = 4; k <= g.length; k++) push(g.slice(0, k)); }); // 炸弹(4+同点)
 
   if (!cands.length) return null;   // 压不过 → 不出
