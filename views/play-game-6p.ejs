@@ -687,14 +687,15 @@
       overflow: hidden;
     }
 
-    /* 六边形主板（玩家围坐）—— 放开到接近满屏，六家拉到最大间距 */
+    /* 六边形主板（玩家围坐）—— 放开到接近满屏，六家拉到最大间距；
+       最小高度降低，把矮屏幕上有限的空间优先让给下面的手牌区/操作栏(否则会把手牌挤没) */
     #hex-board {
       position: relative;
       width: 100%;
       max-width: 1360px;
       margin: 0 auto;
       flex: 1;
-      min-height: 320px;
+      min-height: 240px;
     }
 
     /* 中央牌桌区 */
@@ -726,7 +727,8 @@
     .h-pbox.team2 { border-color: rgba(59,155,255,.6); }
     .h-pbox.active {
       border-color: #FFE066 !important;
-      box-shadow: 0 0 0 2px rgba(212,172,13,.25);
+      border-width: 3px;
+      box-shadow: 0 0 14px 3px rgba(255,224,102,.65), 0 0 0 2px rgba(212,172,13,.4);
       animation: pulse-border 1.4s ease-in-out infinite;
     }
     /* 顶点位置（%值以 hex-board 宽高为基准，用 JS 动态设置）*/
@@ -751,8 +753,8 @@
     /* 横排布局，不能被上面的上下均分规则拉伸 */
     .h-pbox.h-top-slot .h-pbox-name,
     .h-pbox.h-top-slot .h-pbox-info { flex: 0 0 auto; }
-    .h-pbox.h-top-slot .h-pbox-avatar { width: 18px; height: 18px; font-size: .42rem; }
-    .h-pbox.h-top-slot .h-pbox-name   { max-width: 100px; }
+    .h-pbox.h-top-slot .h-pbox-avatar { width: 27px; height: 27px; font-size: .6rem; }   /* 与两侧方框头像同尺寸，避免顶部框看不清 */
+    .h-pbox.h-top-slot .h-pbox-name   { max-width: 130px; }
     .h-pbox.h-top-slot .h-card-fan    { display: none; }
     .h-buddy-tag { font-size: .55rem; background: rgba(212,172,13,.25); color: #FFE066; border-radius: 6px; padding: 1px 5px; }
     .h-card-fan { display: flex; gap: -4px; }
@@ -764,19 +766,20 @@
     .h-finish-badge.p3 { background: #C98F53; color: #241606; }
     .h-finish-badge.p4 { background: #C0000F; color: #fff; }
 
-    /* 六人手牌区 */
-    #my-hand-6p { padding: 6px 0 2px; background: transparent; }   /* 底带透明，露出青绿毡面 */
+    /* 六人手牌区：flex-shrink:0 强制保底，绝不能被中间牌桌区挤压到看不见(核心出牌功能) */
+    #my-hand-6p { padding: 6px 0 2px; background: transparent; flex-shrink: 0; }   /* 底带透明，露出青绿毡面 */
     #my-info-6p {
       display: flex; align-items: center; gap: 8px; padding: 1px 10px;
       font-size: .78rem;
     }
     #my-hand-scroll-6p { overflow-x: auto; padding: 4px 8px 8px; }
 
-    /* 六人动作栏（底部长条栏在其下方，留出空间避免被遮挡）*/
+    /* 六人动作栏（底部长条栏在其下方，留出空间避免被遮挡）：同样强制保底，不允许被压缩 */
     #action-bar-6p {
       display: flex; align-items: center; gap: 8px; padding: 6px 10px;
       background: transparent;   /* 底带透明，露出青绿毡面 */
       margin-bottom: calc(44px + env(safe-area-inset-bottom, 4px));
+      flex-shrink: 0;
     }
 
     /* ═══════════════ 进贡层 ═══════════════ */
@@ -1614,15 +1617,32 @@ function stopTurnCountdown(){
   var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
 }
 /* ▼默认朝下(=我/下方)，按出牌方相对位置旋转(与 body 一起旋转，横竖屏都对)。
-   球固定在大屏中央偏上，不随座位移动。*/
+   球固定在大屏中央偏上，不随座位移动。
+   六人是六边形排布(6个方向)，不是四人的上下左右4方向，直接按 HEX_POS 实际坐标算精确角度，
+   不能沿用四人版只有4个方向档位的旧逻辑(否则左上/左下、右上/右下会被错误地归并成同一个方向)。*/
 function turnArrowDeg(seat){
-  var total = (GAME_MODE === '6p') ? 6 : 4;
+  if (GAME_MODE === '6p') return hexArrowDeg(seat);
+  var total = 4;
   var rel = buildRelMap(mySeat, total)[seat];
   if (rel === 'bottom') return 0;
   if (rel === 'left')   return 90;
   if (rel === 'top')    return 180;
   if (rel === 'right')  return 270;
   return 0;
+}
+/* 按该座位在六边形上的真实位置(HEX_POS，百分比坐标)算出箭头应转的角度：
+   0°=指向正下方，顺时针增大(90°=左，180°=上，270°=右)，与原有四人档位角度约定完全一致，
+   只是六人有6个精确方向而不是4个粗档位。*/
+function hexArrowDeg(seat){
+  var total = 6;
+  var displayIdx = ((seat - mySeat + total) % total) + 1;
+  var pos = (typeof HEX_POS !== 'undefined') ? HEX_POS[displayIdx] : null;
+  if (!pos) return 0;
+  var dx = parseFloat(pos.left) - 50;
+  var dy = parseFloat(pos.top)  - 50;
+  if (!dx && !dy) return 0;
+  var deg = Math.atan2(-dx, dy) * 180 / Math.PI;
+  return (deg + 360) % 360;
 }
 function tickTurn(){
   var c = ensureTimerEl();
