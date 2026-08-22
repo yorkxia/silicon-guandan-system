@@ -55,7 +55,7 @@
     /* ═══════════════ 顶部状态栏 ═══════════════ */
     #top-bar {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 4px 96px 4px 12px; gap: 8px;   /* 右侧留 96px 让开客服+退出两个圆钮 */
+      padding: 4px 120px 4px 12px; gap: 8px;   /* 右侧留 120px 让开客服+退出两个圆钮，避免遮住房间号 */
       background: transparent; flex-shrink: 0; z-index: 10;   /* 顶带透明，露出青绿毡面 */
     }
 
@@ -112,14 +112,14 @@
       background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.15);
       border-radius: 6px; padding: 3px 7px;
     }
-    .side-row { display: flex; align-items: center; gap: 4.5px; font-size: .45rem; font-weight: 800; white-space: nowrap; }
+    .side-row { display: flex; align-items: center; gap: 5.5px; font-size: .62rem; font-weight: 800; white-space: nowrap; }
     .side-lbl { letter-spacing: 1px; }
-    .side-lv  { font-size: .64rem; font-weight: 900; min-width: 10px; text-align: center; }
+    .side-lv  { font-size: .88rem; font-weight: 900; min-width: 12px; text-align: center; }
     .side-lv-sup { font-size: .5em; font-weight: 900; margin-left: 1px; opacity: .9; }   /* A级冲关次数角标：A¹/A²/A³ */
-    .side-win { font-size: .44rem; font-weight: 600; opacity: .82; letter-spacing: .5px; }
-    .side-win b { font-size: .56rem; }
-    .side-row.red  { color: #FF9090; }  .side-row.red  .side-lv { color: #FF6a6a; }
-    .side-row.blue { color: #8fb6f5; }  .side-row.blue .side-lv { color: #6b9aff; }
+    .side-win { font-size: .58rem; font-weight: 900; opacity: 1; letter-spacing: .5px; }
+    .side-win b { font-size: .72rem; }
+    .side-row.red  { color: #FF3030; }  .side-row.red  .side-lv { color: #FF3030; }
+    .side-row.blue { color: #2D7FFF; }  .side-row.blue .side-lv { color: #2D7FFF; }
     .tb-spacer { flex: 1; }
     .room-box  { font-size: .5rem; color: rgba(255,255,255,.5); letter-spacing: 1px; white-space: nowrap; }
     .room-code-sm { font-size: .66rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; }
@@ -539,10 +539,10 @@
     #action-hint { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
-    /* 不出/出牌 较原尺寸缩小30%，半透明玻璃感：文字仍清晰，被压住的对手出牌能隐约透出 */
+    /* 不出/出牌：整体尺寸仍比最初缩小约30%，但文字进一步放大更醒目 */
     .action-btn {
-      padding: 8px 18px; border-radius: 15px; border: 1px solid rgba(255,255,255,.55);
-      font-size: .67rem; font-weight: 900; letter-spacing: 1.4px; cursor: pointer;
+      padding: 9px 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,.55);
+      font-size: .85rem; font-weight: 900; letter-spacing: 1.8px; cursor: pointer;
       transition: all .15s; white-space: nowrap;
       backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     }
@@ -710,14 +710,14 @@
       z-index: 5;
     }
 
-    /* 六个座位格：绝对定位在六边形顶点。干净方框：昵称+(≤10)报数/名次上下均分；放大10%(72→79) */
+    /* 六个座位格：绝对定位在六边形顶点。干净方框：昵称+(≤10)报数/名次上下均分；缩小到原尺寸70%(79→55) */
     .h-pbox {
       position: absolute;
-      width: 79px;
-      min-height: 48px;
+      width: 55px;
+      min-height: 34px;
       display: flex; flex-direction: column; align-items: center; gap: 2px;
       z-index: 10;
-      padding: 4px 5px; border-radius: 10px;
+      padding: 3px 4px; border-radius: 7px;
       border: 2px solid rgba(255,255,255,.06); background: rgba(0,0,0,.3);
       overflow: hidden;
       transition: border-color .3s, box-shadow .3s;
@@ -731,17 +731,17 @@
     }
     /* 顶点位置（%值以 hex-board 宽高为基准，用 JS 动态设置）*/
     .h-pbox-avatar {
-      width: 38px; height: 38px; border-radius: 50%;
+      width: 27px; height: 27px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .85rem; font-weight: 900; color: #fff;
+      font-size: .6rem; font-weight: 900; color: #fff;
       transition: all .3s;
     }
     .h-pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
     .h-pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
-    .h-pbox-name { font-size: .58rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 70px; line-height: 1.12; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1 1 0; }
-    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 143px; }
-    .h-pbox-info { font-size: .54rem; color: rgba(255,255,255,.4); text-align: center; flex: 1 1 0; display: flex; align-items: center; justify-content: center; }
+    .h-pbox-name { font-size: .41rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 49px; line-height: 1.12; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1 1 0; }
+    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 100px; }
+    .h-pbox-info { font-size: .38rem; color: rgba(255,255,255,.4); text-align: center; flex: 1 1 0; display: flex; align-items: center; justify-content: center; }
     /* 顶部中央（对家）提到顶栏那一行：与左积分榜、右房号同一水平线，避免被顶栏框线切断 */
     .h-pbox.h-top-slot {
       position: fixed; top: 9px; left: 50%; transform: translateX(-50%);
@@ -751,8 +751,8 @@
     /* 横排布局，不能被上面的上下均分规则拉伸 */
     .h-pbox.h-top-slot .h-pbox-name,
     .h-pbox.h-top-slot .h-pbox-info { flex: 0 0 auto; }
-    .h-pbox.h-top-slot .h-pbox-avatar { width: 26px; height: 26px; font-size: .6rem; }
-    .h-pbox.h-top-slot .h-pbox-name   { max-width: 143px; }
+    .h-pbox.h-top-slot .h-pbox-avatar { width: 18px; height: 18px; font-size: .42rem; }
+    .h-pbox.h-top-slot .h-pbox-name   { max-width: 100px; }
     .h-pbox.h-top-slot .h-card-fan    { display: none; }
     .h-buddy-tag { font-size: .55rem; background: rgba(212,172,13,.25); color: #FFE066; border-radius: 6px; padding: 1px 5px; }
     .h-card-fan { display: flex; gap: -4px; }
@@ -1370,9 +1370,9 @@ function enterWaitingTable(d){
       if (i === 3) {                         // 顶部中央=对家：提到顶栏行，横排紧凑
         el.classList.add('h-top-slot');
         el.style.left = ''; el.style.top = ''; el.style.transform = '';
-      } else if (i === 4 || i === 5) {        // 左上/左下：固定 34px 躲开听筒/麦克风，与 init6pBoard 一致
+      } else if (i === 4 || i === 5) {        // 左上/左下：固定 20px(保留最小安全边距)躲开听筒/麦克风，与 init6pBoard 一致
         el.classList.remove('h-top-slot');
-        el.style.left = 'calc(34px + env(safe-area-inset-left, 0px))'; el.style.top = pos.top;
+        el.style.left = 'calc(20px + env(safe-area-inset-left, 0px))'; el.style.top = pos.top;
         el.style.transform = 'translate(0, -50%)';
       } else {
         el.classList.remove('h-top-slot');
@@ -2866,9 +2866,9 @@ function init6pBoard(d) {
       el.style.left       = pos.left;
       el.style.top        = pos.top;
       el.style.transform  = 'translate(-50%,-100%)';
-    } else if (displayIdx === 5 || displayIdx === 6) {   // 左上/左下：与4人赛事一致，固定 34px 躲开听筒/麦克风，不随框放大而变窄
+    } else if (displayIdx === 5 || displayIdx === 6) {   // 左上/左下：与4人赛事一致，固定 20px(保留最小安全边距)躲开听筒/麦克风
       el.classList.remove('h-top-slot');
-      el.style.left       = 'calc(34px + env(safe-area-inset-left, 0px))';
+      el.style.left       = 'calc(20px + env(safe-area-inset-left, 0px))';
       el.style.top        = pos.top;
       el.style.transform  = 'translate(0, -50%)';
     } else {

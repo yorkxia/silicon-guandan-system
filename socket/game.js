@@ -17,6 +17,7 @@ const FIRST_TURN_SECONDS = 40;   // 开局第一手：留 40 秒看牌（第一�
 const DC_TURN_SECONDS    = 3;    // 掉线托管：AI 约 3 秒即接替出牌（比真人更快，不拖节奏）
 const TRIBUTE_SECONDS    = 10;   // 供牌/还牌：玩家 10 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
+const LAST_PLAY_DISPLAY_MS = 5000;     // 末游出完牌后，最后一手牌型停留展示的时长，再切到结算页
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode, bankerTeam) {
@@ -757,8 +758,15 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
         seat: s.seat, playerId: s.playerId, name: s.name, team: s.team
       });
     }
-    if (state.gameMode === '6p') await finishRound6p(io, state);
-    else                         await finishRound(io, state);
+    /* 先把最后一手牌广播出去，让所有玩家看清楚最后出的是什么牌型，停留一段时间后再切到结算页；
+       顺带清掉回合倒计时，避免展示期间还有一个走完的倒计时环在转 */
+    clearTurnTimer(state);
+    state.turnDeadline = 0;
+    broadcastState(io, state);
+    setTimeout(() => {
+      const finish = state.gameMode === '6p' ? finishRound6p(io, state) : finishRound(io, state);
+      finish.catch(e => console.error('[finishRound_delayed]', e.message));
+    }, LAST_PLAY_DISPLAY_MS);
     return { ok: true };
   }
 
