@@ -393,14 +393,17 @@
       box-shadow: 0 0 0 3px var(--combo, #FFD54A), -3px 5px 18px rgba(0,0,0,.55);
       outline: 3px solid #FF2626;
     }
-    /* 底部长条栏：锁牌/重置 药丸按钮 + 发消息（参考商业大屏底栏；撤销键已移除，按钮放大25%并贴底）*/
+    /* 底部长条栏：左侧"我"的信息 + 右侧锁牌/重置/同花顺/顺子/发消息，同一水平线贴底
+       （六人模式下 #my-info-6p 被搬进这里，与5个功能键对齐，把上面让给六边形牌桌区）*/
     #combo-bar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-      display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
       height: calc(38px + env(safe-area-inset-bottom, 0));
-      padding: 0 9px env(safe-area-inset-bottom, 0);
+      padding: 0 9px env(safe-area-inset-bottom, 0) 10px;
       background: transparent;   /* 底带透明，露出青绿毡面 */
     }
+    #combo-bar #my-info-6p { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+    #combo-bar .cb-pills { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     #combo-bar .cb-pill {        /* 较原尺寸放大25% */
       height: 29px; padding: 0 19px; border-radius: 14px; border: none; cursor: pointer;
       color: #fff; font-weight: 800; font-size: .79rem; letter-spacing: 2px;
@@ -677,6 +680,7 @@
     body.mode-6p #my-hand-area, body.mode-6p #action-bar { display: none !important; }
 
     body.mode-6p #game-6p-board { display: flex !important; }
+    body.mode-6p #action-bar-6p { display: flex !important; }   /* 默认隐藏，避免4人模式误显示；见下方 #action-bar-6p 基础样式 */
 
     #game-6p-board {
       display: none;
@@ -731,6 +735,9 @@
       box-shadow: 0 0 14px 3px rgba(255,224,102,.65), 0 0 0 2px rgba(212,172,13,.4);
       animation: pulse-border 1.4s ease-in-out infinite;
     }
+    /* "我"这个座位在 hex 环内只作为出牌卡片的定位锚点(仍需真实尺寸供 getBoundingClientRect 取值)，
+       不再画出方框——我的信息已合并到底部 #combo-bar，避免和出牌牌型抢位置/互相遮挡 */
+    .h-pbox.h-me-anchor { opacity: 0; pointer-events: none; }
     /* 顶点位置（%值以 hex-board 宽高为基准，用 JS 动态设置）*/
     .h-pbox-avatar {
       width: 27px; height: 27px; border-radius: 50%;
@@ -766,21 +773,27 @@
     .h-finish-badge.p3 { background: #C98F53; color: #241606; }
     .h-finish-badge.p4 { background: #C0000F; color: #fff; }
 
-    /* 六人手牌区：flex-shrink:0 强制保底，绝不能被中间牌桌区挤压到看不见(核心出牌功能) */
-    #my-hand-6p { padding: 6px 0 2px; background: transparent; flex-shrink: 0; }   /* 底带透明，露出青绿毡面 */
+    /* 六人手牌区：flex-shrink:0 强制保底，绝不能被中间牌桌区挤压到看不见(核心出牌功能)
+       "我"的信息行已搬到 #combo-bar 与功能键同排贴底，这里只剩手牌横滑区 */
+    #my-hand-6p { padding: 2px 0; background: transparent; flex-shrink: 0; }   /* 底带透明，露出青绿毡面 */
     #my-info-6p {
-      display: flex; align-items: center; gap: 8px; padding: 1px 10px;
-      font-size: .78rem;
+      display: flex; align-items: center; gap: 8px; padding: 1px 4px;
+      font-size: .78rem; white-space: nowrap;
     }
     #my-hand-scroll-6p { overflow-x: auto; padding: 4px 8px 8px; }
 
-    /* 六人动作栏（底部长条栏在其下方，留出空间避免被遮挡）：同样强制保底，不允许被压缩 */
+    /* 六人不出/出牌：fixed 悬浮在左上/右上角，脱离 flex 流——不再和 hex-board/手牌区抢竖屏旋转后有限的
+       本地高度预算，也不会像之前那样被挤到只剩一条缝、甚至被裁掉（对齐四人大屏 #action-bar 的做法）*/
     #action-bar-6p {
-      display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-      background: transparent;   /* 底带透明，露出青绿毡面 */
-      margin-bottom: calc(44px + env(safe-area-inset-bottom, 4px));
-      flex-shrink: 0;
+      display: none;   /* 仅 6 人模式显示，见 body.mode-6p #action-bar-6p */
+      position: fixed; left: 0; right: 0; z-index: 55;
+      top: calc(env(safe-area-inset-top, 0px) + 48px);
+      align-items: center; justify-content: space-between;
+      padding: 0 16px; gap: 8px;
+      background: transparent; pointer-events: none;
     }
+    #action-bar-6p .action-btn { pointer-events: auto; }
+    #action-hint-6p { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
 
     /* ═══════════════ 进贡层 ═══════════════ */
     #tribute-overlay {
@@ -1156,36 +1169,38 @@
     </div>
   </div>
 
-  <!-- 六人我的手牌区 -->
+  <!-- 六人我的手牌区：只剩手牌横滑区，"我"的信息已合并到底部 #combo-bar 与功能键同排 -->
   <div id="my-hand-6p">
-    <div id="my-info-6p">
-      <div class="my-team-dot t1" id="my-team-dot-6p"></div>
-      <div id="my-name-6p">我</div>
-      <div id="my-turn-badge-6p" style="display:none;color:#FFE066;font-weight:900;">▶ 该您出牌</div>
-      <span id="sel-info-6p" style="color:rgba(255,255,255,.5);font-size:.72rem;"></span>
-      <button id="btn-cancel-6p" onclick="clearSel()" style="padding:2px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font-size:.7rem;cursor:pointer;">取消</button>
-      <div id="my-card-count-6p" style="margin-left:auto;font-size:.72rem;color:rgba(255,255,255,.4);">27张</div>
-    </div>
     <div id="my-hand-scroll-6p">
       <div id="hand-scroll-6p" style="display:flex;gap:2px;padding:4px 8px 4px 54px;"></div>
     </div>
   </div>
-
-  <!-- 六人操作栏 -->
-  <div id="action-bar-6p">
-    <div id="action-hint-6p" style="flex:1;font-size:.78rem;color:rgba(255,255,255,.5);">等待连接...</div>
-    <button class="action-btn pass" id="btn-pass-6p" onclick="doPass()" disabled>不出</button>
-    <button class="action-btn play" id="btn-play-6p" onclick="doPlay()" disabled>出牌</button>
-  </div>
 </div>
 
-<!-- ── 底部长条栏：锁牌/重置 药丸 + 发消息（参考商业大屏底栏）── -->
+<!-- 六人操作栏：不出/出牌，fixed 悬浮左上/右上角（对齐四人大屏 #action-bar 的位置） -->
+<div id="action-bar-6p">
+  <div id="action-hint-6p">等待连接...</div>
+  <button class="action-btn pass" id="btn-pass-6p" onclick="doPass()" disabled>不出</button>
+  <button class="action-btn play" id="btn-play-6p" onclick="doPlay()" disabled>出牌</button>
+</div>
+
+<!-- ── 底部长条栏：左侧"我"的信息 + 右侧锁牌/重置/同花顺/顺子/发消息，同一水平线贴底 ── -->
 <div id="combo-bar">
-  <button type="button" class="cb-pill cb-lock"  onclick="comboTapBall(this, lockCombo)">锁牌</button>
-  <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
-  <button type="button" class="cb-pill cb-flush" onclick="comboTapBall(this, findFlushStraight)">同花顺</button>
-  <button type="button" class="cb-pill cb-straight" onclick="comboTapBall(this, findStraight)">顺子</button>
-  <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
+  <div id="my-info-6p">
+    <div class="my-team-dot t1" id="my-team-dot-6p"></div>
+    <div id="my-name-6p">我</div>
+    <div id="my-turn-badge-6p" style="display:none;color:#FFE066;font-weight:900;">▶ 该您出牌</div>
+    <span id="sel-info-6p" style="color:rgba(255,255,255,.5);font-size:.72rem;"></span>
+    <button id="btn-cancel-6p" onclick="clearSel()" style="padding:2px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);font-size:.7rem;cursor:pointer;">取消</button>
+    <div id="my-card-count-6p" style="font-size:.72rem;color:rgba(255,255,255,.4);">27张</div>
+  </div>
+  <div class="cb-pills">
+    <button type="button" class="cb-pill cb-lock"  onclick="comboTapBall(this, lockCombo)">锁牌</button>
+    <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
+    <button type="button" class="cb-pill cb-flush" onclick="comboTapBall(this, findFlushStraight)">同花顺</button>
+    <button type="button" class="cb-pill cb-straight" onclick="comboTapBall(this, findStraight)">顺子</button>
+    <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
+  </div>
 </div>
 <div id="chat-backdrop" onclick="closeChatPanel()"></div>
 <div id="chat-panel">
@@ -1372,13 +1387,21 @@ function enterWaitingTable(d){
       if (!pos) continue;
       if (i === 3) {                         // 顶部中央=对家：提到顶栏行，横排紧凑
         el.classList.add('h-top-slot');
+        el.classList.remove('h-me-anchor');
         el.style.left = ''; el.style.top = ''; el.style.transform = '';
+      } else if (i === 0) {                   // 底部中央=我：只作定位锚点(不画方框)，与 init6pBoard 一致
+        el.classList.remove('h-top-slot');
+        el.classList.add('h-me-anchor');
+        el.style.left = pos.left; el.style.top = pos.top;
+        el.style.transform = 'translate(-50%,-100%)';
       } else if (i === 4 || i === 5) {        // 左上/左下：固定 20px(保留最小安全边距)躲开听筒/麦克风，与 init6pBoard 一致
         el.classList.remove('h-top-slot');
+        el.classList.remove('h-me-anchor');
         el.style.left = 'calc(20px + env(safe-area-inset-left, 0px))'; el.style.top = pos.top;
         el.style.transform = 'translate(0, -50%)';
       } else {
         el.classList.remove('h-top-slot');
+        el.classList.remove('h-me-anchor');
         el.style.left = pos.left; el.style.top = pos.top;
         el.style.transform = 'translate(-50%,-50%)';
       }
@@ -2880,19 +2903,23 @@ function init6pBoard(d) {
     if (!pos) continue;
     if (displayIdx === 4) {                  // 顶部中央=对家：提到顶栏行，横排紧凑
       el.classList.add('h-top-slot');
+      el.classList.remove('h-me-anchor');
       el.style.left = ''; el.style.top = ''; el.style.transform = '';
-    } else if (displayIdx === 1) {           // 底部中央=我：以底边为锚点向上排布，尽量贴近底部不被裁切
+    } else if (displayIdx === 1) {           // 底部中央=我：只作出牌动画的定位锚点(不再画方框，我的信息已合并到底部 #combo-bar)
       el.classList.remove('h-top-slot');
+      el.classList.add('h-me-anchor');
       el.style.left       = pos.left;
       el.style.top        = pos.top;
       el.style.transform  = 'translate(-50%,-100%)';
     } else if (displayIdx === 5 || displayIdx === 6) {   // 左上/左下：与4人赛事一致，固定 20px(保留最小安全边距)躲开听筒/麦克风
       el.classList.remove('h-top-slot');
+      el.classList.remove('h-me-anchor');
       el.style.left       = 'calc(20px + env(safe-area-inset-left, 0px))';
       el.style.top        = pos.top;
       el.style.transform  = 'translate(0, -50%)';
     } else {
       el.classList.remove('h-top-slot');
+      el.classList.remove('h-me-anchor');
       el.style.left       = pos.left;
       el.style.top        = pos.top;
       el.style.transform  = 'translate(-50%,-50%)';
