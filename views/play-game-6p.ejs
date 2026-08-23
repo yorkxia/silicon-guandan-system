@@ -699,15 +699,18 @@
       max-width: 1360px;
       margin: 0 auto;
       flex: 1;
-      min-height: 240px;
+      /* 竖屏旋转后本地高度预算=手机物理宽度，最窄机型也就 360px 左右，刨去顶栏(~64)和手牌区
+         保底所需(~160，含给#combo-bar让出的空间)后所剩无几——缩到刚够中央桌面+座位格，
+         确保连最窄机型也不会挤到溢出(否则手牌区会被下面 #combo-bar 盖住一截，见下方) */
+      min-height: 130px;
     }
 
-    /* 中央牌桌区 */
+    /* 中央牌桌区：适度缩小，给手牌区腾出被 #combo-bar 占用的空间(见 #hex-board min-height 的注释) */
     #hex-center {
       position: absolute;
       left: 50%; top: 50%;
       transform: translate(-50%,-50%);
-      width: 276px; height: 212px;
+      width: 200px; height: 100px;
       background: #0a7d73;   /* 中央牌桌与毡面同色（去深绿） */
       border-radius: 50%;
       border: 2px solid rgba(212,172,13,.2);
@@ -774,25 +777,31 @@
     .h-finish-badge.p4 { background: #C0000F; color: #fff; }
 
     /* 六人手牌区：flex-shrink:0 强制保底，绝不能被中间牌桌区挤压到看不见(核心出牌功能)
-       "我"的信息行已搬到 #combo-bar 与功能键同排贴底，这里只剩手牌横滑区 */
-    #my-hand-6p { padding: 2px 0; background: transparent; flex-shrink: 0; }   /* 底带透明，露出青绿毡面 */
+       "我"的信息行已搬到 #combo-bar 与功能键同排贴底，这里只剩手牌横滑区。
+       #combo-bar 是 position:fixed、贴在本地最底部、z-index 更高的独立元素，跟手牌牌尾
+       占的是同一块屏幕区域——只要 #hex-board 没有因为空间不够被压到 min-height 溢出，
+       这里的 padding-bottom 就直接等于牌区末尾到 #combo-bar 之间的净空隙(与机型宽度无关)，
+       50px > #combo-bar 实际高度(38px+安全区)，留够余量不被盖住 */
+    #my-hand-6p {
+      padding: 2px 0 50px;
+      background: transparent; flex-shrink: 0;   /* 底带透明，露出青绿毡面 */
+    }
     #my-info-6p {
       display: flex; align-items: center; gap: 8px; padding: 1px 4px;
       font-size: .78rem; white-space: nowrap;
     }
     #my-hand-scroll-6p { overflow-x: auto; padding: 4px 8px 8px; }
 
-    /* 六人不出/出牌：fixed 悬浮在左上/右上角，脱离 flex 流——不再和 hex-board/手牌区抢竖屏旋转后有限的
-       本地高度预算，也不会像之前那样被挤到只剩一条缝、甚至被裁掉（对齐四人大屏 #action-bar 的做法）*/
-    #action-bar-6p {
-      display: none;   /* 仅 6 人模式显示，见 body.mode-6p #action-bar-6p */
-      position: fixed; left: 0; right: 0; z-index: 55;
-      top: calc(env(safe-area-inset-top, 0px) + 48px);
-      align-items: center; justify-content: space-between;
-      padding: 0 16px; gap: 8px;
-      background: transparent; pointer-events: none;
+    /* 六人不出/出牌：脱离 flex 流，不再和 hex-board/手牌区抢竖屏旋转后有限的本地高度预算。
+       竖屏时整屏旋转90°，本地坐标的"左右"其实对应物理屏幕的"上下"——用静态 CSS 的 left/right
+       硬编容易把方向搞反(之前两个键因此被甩到物理屏幕正上方和正下方两端)。改成两个键各自
+       position:fixed，具体 left/top 由 positionActionBar6p()(用 gdToLocal 把"期望的物理屏幕位置"
+       换算成本地坐标)在 JS 里写入，横竖屏都不用再手算旋转方向。*/
+    #action-bar-6p { display: none; pointer-events: none; }   /* 仅 6 人模式显示，见 body.mode-6p #action-bar-6p */
+    #action-bar-6p .action-btn {
+      position: fixed; z-index: 55; transform: translate(-50%, -50%);
+      pointer-events: auto;
     }
-    #action-bar-6p .action-btn { pointer-events: auto; }
     #action-hint-6p { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
 
     /* ═══════════════ 进贡层 ═══════════════ */
@@ -1407,6 +1416,7 @@ function enterWaitingTable(d){
       }
       el.dataset.displayIdx = i + 1;
     }
+    positionActionBar6p();
   } else {
     document.body.classList.remove('mode-6p');
     document.getElementById('hand-scroll').innerHTML = '';
@@ -1764,6 +1774,39 @@ function gdToLocal(vx, vy){
   if (!gdPortrait()) return { x: vx, y: vy };
   return { x: vy, y: window.innerWidth - vx };
 }
+/* 六人"不出/出牌"：不再用视口百分比硬猜物理位置(手牌区/座位格实际宽度因机型、
+   因手牌张数而变，百分比经常猜错导致按钮压到手牌或座位格上)——改成直接读取手牌区、
+   顶栏、左侧两个座位格(h-seat-5/6，物理上正好在屏幕顶部)当前的真实 getBoundingClientRect()，
+   把"不出"卡在手牌区右边、"出牌"卡在顶栏左边，纵向卡在两个座位格下方，横竖屏都保证不重叠 */
+function positionActionBar6p(){
+  var passBtn = document.getElementById('btn-pass-6p');
+  var playBtn = document.getElementById('btn-play-6p');
+  var handEl  = document.getElementById('my-hand-scroll-6p');
+  var topBarEl= document.getElementById('top-bar');
+  if (!passBtn || !playBtn || !handEl || !topBarEl) return;
+  /* 按钮用 translate(-50%,-50%) 居中在目标点上，算安全区时要把自身半宽/半高也让出来，
+     否则"贴着边界"算出来的其实是按钮中心贴边界，按钮本身还是会压过去半个身位 */
+  var btnW = passBtn.getBoundingClientRect().width  || 40;
+  var btnH = passBtn.getBoundingClientRect().height || 73;
+  var handR = handEl.getBoundingClientRect();
+  var topR  = topBarEl.getBoundingClientRect();
+  var safeY = 40 + btnH / 2;
+  ['h-seat-5', 'h-seat-6'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    if (r.width && r.height) safeY = Math.max(safeY, r.bottom + 16 + btnH / 2);
+  });
+  var leftX  = handR.right + 26 + btnW / 2;
+  var rightX = topR.left - 26 - btnW / 2;
+  if (rightX - leftX < 60) { var mid = (leftX + rightX) / 2; leftX = mid - 30; rightX = mid + 30; }
+  var passPt = gdToLocal(leftX, safeY);
+  var playPt = gdToLocal(rightX, safeY);
+  passBtn.style.left = passPt.x + 'px'; passBtn.style.top = passPt.y + 'px';
+  playBtn.style.left = playPt.x + 'px'; playBtn.style.top = playPt.y + 'px';
+}
+window.addEventListener('resize', positionActionBar6p);
+window.addEventListener('orientationchange', function(){ setTimeout(positionActionBar6p, 60); setTimeout(positionActionBar6p, 300); });
 function renderSeatPlays(sp){
   sp = sp || {};
   var total = (GAME_MODE === '6p') ? 6 : 4;
@@ -2931,6 +2974,7 @@ function init6pBoard(d) {
   render6pHand(myHand);
   document.getElementById('action-hint-6p').textContent = '已连接，等待游戏开始...';
   syncButtons6p();
+  positionActionBar6p();
 }
 
 function render6pPlayers(pList, finOrder, turnSeat) {
