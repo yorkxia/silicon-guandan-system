@@ -1774,34 +1774,59 @@ function gdToLocal(vx, vy){
   if (!gdPortrait()) return { x: vx, y: vy };
   return { x: vy, y: window.innerWidth - vx };
 }
-/* 六人"不出/出牌"：不再用视口百分比硬猜物理位置(手牌区/座位格实际宽度因机型、
-   因手牌张数而变，百分比经常猜错导致按钮压到手牌或座位格上)——改成直接读取手牌区、
-   顶栏、左侧两个座位格(h-seat-5/6，物理上正好在屏幕顶部)当前的真实 getBoundingClientRect()，
-   把"不出"卡在手牌区右边、"出牌"卡在顶栏左边，纵向卡在两个座位格下方，横竖屏都保证不重叠 */
+/* 六人"不出/出牌"：不再用手牌区/顶栏的边界去猜左右位置——那套换算只在竖屏旋转90度时成立
+   (旋转后手牌区在物理左边、顶栏在物理右边)，一到真横屏(不旋转，手牌在物理最下、顶栏在物理最上，
+   左右方向根本用不上手牌/顶栏的边界)就会失效，两个键因此被挤在正中间。
+   改成直接找左侧座位对(displayIdx 5/6)和右侧座位对(displayIdx 2/3)的真实 getBoundingClientRect()：
+   不出贴左侧两个座位框正下方、出牌贴右侧两个座位框正下方，且都比座位框往中心线收一点，
+   横屏/竖屏(经 gdToLocal 换算)都保证不跟座位框上下重叠 */
 function positionActionBar6p(){
   var passBtn = document.getElementById('btn-pass-6p');
   var playBtn = document.getElementById('btn-play-6p');
-  var handEl  = document.getElementById('my-hand-scroll-6p');
-  var topBarEl= document.getElementById('top-bar');
-  if (!passBtn || !playBtn || !handEl || !topBarEl) return;
-  /* 按钮用 translate(-50%,-50%) 居中在目标点上，算安全区时要把自身半宽/半高也让出来，
-     否则"贴着边界"算出来的其实是按钮中心贴边界，按钮本身还是会压过去半个身位 */
+  if (!passBtn || !playBtn) return;
   var btnW = passBtn.getBoundingClientRect().width  || 40;
   var btnH = passBtn.getBoundingClientRect().height || 73;
-  var handR = handEl.getBoundingClientRect();
-  var topR  = topBarEl.getBoundingClientRect();
-  var safeY = 40 + btnH / 2;
-  ['h-seat-5', 'h-seat-6'].forEach(function(id){
-    var el = document.getElementById(id);
-    if (!el) return;
-    var r = el.getBoundingClientRect();
-    if (r.width && r.height) safeY = Math.max(safeY, r.bottom + 16 + btnH / 2);
-  });
-  var leftX  = handR.right + 26 + btnW / 2;
-  var rightX = topR.left - 26 - btnW / 2;
-  if (rightX - leftX < 60) { var mid = (leftX + rightX) / 2; leftX = mid - 30; rightX = mid + 30; }
-  var passPt = gdToLocal(leftX, safeY);
-  var playPt = gdToLocal(rightX, safeY);
+  function pairBox(idxList){
+    var rects = [];
+    idxList.forEach(function(idx){
+      var el = document.querySelector('[data-display-idx="' + idx + '"]');
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      if (r.width && r.height) rects.push(r);
+    });
+    if (!rects.length) return null;
+    return {
+      left:   Math.min.apply(null, rects.map(function(r){ return r.left;   })),
+      right:  Math.max.apply(null, rects.map(function(r){ return r.right;  })),
+      top:    Math.min.apply(null, rects.map(function(r){ return r.top;    })),
+      bottom: Math.max.apply(null, rects.map(function(r){ return r.bottom; }))
+    };
+  }
+  var vw = window.innerWidth, vh = window.innerHeight;
+  /* 竖屏旋转后，左侧座位对和右侧座位对并不是镜像对称地分居屏幕上/下——旋转会把其中一对
+     甩到物理屏幕顶边、另一对甩到物理屏幕底边(局部坐标系里对称，物理坐标系里不对称)。
+     所以"贴在座位对下方"不能死认下方：下方放不下(会出屏)就改放上方 */
+  function safeY(box){
+    var below = box.bottom + 16 + btnH / 2;
+    if (below + btnH / 2 <= vh - 8) return below;
+    var above = box.top - 16 - btnH / 2;
+    if (above - btnH / 2 >= 8) return above;
+    return Math.min(Math.max(below, btnH / 2 + 8), vh - btnH / 2 - 8);
+  }
+  var leftBox  = pairBox([5, 6]);   // 左侧两个座位框(左上+左下)
+  var rightBox = pairBox([2, 3]);   // 右侧两个座位框(右下+右上)
+  var leftX, rightX, passY, playY;
+  if (leftBox && rightBox) {
+    var centerShift = Math.min(46, (rightBox.left - leftBox.right) * 0.18);   // 往中心线适度收拢，不贴着座位框外沿
+    leftX  = (leftBox.left  + leftBox.right)  / 2 + centerShift;
+    rightX = (rightBox.left + rightBox.right) / 2 - centerShift;
+    passY  = safeY(leftBox);
+    playY  = safeY(rightBox);
+  } else {   // 座位格还没渲染时(极早期)的兜底
+    leftX = vw * 0.30; rightX = vw * 0.70; passY = playY = 40 + btnH / 2;
+  }
+  var passPt = gdToLocal(leftX, passY);
+  var playPt = gdToLocal(rightX, playY);
   passBtn.style.left = passPt.x + 'px'; passBtn.style.top = passPt.y + 'px';
   playBtn.style.left = playPt.x + 'px'; playBtn.style.top = playPt.y + 'px';
 }
@@ -2916,11 +2941,11 @@ function cardEmoji(code) {
 var HEX_POS = [
   null,                        // placeholder index 0
   { left:'50%', top:'99%' },   // seat 1 = bottom-center (me)：底边贴近牌桌底部（配合 translate -100% 下移）
-  { left:'94%', top:'64%' },   // seat 2 = bottom-right
-  { left:'94%', top:'17%' },   // seat 3 = top-right
+  { left:'94%', top:'80%' },   // seat 2 = bottom-right
+  { left:'94%', top:'10%' },   // seat 3 = top-right
   { left:'50%', top:'3%'  },   // seat 4 = top-center
-  { left:'6%',  top:'17%' },   // seat 5 = top-left
-  { left:'6%',  top:'64%' },   // seat 6 = bottom-left
+  { left:'6%',  top:'10%' },   // seat 5 = top-left
+  { left:'6%',  top:'80%' },   // seat 6 = bottom-left
 ];
 
 function init6pBoard(d) {
