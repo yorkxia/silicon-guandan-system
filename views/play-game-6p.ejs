@@ -718,11 +718,12 @@
       z-index: 5;
     }
 
-    /* 六个座位格：绝对定位在六边形顶点。干净方框：昵称+(≤10)报数/名次上下均分；缩小到原尺寸70%(79→55) */
+    /* 六个座位格：绝对定位在六边形顶点。干净方框：昵称+(托管/剩余张数/头游，三选一动态)上下各占一半；
+       昵称字号翻倍后适当加宽方框(55→72)避免英文名/长昵称被过度截断 */
     .h-pbox {
       position: absolute;
-      width: 55px;
-      min-height: 34px;
+      width: 72px;
+      min-height: 44px;
       display: flex; flex-direction: column; align-items: center; gap: 2px;
       z-index: 10;
       padding: 3px 4px; border-radius: 7px;
@@ -751,9 +752,15 @@
     .h-pbox-avatar.team1 { background: linear-gradient(135deg,#FF3B4E,#E00016); }
     .h-pbox-avatar.team2 { background: linear-gradient(135deg,#3B9BFF,#0A5BE0); }
     .h-pbox-avatar.active { box-shadow: 0 0 0 3px #FFE066; animation: pulse-border 1.4s ease-in-out infinite; }
-    .h-pbox-name { font-size: .41rem; color: rgba(255,255,255,.9); font-weight: 700; text-align: center; max-width: 49px; line-height: 1.12; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1 1 0; }
-    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 100px; }
+    .h-pbox-name { font-size: .82rem; color: #fff; font-weight: 900; text-align: center; max-width: 64px; line-height: 1.1; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 1 1 0; }
+    .h-pbox.h-top-slot .h-pbox-name { -webkit-line-clamp: 1; max-width: 130px; }
+    /* 下半区：动态徽章(托管/剩余张数/头游三选一)，没有徽章时留空，保持昵称与徽章各占一半高度 */
     .h-pbox-info { font-size: .38rem; color: rgba(255,255,255,.4); text-align: center; flex: 1 1 0; display: flex; align-items: center; justify-content: center; }
+    .h-badge-afk {
+      font-size: .68rem; font-weight: 900; padding: 1px 8px; border-radius: 8px;
+      background: rgba(255,150,20,.92); color: #1a1a2e; border: 1px solid #fff;
+      box-shadow: 0 0 6px rgba(255,150,20,.5); white-space: nowrap;
+    }
     /* 顶部中央（对家）提到顶栏那一行：与左积分榜、右房号同一水平线，避免被顶栏框线切断 */
     .h-pbox.h-top-slot {
       position: fixed; top: 9px; left: 50%; transform: translateX(-50%);
@@ -1637,30 +1644,58 @@ socket.on('game:state', function(d){
 var connMap = {};              // seat -> 是否在线
 var _turnDeadline = 0, _turnInterval = null, _turnSeatCur = 0;
 
-/* 中央倒计时圆盘 + 指向出牌方的绿箭头 */
+/* 中央倒计时圆盘 + 从桌心向出牌方向外伸出的指针针(长针，绕桌心精确旋转指向出牌玩家) */
 function ensureTimerEl(){
   var el = document.getElementById('gd-turn-center');
   if(!el){
     el = document.createElement('div');
     el.id = 'gd-turn-center';
-    /* 固定在大屏中央偏上(37%)，避免遮住底部(我)出牌 */
-    el.style.cssText = 'position:fixed;top:37%;left:50%;transform:translate(-50%,-50%);' +
-      'z-index:70;display:none;flex-direction:column;align-items:center;gap:1px;pointer-events:none;';
+    el.style.cssText = 'position:fixed;z-index:70;display:none;pointer-events:none;';
     el.innerHTML =
-      '<div id="gd-turn-num" style="width:36px;height:36px;border-radius:50%;display:flex;' +
+      '<div id="gd-turn-num" style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);' +
+        'width:36px;height:36px;border-radius:50%;display:flex;' +
         'align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;' +
         'text-shadow:0 1px 3px rgba(0,0,0,.9);background:rgba(0,0,0,.34);border:2px solid #35d24a;' +
-        'box-shadow:0 1px 5px rgba(0,0,0,.3);">20</div>' +
-      '<div id="gd-turn-arrow" style="font-size:24px;line-height:.8;color:#35d24a;' +
-        'text-shadow:0 2px 6px rgba(0,0,0,.85);transition:transform .25s;' +
-        'filter:drop-shadow(0 0 4px currentColor);">▼</div>';
+        'box-shadow:0 1px 5px rgba(0,0,0,.3);z-index:2;">20</div>';
     document.body.appendChild(el);
   }
   return el;
 }
+/* 指针针：以桌心为锚点(transform-origin:0 0)，未旋转时朝正下方(=0°=我)伸出，
+   与 hexArrowDeg()/turnArrowDeg() 的角度约定完全一致，rotate(deg) 后即精确指向出牌方座位方向。
+   长度伸到座位框附近，比原来贴在倒计时数字旁的小图标醒目得多。*/
+function ensureNeedleEl(){
+  var el = document.getElementById('gd-turn-needle');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'gd-turn-needle';
+    el.style.cssText = 'position:fixed;z-index:69;width:0;height:0;pointer-events:none;' +
+      'transform-origin:0 0;transition:transform .22s ease-out;';
+    el.innerHTML =
+      '<div id="gd-turn-shaft" style="position:absolute;left:0;top:14px;width:5px;height:58px;' +
+        'transform:translateX(-50%);border-radius:3px;background:linear-gradient(to bottom, rgba(53,210,74,.15), #35d24a);"></div>' +
+      '<div id="gd-turn-head" style="position:absolute;left:0;top:70px;width:0;height:0;transform:translateX(-50%);' +
+        'border-left:12px solid transparent;border-right:12px solid transparent;border-top:24px solid #35d24a;' +
+        'filter:drop-shadow(0 2px 5px rgba(0,0,0,.65));"></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+/* 桌心锚点：实时取 #hex-center 的真实屏幕坐标(getBoundingClientRect)，而不是猜一个视口百分比——
+   #hex-center 在 flex 布局里的实际位置会随顶栏/手牌区高度、横竖屏变化，猜死的百分比容易偏移，
+   之前箭头看起来"没对准桌心"正是这个原因 */
+function turnCenterAnchor(){
+  var hc = document.getElementById('hex-center');
+  if (hc) {
+    var r = hc.getBoundingClientRect();
+    if (r.width) return { x: r.left + r.width/2, y: r.top + r.height/2 };
+  }
+  return { x: window.innerWidth/2, y: window.innerHeight*0.37 };   // 兜底(桌面区还未渲染时)
+}
 function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
   var el = document.getElementById('gd-turn-center'); if(el) el.style.display = 'none';
+  var nd = document.getElementById('gd-turn-needle'); if(nd) nd.style.display = 'none';
 }
 /* ▼默认朝下(=我/下方)，按出牌方相对位置旋转(与 body 一起旋转，横竖屏都对)。
    球固定在大屏中央偏上，不随座位移动。
@@ -1688,18 +1723,25 @@ function hexArrowDeg(seat){
   return HEX_ARROW_DEG[displayIdx] || 0;
 }
 function tickTurn(){
-  var c = ensureTimerEl();
-  c.style.display = 'flex';
+  var c  = ensureTimerEl();
+  var nd = ensureNeedleEl();
+  var anchor = turnCenterAnchor();
+  c.style.left = anchor.x + 'px'; c.style.top = anchor.y + 'px'; c.style.display = 'block';
+  nd.style.left = anchor.x + 'px'; nd.style.top = anchor.y + 'px'; nd.style.display = 'block';
+
   var remain = Math.max(0, Math.ceil((_turnDeadline - Date.now())/1000));
   var numEl = document.getElementById('gd-turn-num');
-  var arrEl = document.getElementById('gd-turn-arrow');
   var mine  = (_turnSeatCur === mySeat);
   var col   = remain <= 5 ? '#FF5050' : (mine ? '#FFE066' : '#35d24a');
   numEl.textContent = remain;
   numEl.style.borderColor = col;
   numEl.style.color = (remain <= 5) ? '#FF8080' : '#fff';
-  arrEl.style.color = col;
-  arrEl.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';   // 指针指向出牌方
+
+  var shaft = document.getElementById('gd-turn-shaft');
+  var head  = document.getElementById('gd-turn-head');
+  shaft.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0), ' + col + ')';
+  head.style.borderTopColor = col;
+  nd.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';   // 指针从桌心精确指向出牌方座位方向
   if(remain <= 0) stopTurnCountdown();
 }
 socket.on('game:turn_timer', function(d){
@@ -3026,13 +3068,15 @@ function render6pPlayers(pList, finOrder, turnSeat) {
     var isMe     = p && p.isMe;
     var offline  = (connMap[actualSeat] === false) && !isMe;
     var label    = isMe ? (MY_NAME_LS || '我') : (p ? esc(p.name) : '等待...');
-    if (offline) label += ' 🤖托管';
 
-    /* 干净方框：昵称 + (打完显名次 / 剩≤10张报数)，去头像/队友字/牌背扇 */
+    /* 上半区永远是昵称；下半区动态三选一：已完成→头游/末游名次，否则掉线托管中→"托管"，
+       否则剩≤10张→报剩余张数，都不满足则留空(仍占一半高度，不挤压昵称行) */
     var infoHtml = '';
     if (finItem) {
       infoHtml = '<div class="h-finish-badge ' + (POS_CLASS[finItem.position]||'p3') + '">' +
         (POS_LABELS[finItem.position]||finItem.position+'游') + '</div>';
+    } else if (offline) {
+      infoHtml = '<span class="h-badge-afk">🤖托管</span>';
     } else if (p && (p.cardCount||0) <= 10) {
       infoHtml = '<span class="h-count low" style="font-size:.7rem;padding:1px 7px;border-radius:8px;">' + (p.cardCount||0) + '张</span>';
     }
