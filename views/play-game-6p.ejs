@@ -801,6 +801,18 @@
     #action-bar-6p .action-btn {
       position: fixed; z-index: 55; transform: translate(-50%, -50%);
       pointer-events: auto;
+      /* 在原 .action-btn 基础上整体再缩小20% */
+      padding: 7px 16px; font-size: .68rem; border-radius: 13px;
+    }
+    /* 轮到本家出牌：不出/出牌两键一起亮起来，醒目提示及时操作 */
+    #action-bar-6p .action-btn.my-turn {
+      border-color: #FFE066; border-width: 2px;
+      box-shadow: 0 0 16px 4px rgba(255,224,102,.75), 0 0 0 2px rgba(255,224,102,.35);
+      animation: pulse-actionbtn 1s ease-in-out infinite;
+    }
+    @keyframes pulse-actionbtn {
+      0%, 100% { box-shadow: 0 0 16px 4px rgba(255,224,102,.75), 0 0 0 2px rgba(255,224,102,.35); }
+      50%      { box-shadow: 0 0 26px 8px rgba(255,224,102,.95), 0 0 0 3px rgba(255,224,102,.55); }
     }
     #action-hint-6p { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
 
@@ -1639,8 +1651,9 @@ function ensureTimerEl(){
         'align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;' +
         'text-shadow:0 1px 3px rgba(0,0,0,.9);background:rgba(0,0,0,.34);border:2px solid #35d24a;' +
         'box-shadow:0 1px 5px rgba(0,0,0,.3);">20</div>' +
-      '<div id="gd-turn-arrow" style="font-size:20px;line-height:.8;color:#35d24a;' +
-        'text-shadow:0 1px 4px rgba(0,0,0,.7);transition:transform .25s;">▼</div>';
+      '<div id="gd-turn-arrow" style="font-size:24px;line-height:.8;color:#35d24a;' +
+        'text-shadow:0 2px 6px rgba(0,0,0,.85);transition:transform .25s;' +
+        'filter:drop-shadow(0 0 4px currentColor);">▼</div>';
     document.body.appendChild(el);
   }
   return el;
@@ -1663,19 +1676,16 @@ function turnArrowDeg(seat){
   if (rel === 'right')  return 270;
   return 0;
 }
-/* 按该座位在六边形上的真实位置(HEX_POS，百分比坐标)算出箭头应转的角度：
-   0°=指向正下方，顺时针增大(90°=左，180°=上，270°=右)，与原有四人档位角度约定完全一致，
-   只是六人有6个精确方向而不是4个粗档位。*/
+/* 六人箭头角度：严格按 360°/6=60° 均匀分档，不再从 HEX_POS 的可视百分比坐标反推角度——
+   座位框百分比坐标是为非正方形的 hex-board 视觉排布手调的，不构成严格正六边形，
+   反推出的角度会有 ±20° 左右的偏差，导致箭头没有精确指向对应玩家。
+   改为直接按座位在六边形上的序位给固定角度，0°=指向正下方(我)，顺时针每档 60°，
+   与原有"0=下/90=左/180=上/270=右"的旋转方向约定完全一致(displayIdx 越大→越靠左/上)。*/
+var HEX_ARROW_DEG = [null, 0, 300, 240, 180, 120, 60];   // index=displayIdx(1..6)
 function hexArrowDeg(seat){
   var total = 6;
   var displayIdx = ((seat - mySeat + total) % total) + 1;
-  var pos = (typeof HEX_POS !== 'undefined') ? HEX_POS[displayIdx] : null;
-  if (!pos) return 0;
-  var dx = parseFloat(pos.left) - 50;
-  var dy = parseFloat(pos.top)  - 50;
-  if (!dx && !dy) return 0;
-  var deg = Math.atan2(-dx, dy) * 180 / Math.PI;
-  return (deg + 360) % 360;
+  return HEX_ARROW_DEG[displayIdx] || 0;
 }
 function tickTurn(){
   var c = ensureTimerEl();
@@ -1817,9 +1827,9 @@ function positionActionBar6p(){
   var rightBox = pairBox([2, 3]);   // 右侧两个座位框(右下+右上)
   var leftX, rightX, passY, playY;
   if (leftBox && rightBox) {
-    var centerShift = Math.min(46, (rightBox.left - leftBox.right) * 0.18);   // 往中心线适度收拢，不贴着座位框外沿
-    leftX  = (leftBox.left  + leftBox.right)  / 2 + centerShift;
-    rightX = (rightBox.left + rightBox.right) / 2 - centerShift;
+    /* 不再往中心线收拢——直接对齐左/右座位框自身中心，"贴在玩家框正下方" */
+    leftX  = (leftBox.left  + leftBox.right)  / 2;
+    rightX = (rightBox.left + rightBox.right) / 2;
     passY  = safeY(leftBox);
     playY  = safeY(rightBox);
   } else {   // 座位格还没渲染时(极早期)的兜底
@@ -2979,10 +2989,10 @@ function init6pBoard(d) {
       el.style.left       = pos.left;
       el.style.top        = pos.top;
       el.style.transform  = 'translate(-50%,-100%)';
-    } else if (displayIdx === 5 || displayIdx === 6) {   // 左上/左下：与4人赛事一致，固定 20px(保留最小安全边距)躲开听筒/麦克风
+    } else if (displayIdx === 5 || displayIdx === 6) {   // 左上/左下：再向左平移半个方框宽度(.h-pbox 55px 的一半≈28px)让出中心区域
       el.classList.remove('h-top-slot');
       el.classList.remove('h-me-anchor');
-      el.style.left       = 'calc(20px + env(safe-area-inset-left, 0px))';
+      el.style.left       = 'calc(20px - 28px + env(safe-area-inset-left, 0px))';
       el.style.top        = pos.top;
       el.style.transform  = 'translate(0, -50%)';
     } else {
@@ -3391,7 +3401,11 @@ function updateSelInfo6p() {
 }
 
 function syncButtons6p() {
-  document.getElementById('btn-pass-6p').disabled = !isMyTurn || !hasLastPlay;
+  var passBtn = document.getElementById('btn-pass-6p');
+  var playBtn = document.getElementById('btn-play-6p');
+  passBtn.disabled = !isMyTurn || !hasLastPlay;
+  passBtn.classList.toggle('my-turn', isMyTurn);
+  playBtn.classList.toggle('my-turn', isMyTurn);
   updatePlayButtonState();
 }
 </script>
