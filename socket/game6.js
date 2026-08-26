@@ -167,7 +167,11 @@ async function applyTakeover(io, state, seat) {
   }
   if (state.tributePhase) {
     await driveTributeBots(io, state);
-  } else if (state.turnSeat === seat && state.turnTimer) {
+  } else if (state.turnSeat === seat) {
+    /* 不再要求 state.turnTimer 恰好非空才重启——超时和转托管几乎同时发生时
+       turnTimer 可能已被清空，若因此跳过重启，倒计时/指针会永久停摆，直到
+       下次有人重连才被动修复。这里无条件重启，startTurnTimer 内部本身
+       就会 clearTurnTimer 再重建，不会产生重复计时器 */
     startTurnTimer(io, state);
   }
   broadcastState(io, state);
@@ -237,8 +241,19 @@ async function onTurnTimeout(io, state) {
   }
 }
 
+/* 自愈：任何一次状态广播时若发现本该有回合计时器却没有（各种转折点的竞态窗口都可能漏掉
+   重启——掉线转托管、进贡结束回到正常出牌等），立即补上，避免前端倒计时圆盘/指针从此
+   永久消失、只能靠玩家重连才能救回来 */
+function ensureTurnTimerAlive(io, state) {
+  if (!state.turnTimer && !state.tributePhase &&
+      state.finishOrder.length < state.totalPlayers - 1) {
+    startTurnTimer(io, state);
+  }
+}
+
 /* ─── 广播游戏状态 ────────────────────────────────── */
 function broadcastState(io, state) {
+  ensureTurnTimerAlive(io, state);
   const handCounts = {};
   for (const [pid, h] of Object.entries(state.hands)) handCounts[pid] = h.length;
   /* 每个座位在线状态（阶段九）*/
@@ -903,13 +918,7 @@ module.exports = function(io, socket) {
         players
       });
 
-      broadcastState(io, state);
-
-      /* 若游戏进行中但计时器丢失（服务器重启后重建），重新启动 */
-      if (!state.turnTimer && !state.tributePhase &&
-          state.finishOrder.length < state.totalPlayers - 1) {
-        startTurnTimer(io, state);
-      }
+      broadcastState(io, state);   // 计时器丢失（服务器重启后重建等）已在 broadcastState 内自愈
 
       /* 若进贡阶段仍在进行（断线重连）*/
       if (state.tributePhase) {

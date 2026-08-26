@@ -731,13 +731,21 @@
       overflow: hidden;
       transition: border-color .3s, box-shadow .3s;
     }
-    .h-pbox.team1 { border-color: rgba(255,59,78,.6); }
-    .h-pbox.team2 { border-color: rgba(59,155,255,.6); }
+    /* 本家/对家一目了然：红蓝底色区分(1/3/5号=一队红，2/4/6号=一队蓝)，不再只靠边框颜色 */
+    .h-pbox.team1 { border-color: rgba(255,59,78,.75); background: rgba(255,59,78,.22); }
+    .h-pbox.team2 { border-color: rgba(59,155,255,.75); background: rgba(59,155,255,.22); }
+    /* 注意：不能复用 4 人版共享的 pulse-border 动画——它的 0%/100% 关键帧会用自己的
+       box-shadow 值整段覆盖掉下面写的颜色，导致这里声明的亮黄色发光其实从未真正显示过。
+       单独定义一套关键帧，并叠加暖黄底色，让"轮到谁出牌"在大屏上一眼就能看清。 */
     .h-pbox.active {
       border-color: #FFE066 !important;
       border-width: 3px;
-      box-shadow: 0 0 14px 3px rgba(255,224,102,.65), 0 0 0 2px rgba(212,172,13,.4);
-      animation: pulse-border 1.4s ease-in-out infinite;
+      background: rgba(255,224,102,.3) !important;
+      animation: pulse-border-6p-active 1s ease-in-out infinite;
+    }
+    @keyframes pulse-border-6p-active {
+      0%, 100% { box-shadow: 0 0 16px 4px rgba(255,224,102,.8), 0 0 0 2px rgba(255,224,102,.5); }
+      50%      { box-shadow: 0 0 30px 9px rgba(255,224,102,1),  0 0 0 3px rgba(255,224,102,.75); }
     }
     /* "我"这个座位在 hex 环内只作为出牌卡片的定位锚点(仍需真实尺寸供 getBoundingClientRect 取值)，
        不再画出方框——我的信息已合并到底部 #combo-bar，避免和出牌牌型抢位置/互相遮挡 */
@@ -1672,10 +1680,10 @@ function ensureNeedleEl(){
     el.style.cssText = 'position:fixed;z-index:69;width:0;height:0;pointer-events:none;' +
       'transform-origin:0 0;transition:transform .22s ease-out;';
     el.innerHTML =
-      '<div id="gd-turn-shaft" style="position:absolute;left:0;top:14px;width:5px;height:58px;' +
+      '<div id="gd-turn-shaft" style="position:absolute;left:0;top:18px;width:4px;height:26px;' +
         'transform:translateX(-50%);border-radius:3px;background:linear-gradient(to bottom, rgba(53,210,74,.15), #35d24a);"></div>' +
-      '<div id="gd-turn-head" style="position:absolute;left:0;top:70px;width:0;height:0;transform:translateX(-50%);' +
-        'border-left:12px solid transparent;border-right:12px solid transparent;border-top:24px solid #35d24a;' +
+      '<div id="gd-turn-head" style="position:absolute;left:0;top:42px;width:0;height:0;transform:translateX(-50%);' +
+        'border-left:8px solid transparent;border-right:8px solid transparent;border-top:14px solid #35d24a;' +
         'filter:drop-shadow(0 2px 5px rgba(0,0,0,.65));"></div>';
     document.body.appendChild(el);
   }
@@ -1723,33 +1731,37 @@ function hexArrowDeg(seat){
   return HEX_ARROW_DEG[displayIdx] || 0;
 }
 function tickTurn(){
-  var c  = ensureTimerEl();
-  var nd = ensureNeedleEl();
-  var anchor = turnCenterAnchor();
-  c.style.left = anchor.x + 'px'; c.style.top = anchor.y + 'px'; c.style.display = 'block';
-  nd.style.left = anchor.x + 'px'; nd.style.top = anchor.y + 'px'; nd.style.display = 'block';
+  /* 任何一步 DOM 读写意外出错都不该导致倒计时/指针从此永久消失——扣住这里，
+     不让异常往外抛，下面的 setInterval 无论如何都要建立起来 */
+  try {
+    var c  = ensureTimerEl();
+    var nd = ensureNeedleEl();
+    var anchor = turnCenterAnchor();
+    c.style.left = anchor.x + 'px'; c.style.top = anchor.y + 'px'; c.style.display = 'block';
+    nd.style.left = anchor.x + 'px'; nd.style.top = anchor.y + 'px'; nd.style.display = 'block';
 
-  var remain = Math.max(0, Math.ceil((_turnDeadline - Date.now())/1000));
-  var numEl = document.getElementById('gd-turn-num');
-  var mine  = (_turnSeatCur === mySeat);
-  var col   = remain <= 5 ? '#FF5050' : (mine ? '#FFE066' : '#35d24a');
-  numEl.textContent = remain;
-  numEl.style.borderColor = col;
-  numEl.style.color = (remain <= 5) ? '#FF8080' : '#fff';
+    var remain = Math.max(0, Math.ceil((_turnDeadline - Date.now())/1000));
+    var numEl = document.getElementById('gd-turn-num');
+    var mine  = (_turnSeatCur === mySeat);
+    var col   = remain <= 5 ? '#FF5050' : (mine ? '#FFE066' : '#35d24a');
+    numEl.textContent = remain;
+    numEl.style.borderColor = col;
+    numEl.style.color = (remain <= 5) ? '#FF8080' : '#fff';
 
-  var shaft = document.getElementById('gd-turn-shaft');
-  var head  = document.getElementById('gd-turn-head');
-  shaft.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0), ' + col + ')';
-  head.style.borderTopColor = col;
-  nd.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';   // 指针从桌心精确指向出牌方座位方向
-  if(remain <= 0) stopTurnCountdown();
+    var shaft = document.getElementById('gd-turn-shaft');
+    var head  = document.getElementById('gd-turn-head');
+    shaft.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0), ' + col + ')';
+    head.style.borderTopColor = col;
+    nd.style.transform = 'rotate(' + turnArrowDeg(_turnSeatCur) + 'deg)';   // 指针从桌心精确指向出牌方座位方向
+    if(remain <= 0) stopTurnCountdown();
+  } catch(err) { console.error('[tickTurn]', err); }
 }
 socket.on('game:turn_timer', function(d){
   /* 用本地时钟从 seconds 倒数，避免各设备时钟偏差导致时间不一致 */
   _turnDeadline = Date.now() + (d.seconds || 40) * 1000;
   _turnSeatCur  = d.turnSeat;
   if(_turnInterval) clearInterval(_turnInterval);
-  tickTurn();
+  tickTurn();                              // tickTurn 内部已 try/catch，这里的 setInterval 必然会建立
   _turnInterval = setInterval(tickTurn, 250);
 });
 
@@ -1884,6 +1896,13 @@ function positionActionBar6p(){
 }
 window.addEventListener('resize', positionActionBar6p);
 window.addEventListener('orientationchange', function(){ setTimeout(positionActionBar6p, 60); setTimeout(positionActionBar6p, 300); });
+/* 兜底：安卓浏览器地址栏收起/展开、软键盘弹出等场景经常不触发(或延迟很久才触发) resize，
+   导致按钮跟座位框的对应关系"看起来在动"。ResizeObserver 只要 #hex-board 的实际渲染尺寸
+   变化就会立刻回调，比等 resize 事件可靠得多；不支持的老环境仍有上面两个监听兜底，不会更差。 */
+if (typeof ResizeObserver === 'function') {
+  var _hexBoardEl = document.getElementById('hex-board');   // 脚本在 body 末尾，元素已存在于 DOM 中
+  if (_hexBoardEl) new ResizeObserver(function(){ positionActionBar6p(); }).observe(_hexBoardEl);
+}
 function renderSeatPlays(sp){
   sp = sp || {};
   var total = (GAME_MODE === '6p') ? 6 : 4;
@@ -2302,16 +2321,45 @@ function sortHandLevel(hand, level){
 }
 
 /* 触摸友好的点选：静止轻点才触发；滑动（滚动手牌）不触发，规避横向滚动吞掉 click。
-   兼容鼠标（pointer 事件覆盖鼠标）。 */
+   兼容鼠标（pointer 事件覆盖鼠标）。
+   ── 安卓兼容兜底(原则性修复) ──
+   部分安卓机型/系统浏览器（华为、小米、OPPO 等）及微信内置浏览器对 Pointer Events
+   支持不完整：横向可滚动的手牌区里，一碰就被判定成原生滚动手势，只派发 pointercancel、
+   从不派发 pointerup，导致纯 Pointer Events 方案在这些设备上永远点不中牌（iPhone 因
+   Safari 支持完整而不受影响）。这里独立再挂一条 touch 事件通路 + 保底 click，
+   用时间戳去重，确保任意一条通路命中都能触发，不再要求某一种事件模型完整可靠。 */
 function attachTap(el, fn){
+  var lastFire = 0;
+  function fire(){
+    var now = Date.now();
+    if (now - lastFire < 400) return;   // 同一次点击可能被多条通路重复触发，去重
+    lastFire = now;
+    fn();
+  }
   var sx = 0, sy = 0, moved = false, down = false;
   el.addEventListener('pointerdown', function(e){ down = true; moved = false; sx = e.clientX; sy = e.clientY; });
   el.addEventListener('pointermove', function(e){
     if (!down) return;
     if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) moved = true;
   });
-  el.addEventListener('pointerup',     function(){ if (down && !moved) fn(); down = false; });
+  el.addEventListener('pointerup',     function(){ if (down && !moved) fire(); down = false; });
   el.addEventListener('pointercancel', function(){ down = false; moved = false; });
+
+  var tx = 0, ty = 0, tmoved = false, tdown = false;
+  el.addEventListener('touchstart', function(e){
+    tdown = true; tmoved = false;
+    var t = e.changedTouches && e.changedTouches[0];
+    if (t) { tx = t.clientX; ty = t.clientY; }
+  }, { passive: true });
+  el.addEventListener('touchmove', function(e){
+    if (!tdown) return;
+    var t = e.changedTouches && e.changedTouches[0];
+    if (t && (Math.abs(t.clientX - tx) > 8 || Math.abs(t.clientY - ty) > 8)) tmoved = true;
+  }, { passive: true });
+  el.addEventListener('touchend',    function(){ if (tdown && !tmoved) fire(); tdown = false; });
+  el.addEventListener('touchcancel', function(){ tdown = false; tmoved = false; });
+
+  el.addEventListener('click', function(){ fire(); });   // 极端环境下最后兜底
 }
 
 /* 牌数格式：开局不显示，剩 ≤10 张才显示 */
@@ -3345,7 +3393,8 @@ function comboTapBall(el, fn){
 var _swipe = { active:false, seen:null };
 function swipeMove(e){
   if (!_swipe.active) return;
-  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;   // 兼容 touch/pointer 两种事件对象
+  var el = document.elementFromPoint(pt.clientX, pt.clientY);
   var card = el && el.closest ? el.closest('.hand-card') : null;
   if (!card || card.dataset.code == null) return;
   var key = card.dataset.code + '_' + card.dataset.idx;
@@ -3362,6 +3411,9 @@ function swipeEnd(){
   document.removeEventListener('pointermove', swipeMove);
   document.removeEventListener('pointerup', swipeEnd);
   document.removeEventListener('pointercancel', swipeEnd);
+  document.removeEventListener('touchmove', swipeMove);
+  document.removeEventListener('touchend', swipeEnd);
+  document.removeEventListener('touchcancel', swipeEnd);
 }
 function swipeStart(e){
   if (typeof tbEx !== 'undefined' && tbEx.length) return;   // 进贡态不滑选（供/还是单张点选）
@@ -3369,8 +3421,18 @@ function swipeStart(e){
   document.addEventListener('pointermove', swipeMove);
   document.addEventListener('pointerup', swipeEnd);
   document.addEventListener('pointercancel', swipeEnd);
+  /* 同 attachTap：部分安卓机型/微信内置浏览器 Pointer Events 不可靠，独立挂一条 touch 通路兜底 */
+  document.addEventListener('touchmove', swipeMove, { passive: true });
+  document.addEventListener('touchend', swipeEnd);
+  document.addEventListener('touchcancel', swipeEnd);
 }
-(function(){ var h = document.getElementById('hand-scroll-6p'); if (h) h.addEventListener('pointerdown', swipeStart); })();
+(function(){
+  var h = document.getElementById('hand-scroll-6p');
+  if (h) {
+    h.addEventListener('pointerdown', swipeStart);
+    h.addEventListener('touchstart', swipeStart, { passive: true });
+  }
+})();
 
 function build6pCardEl(code, idx){
   var key  = code + '_' + idx;
