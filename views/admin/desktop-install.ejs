@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>生成邀请卡 · 硅谷掼蛋协会</title>
+  <title>硅谷网上掼蛋桌面安装程序 · 硅谷掼蛋协会</title>
   <link rel="stylesheet" href="/css/style.css">
   <script src="/js/html2canvas.min.js"></script>
   <style>
@@ -48,8 +48,6 @@
       box-shadow: 0 20px 60px rgba(0,0,0,0.4);
       margin: 0 auto;
     }
-
-    /* 背景花色装饰 */
     .ic-bg-suits {
       position: absolute; inset: 0;
       font-size: 9rem; line-height: 1;
@@ -60,8 +58,6 @@
       padding: 10px; gap: 0;
       letter-spacing: 10px;
     }
-
-    /* 金色上边框 */
     .ic-gold-top {
       position: absolute; top: 0; left: 0; right: 0; height: 6px;
       background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent);
@@ -70,8 +66,6 @@
       position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
       background: linear-gradient(90deg, transparent, #D4AC0D, #FFE066, #D4AC0D, transparent);
     }
-
-    /* 协会Logo区 */
     .ic-logo-row {
       display: flex; align-items: center; gap: 18px;
       margin-bottom: 32px; position: relative;
@@ -95,33 +89,21 @@
       font-size: 0.68rem; color: rgba(255,255,255,0.45);
       letter-spacing: 3px; margin-top: 4px;
     }
-
-    /* 金色分割线 */
     .ic-divider {
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(212,172,13,0.6), transparent);
       margin: 0 0 28px;
     }
-
-    /* 主标题 */
-    .ic-main-title {
-      text-align: center; margin-bottom: 10px;
-    }
+    .ic-main-title { text-align: center; margin-bottom: 10px; }
     .ic-main-title h2 {
       font-size: 2rem; font-weight: 900; color: #FFE066;
       letter-spacing: 6px; margin: 0 0 6px; text-shadow: 0 2px 12px rgba(212,172,13,0.4);
     }
-    .ic-main-title p {
-      font-size: 0.8rem; color: rgba(255,255,255,0.5); letter-spacing: 4px;
-    }
-
-    /* 花色装饰行 */
+    .ic-main-title p { font-size: 0.8rem; color: rgba(255,255,255,0.5); letter-spacing: 4px; }
     .ic-suits-row {
       text-align: center; font-size: 1.4rem; letter-spacing: 14px;
       color: rgba(255,255,255,0.2); margin: 12px 0 24px;
     }
-
-    /* 功能标签 */
     .ic-features {
       display: flex; gap: 10px; justify-content: center;
       flex-wrap: wrap; margin-bottom: 28px;
@@ -133,8 +115,6 @@
       border: 1px solid rgba(212,172,13,0.35);
       color: rgba(255,255,255,0.85);
     }
-
-    /* 二维码区域 */
     .ic-qr-section {
       display: flex; align-items: center; gap: 28px;
       background: rgba(255,255,255,0.05);
@@ -160,8 +140,6 @@
       line-height: 2.2;
     }
     .ic-qr-text ul li::before { content: '✦ '; color: #D4AC0D; }
-
-    /* 电脑端点击安装区 */
     .ic-pc-section {
       display: flex; align-items: center; gap: 18px;
       background: rgba(212,172,13,0.08);
@@ -184,23 +162,40 @@
     }
     .ic-pc-link:hover { filter: brightness(1.08); }
     .ic-pc-hint { font-size: 0.72rem; color: rgba(255,255,255,0.5); margin-top: 8px; letter-spacing: 1px; }
-
-    /* 底部说明 */
     .ic-footer-text {
       text-align: center; font-size: 0.73rem;
       color: rgba(255,255,255,0.35); letter-spacing: 2px;
       line-height: 1.8;
     }
-
-    /* 预览区域缩放（桌面屏幕适配） */
-    .ic-preview-wrap {
-      overflow-x: auto; padding-bottom: 20px;
-    }
+    .ic-preview-wrap { overflow-x: auto; padding-bottom: 20px; }
     #download-status {
       display: none; margin-top: 12px; padding: 10px 18px;
       background: #E8F5E9; border-radius: 8px; color: #1A7A40;
       font-size: 0.88rem; font-weight: 600;
     }
+
+    /* ── 分机型安装步骤实时预览（新增）── */
+    .pv-section { margin-top: 44px; }
+    .pv-title { font-size: 1.1rem; font-weight: 900; color: #8B0000; margin-bottom: 6px; }
+    .pv-sub { font-size: 0.82rem; color: #888; margin-bottom: 18px; line-height: 1.7; }
+    .pv-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .pv-tab {
+      padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;
+      border: 2px solid #D4AC0D; background: #fff; color: #8B0000; cursor: pointer;
+      transition: all .15s;
+    }
+    .pv-tab.active { background: linear-gradient(135deg, #C0000F, #8B0000); color: #fff; border-color: #8B0000; }
+    .pv-tab:hover { background: #FFF0D0; }
+    .pv-tab.active:hover { background: linear-gradient(135deg, #C0000F, #8B0000); }
+    .pv-frame-wrap {
+      display: flex; justify-content: center; padding: 24px;
+      background: #2C0A0A; border-radius: 20px;
+    }
+    .pv-phone {
+      width: 340px; height: 640px; border-radius: 32px; overflow: hidden;
+      background: #0a0000; border: 8px solid #111; box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .pv-phone iframe { width: 100%; height: 100%; border: 0; }
   </style>
 </head>
 <body>
@@ -210,7 +205,7 @@
     <div class="ic-wrap">
 
       <div class="ic-toolbar">
-        <h2>🎴 生成赛事邀请卡</h2>
+        <h2>🖥️ 硅谷网上掼蛋桌面安装程序</h2>
         <button class="ic-btn ic-btn-outline" onclick="window.history.back()">← 返回</button>
         <button class="ic-btn ic-btn-outline" onclick="downloadCard()" id="dl-btn">⬇️ 下载图片</button>
         <button class="ic-btn ic-btn-red" onclick="copyShareText()" id="copy-share-btn">
@@ -221,7 +216,7 @@
       <div class="ic-hint">
         💡 <strong>最省事用法：</strong>点「📋 复制邀请文案」→ 直接粘贴到<strong>微信</strong>或<strong>Messenger</strong>发给朋友。
         朋友看到的是一张<strong>可点击的链接卡片</strong>，点开后页面会<strong>自动识别</strong>他用的是
-        苹果 / 安卓 / 鸿蒙手机还是电脑，一步步教他装到桌面 —— 无需扫码、无需敲网址。<br>
+        苹果 / 安卓（华为、小米、OPPO、vivo 均已单独适配）/ 电脑，一步步教他装到桌面 —— 无需扫码、无需敲网址。<br>
         <span style="color:#B8860B;">（下方精美图片可选：喜欢发图的可点「下载图片」，但图片点不动，建议连同文案一起发。）</span>
       </div>
 
@@ -232,7 +227,6 @@
           <div class="ic-gold-bottom"></div>
           <div class="ic-bg-suits">♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣♠♥♦♣</div>
 
-          <!-- 协会Logo -->
           <div class="ic-logo-row">
             <img src="/img/assoc-logo.png" alt="硅谷掼蛋协会" class="ic-logo">
             <div>
@@ -244,7 +238,6 @@
 
           <div class="ic-divider"></div>
 
-          <!-- 主标题 -->
           <div class="ic-main-title">
             <h2>🎴 立即加入赛事</h2>
             <p>ONLINE TOURNAMENT · JOIN NOW</p>
@@ -252,7 +245,6 @@
 
           <div class="ic-suits-row">♥ ♦ ♣ ♠</div>
 
-          <!-- 功能标签 -->
           <div class="ic-features">
             <span class="ic-feature-tag">🏆 四人掼蛋</span>
             <span class="ic-feature-tag">🎯 六人掼蛋</span>
@@ -261,7 +253,6 @@
             <span class="ic-feature-tag">🌏 全球对战</span>
           </div>
 
-          <!-- 二维码 -->
           <div class="ic-qr-section">
             <div class="ic-qr-box">
               <img src="<%= qrDataUrl %>" alt="扫码安装">
@@ -277,7 +268,6 @@
             </div>
           </div>
 
-          <!-- 电脑端点击安装 -->
           <div class="ic-pc-section">
             <div class="ic-pc-icon">💻</div>
             <div class="ic-pc-info">
@@ -287,7 +277,6 @@
             </div>
           </div>
 
-          <!-- 底部 -->
           <div class="ic-footer-text">
             硅谷掼蛋协会 · Silicon Valley Guandan Association
           </div>
@@ -296,7 +285,7 @@
         </div>
       </div>
 
-      <div id="download-status">✅ 图片已下载！请到手机相册或下载文件夹查找「掼蛋赛事邀请卡.png」</div>
+      <div id="download-status">✅ 图片已下载！请到手机相册或下载文件夹查找「掼蛋桌面安装程序.png」</div>
 
       <!-- 微信/iOS 内置浏览器会拦截自动下载：同时展示图片供长按保存 -->
       <div id="ic-result-box" style="display:none;text-align:center;margin-top:16px;">
@@ -311,8 +300,26 @@
         </div>
       </div>
 
-      <!-- 失败时显示真实错误，便于定位 -->
       <div id="ic-error" style="display:none;margin-top:14px;padding:12px 16px;background:#FFF0F0;border-left:4px solid #C0000F;border-radius:0 8px 8px 0;color:#8B0000;font-size:.82rem;line-height:1.7;"></div>
+
+      <!-- ══ 分机型安装步骤实时预览（新增：核对各机型引导文案，不用真找 7 种手机来试）══ -->
+      <div class="pv-section">
+        <div class="pv-title">🔍 分机型安装步骤实时预览</div>
+        <div class="pv-sub">
+          下面直接嵌入真实的 <code>/install</code> 安装页（<code>?preview=</code> 参数强制切换机型分支），
+          和玩家实际看到的内容<strong>完全一致</strong>，改了 <code>install-body.ejs</code> 的文案这里立刻能看到，不用维护第二份文案。
+        </div>
+        <div class="pv-tabs">
+          <% previewTabs.forEach(function(t, i){ %>
+            <button type="button" class="pv-tab <%= i===0 ? 'active' : '' %>" data-os="<%= t.value %>" onclick="pvSwitch('<%= t.value %>', this)"><%= t.label %></button>
+          <% }); %>
+        </div>
+        <div class="pv-frame-wrap">
+          <div class="pv-phone">
+            <iframe id="pv-iframe" src="/install?preview=<%= previewTabs[0].value %>" title="安装步骤预览"></iframe>
+          </div>
+        </div>
+      </div>
 
     </div>
   </main>
@@ -321,6 +328,12 @@
 <script>
 var INSTALL_URL_PC = '<%= pcInstallUrl %>';
 var SHARE_TEXT = <%- JSON.stringify(shareText) %>;
+
+function pvSwitch(os, btn){
+  document.getElementById('pv-iframe').src = '/install?preview=' + encodeURIComponent(os);
+  document.querySelectorAll('.pv-tab').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+}
 
 /* 复制整段邀请文案（含链接）— 直接粘贴进微信/Messenger 即可 */
 function copyShareText(){
@@ -403,12 +416,9 @@ async function downloadCard() {
     }
     var card = document.getElementById('invite-card-capture');
 
-    /* 字体 + 图片就绪后再截图 */
     if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch(_){} }
     await icPreloadImages(card);
 
-    /* 检出加载失败(0尺寸)的图片：二维码必须成功；装饰图(如Logo)失败则从截图中剔除，
-       否则 html2canvas 会对 0 尺寸图执行 createPattern 抛「width or height of 0」错误 */
     var brokenSrcs = [];
     var imgList = card.querySelectorAll('img');
     for (var i = 0; i < imgList.length; i++) {
@@ -419,14 +429,13 @@ async function downloadCard() {
     }
 
     var canvas = await html2canvas(card, {
-      scale: 2,                    // 高清2倍
+      scale: 2,
       useCORS: true,
       allowTaint: false,
-      backgroundColor: '#1a0505',  // 实底色，避免透明背景导致的异常
+      backgroundColor: '#1a0505',
       imageTimeout: 15000,
       logging: false,
       onclone: function(doc){
-        /* 剔除加载失败的装饰图，规避 createPattern 0 尺寸报错 */
         var cimgs = doc.querySelectorAll('#invite-card-capture img');
         for (var j = 0; j < cimgs.length; j++) {
           var s = cimgs[j].currentSrc || cimgs[j].src;
@@ -435,7 +444,6 @@ async function downloadCard() {
       }
     });
 
-    /* 导出（画布被跨域污染时 toDataURL 会抛 SecurityError）*/
     var dataUrl;
     try {
       dataUrl = canvas.toDataURL('image/png');
@@ -443,25 +451,23 @@ async function downloadCard() {
       throw new Error('图片被跨域污染，无法导出（' + (secErr.message || secErr) + '）');
     }
 
-    /* 桌面浏览器：触发下载 */
     var link = document.createElement('a');
-    link.download = '掼蛋赛事邀请卡.png';
+    link.download = '掼蛋桌面安装程序.png';
     link.href = dataUrl;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    /* 微信/iOS 内置浏览器常拦截下载：同时展示图片供长按保存 */
     var rimg = document.getElementById('ic-result-img');
     rimg.src = dataUrl;
     document.getElementById('ic-result-box').style.display = 'block';
     document.getElementById('download-status').style.display = 'block';
 
   } catch(e) {
-    console.error('[invite-card] 生成失败:', e);
+    console.error('[desktop-install] 生成失败:', e);
     icShowError((e && e.message) ? e.message : String(e));
   } finally {
-    btn.textContent = oldText || '⬇️ 下载邀请图片';
+    btn.textContent = oldText || '⬇️ 下载图片';
     btn.disabled = false;
   }
 }

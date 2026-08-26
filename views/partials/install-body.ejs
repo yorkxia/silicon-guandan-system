@@ -120,12 +120,21 @@
       <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">选「添加至桌面」</div><div class="inst-step-desc">菜单里点 <span class="badge">添加至桌面</span>，「<%= appPlain %>」图标就出现在桌面，以后直接点图标进入！<br><span style="color:rgba(255,255,255,0.5);">找不到该项 = 华为浏览器版本旧，去应用市场更新后再试</span></div></div></div>
     </div>
 
-    <!-- 华为 / 鸿蒙 / 其它安卓浏览器 -->
+    <!-- 华为(旧安卓内核) / 三星 / 魅族 / 联想等其它未单独适配的安卓品牌通用兜底 -->
     <div class="inst-steps-card" id="harmony-steps">
-      <div class="inst-steps-title">📲 装到手机桌面（3 步）</div>
-      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">点浏览器菜单</div><div class="inst-step-desc">华为手机请用 <span class="badge">华为浏览器</span> 打开本页，点底部中间或右上角的 <span class="badge">⋮ / 三条杠</span> 菜单</div></div></div>
+      <div class="inst-steps-title">📲 装到手机桌面（安卓通用 3 步）</div>
+      <div class="inst-step"><div class="inst-step-num">1</div><div class="inst-step-body"><div class="inst-step-label">点浏览器菜单</div><div class="inst-step-desc">华为手机建议用 <span class="badge">华为浏览器</span>打开，其它品牌用手机自带浏览器打开本页，点底部中间或右上角的 <span class="badge">⋮ / 三条杠</span> 菜单</div></div></div>
       <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">选「添加到桌面」</div><div class="inst-step-desc">在菜单里找 <span class="badge">添加到桌面</span>（或"添加到主屏幕"）一项，点它</div></div></div>
       <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">点「添加 / 确定」</div><div class="inst-step-desc">「<%= appPlain %>」图标出现在桌面，以后直接点图标进入！</div></div></div>
+    </div>
+
+    <!-- 小米 / Redmi（MIUI）— 和 OPPO/vivo 同理，需先开"桌面快捷方式"权限，否则添加到桌面静默失败 -->
+    <div class="inst-steps-card" id="xiaomi-steps">
+      <div class="inst-steps-title">📲 装到小米手机桌面（MIUI）</div>
+      <div class="inst-perm-warn">⚠️ <b>小米装不上桌面，几乎都是这个原因：</b>MIUI 默认关闭了浏览器的「桌面快捷方式」权限，图标会悄悄装不上去。请<b>先完成第 1 步开权限</b>，再添加就成功了。</div>
+      <div class="inst-step"><div class="inst-step-num warn">1</div><div class="inst-step-body"><div class="inst-step-label">先开「桌面快捷方式」权限（关键）</div><div class="inst-step-desc">进 <span class="badge">设置 → 应用设置 → 应用管理</span>，找到你用的浏览器（如 <span class="badge">小米浏览器</span>）→ <span class="badge">权限</span> → 打开 <span class="badge">桌面快捷方式 / 创建桌面快捷方式</span>。不开这步，后面点了也不出图标。</div></div></div>
+      <div class="inst-step"><div class="inst-step-num">2</div><div class="inst-step-body"><div class="inst-step-label">用「小米浏览器」打开本页</div><div class="inst-step-desc">在微信里请先点右上角 <span class="badge">···</span> → 用浏览器打开。点底部中间的 <span class="badge">⋮ / ☰ 菜单</span></div></div></div>
+      <div class="inst-step"><div class="inst-step-num">3</div><div class="inst-step-body"><div class="inst-step-label">选「添加到桌面」</div><div class="inst-step-desc">菜单里点 <span class="badge">添加到桌面</span> → 确认，「<%= appPlain %>」图标出现在桌面，点它即可进入！</div></div></div>
     </div>
 
     <!-- OPPO / OnePlus / realme（ColorOS）— 需先开"创建桌面快捷方式"权限，否则添加到桌面静默失败 -->
@@ -187,6 +196,9 @@
      部分机型浏览器 UA 不含品牌名，故同时匹配常见机型号前缀。 */
   var isOppo  = /OPPO|OppoBrowser|HeyTap|OnePlus|realme|RMX\d/i.test(ua) || /; (CPH|PA[A-Z]|PB[A-Z]|PC[A-Z]|PD[A-Z]|PE[A-Z]|PF[A-Z]|PG[A-Z]|PH[A-Z])[A-Z0-9]*\)/i.test(ua);
   var isVivo  = /vivo|VivoBrowser|iQOO/i.test(ua) || /; V\d{3,4}[A-Z]/i.test(ua);
+  /* 小米/Redmi（MIUI）：同 OPPO/vivo，系统默认关闭"桌面快捷方式"权限。小米机型号没有统一前缀规律
+     （不像华为 ELS-/OPPO CPH.../vivo V.... 那样干净），只靠 UA 关键字识别，识别不到的落到安卓通用兜底。*/
+  var isXiaomi = /MIUI|Xiaomi|Redmi|MiuiBrowser/i.test(ua);
   /* 纯血鸿蒙(HarmonyOS NEXT / 鸿蒙6)：ArkWeb内核、无安卓运行时——不触发 beforeinstallprompt、无PWA/WebAPK安装，
      只能用华为浏览器「添加至桌面」生成网页快捷方式。老鸿蒙4.x仍带安卓(UA含Android)，走标准安卓一键路径。 */
   var isPureHarmony = /ArkWeb/i.test(ua) || (/HarmonyOS/i.test(ua) && !/Android/i.test(ua));
@@ -196,13 +208,14 @@
   function el(id){ return document.getElementById(id); }
   function show(id){ var e=el(id); if(e) e.style.display='block'; }
   function hide(id){ var e=el(id); if(e) e.style.display='none'; }
-  function hideAllGuides(){ ['ios-steps','harmonynext-steps','harmony-steps','oppo-steps','vivo-steps','mac-steps','desktop-steps'].forEach(hide); }
+  function hideAllGuides(){ ['ios-steps','harmonynext-steps','harmony-steps','xiaomi-steps','oppo-steps','vivo-steps','mac-steps','desktop-steps'].forEach(hide); }
 
   /* 该机型对应的手动引导块 */
   function guideId(){
     if (isIOS) return 'ios-steps';
     if (isMacSafari) return 'mac-steps';
     if (isPureHarmony) return 'harmonynext-steps';
+    if (isXiaomi) return 'xiaomi-steps';
     if (isOppo) return 'oppo-steps';
     if (isVivo) return 'vivo-steps';
     if (isHuawei || isAndroid) return 'harmony-steps';
@@ -213,6 +226,23 @@
     hideAllGuides();
     var g = guideId(); show(g);
     var e = el(g); if (e && e.scrollIntoView) e.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  /* 管理员预览模式：?preview=ios|mac|harmonynext|harmony|xiaomi|oppo|vivo|desktop
+     强制展示指定机型的引导卡，跳过真实设备探测——用于"硅谷网上掼蛋桌面安装程序"后台
+     一页核对各机型文案，不用真找 7 种手机来试。直接复用本页真实的卡片内容，不额外维护一份文案。 */
+  var previewOS = new URLSearchParams(location.search).get('preview');
+  if (previewOS) {
+    hide('pwa-install-banner'); hide('inapp-guide'); hide('standalone-msg');
+    hide('inst-btn'); hide('inst-btn-hint');
+    hideAllGuides();
+    show(previewOS + '-steps');
+    var tip = document.createElement('div');
+    tip.style.cssText = 'max-width:480px;margin:0 auto 14px;padding:8px 14px;background:rgba(255,224,102,.15);' +
+      'border:1px solid rgba(255,224,102,.4);border-radius:10px;color:#FFE066;font-size:.78rem;text-align:center;font-weight:700;';
+    tip.textContent = '🔍 预览模式：以下是该机型玩家会看到的引导（与你当前设备无关）';
+    var hub = el('install-hub'); if (hub && hub.parentNode) hub.parentNode.insertBefore(tip, hub);
+    return;
   }
 
   /* 已安装：只显示进入按钮 */
@@ -274,7 +304,7 @@
     if (deferred) return;
     var hint = el('inst-btn-hint');
     if (hint) {
-      if (isOppo || isVivo) hint.textContent = '装不上？多半是「创建桌面快捷方式」权限没开——按下面第 1 步开权限后再添加';
+      if (isOppo || isVivo || isXiaomi) hint.textContent = '装不上？多半是「创建桌面快捷方式」权限没开——按下面第 1 步开权限后再添加';
       else if (isHuawei)    hint.textContent = '华为手机：点上面按钮或按下面 3 步「添加到桌面」';
       else                  hint.textContent = '点上面按钮，或按下面步骤操作';
     }

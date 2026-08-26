@@ -670,8 +670,8 @@ router.get('/ot-staff/participants/export', requireAuth, requireSuperAdmin, asyn
   } catch (e) { console.error(e); res.status(500).send('Server Error'); }
 });
 
-// ── 邀请卡生成页 ──────────────────────────────────────────
-router.get('/invite-card', requireAuth, async (req, res) => {
+// ── 硅谷网上掼蛋桌面安装程序（海报/文案分享 + 分机型安装步骤实时预览）──────
+router.get('/desktop-install', requireAuth, async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || 'https://silicon-guandan-system.onrender.com';
   const installUrl = `${baseUrl}/install`;      // 智能安装落地页（自动识别微信/iOS/安卓/电脑）
   const pcInstallUrl = installUrl;              // 手机、电脑统一入口
@@ -685,13 +685,25 @@ router.get('/invite-card', requireAuth, async (req, res) => {
     width: 300, margin: 2,
     color: { dark: '#1a0505', light: '#FFF8F0' }
   });
-  res.render('admin/invite-card', {
+  // 分机型预览标签：值对应 install-body.ejs 里的引导卡 id 前缀（?preview=<value>）
+  const previewTabs = [
+    { value: 'ios',         label: '📱 iPhone / iPad' },
+    { value: 'harmonynext', label: '🇨🇳 华为(鸿蒙6/NEXT)' },
+    { value: 'harmony',     label: '📶 华为(旧)/其它安卓' },
+    { value: 'xiaomi',      label: '🟠 小米 (MIUI)' },
+    { value: 'oppo',        label: '🟢 OPPO (ColorOS)' },
+    { value: 'vivo',        label: '🔵 vivo (OriginOS)' },
+    { value: 'mac',         label: '💻 Mac 电脑' },
+    { value: 'desktop',     label: '🖥️ Windows 电脑' }
+  ];
+  res.render('admin/desktop-install', {
     user: req.session.user,
-    activePage: 'invite-card',
+    activePage: 'desktop-install',
     qrDataUrl,
     installUrl,
     pcInstallUrl,
-    shareText
+    shareText,
+    previewTabs
   });
 });
 
