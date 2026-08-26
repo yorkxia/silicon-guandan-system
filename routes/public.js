@@ -589,6 +589,15 @@ router.get('/install/4p', (req, res) => {
 // 短链：/i4 → /install/4p
 router.get('/i4', (req, res) => res.redirect(301, '/install/4p'));
 
+// ── 掼蛋计分器专用安装落地页（装好后图标直达 /guandan 计分器） ──
+router.get('/install/scorer', (req, res) => {
+  const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  res.render('install-scorer', { baseUrl });
+});
+
+// 短链：/is → /install/scorer
+router.get('/is', (req, res) => res.redirect(301, '/install/scorer'));
+
 // ── 公开赛事页（无需登录，朋友扫码后直接进入） ──────────────
 router.get('/play', async (req, res) => {
   try {

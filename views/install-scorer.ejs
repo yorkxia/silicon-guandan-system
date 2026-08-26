@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>安装掼蛋计分器 App · 硅谷掼蛋协会</title>
+
+  <% var _base = (typeof baseUrl !== 'undefined' && baseUrl) ? baseUrl : 'https://silicon-guandan-system.onrender.com'; %>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="硅谷掼蛋协会">
+  <meta property="og:title" content="🎯 掼蛋计分器 · 点开一步装到桌面">
+  <meta property="og:description" content="硅谷掼蛋协会智能电子掼蛋计分器 · 免商店免下载，点开按提示装到手机/电脑桌面。">
+  <meta property="og:image" content="<%= _base %>/img/icon-512.png">
+  <meta property="og:url" content="<%= _base %>/install/scorer">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="🎯 掼蛋计分器 · 点开一步装到桌面">
+  <meta name="twitter:description" content="免商店免下载，点开按提示装到手机/电脑桌面。">
+  <meta name="twitter:image" content="<%= _base %>/img/icon-512.png">
+
+  <link rel="stylesheet" href="/css/style.css">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="掼蛋计分器">
+  <meta name="theme-color" content="#D4AC0D">
+  <link rel="manifest" href="/manifest-scorer.json">
+  <link rel="apple-touch-icon" href="/img/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/img/icon-192.png">
+  <link rel="icon" type="image/png" href="/img/icon-192.png">
+
+  <script>
+    /* 尽早注册 SW + 捕获系统安装事件（部分浏览器在页面脚本前就抛出） */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+    }
+    window._pwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window._pwaPrompt = e; });
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #1a0505 0%, #3D0A0A 50%, #1a0505 100%);
+      font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+<%- include('partials/install-body', {
+  appName: '🎯 掼蛋计分器',
+  appSub: 'SILICON VALLEY GUANDAN · SCOREBOARD',
+  appPlain: '掼蛋计分器',
+  enterUrl: '/guandan',
+  enterLabel: '🎯 先直接进入计分器 →',
+  tags: ['🎯 智能计分','📊 局分统计','⏱️ 免下载免商店','📱 免费安装'],
+  dismissSuffix: '-scorer'
+}) %>
+</body>
+</html>
