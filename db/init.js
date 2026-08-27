@@ -498,11 +498,13 @@ async function initDB() {
       socket_id     VARCHAR(48),
       is_ready      BOOLEAN NOT NULL DEFAULT FALSE,
       is_connected  BOOLEAN NOT NULL DEFAULT TRUE,
+      disconnected_at TIMESTAMPTZ,
       joined_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (room_id, seat),
       UNIQUE (room_id, player_id)
     )
   `);
+  await query(`ALTER TABLE gdo6_seats ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ`);  // 掉线起算时间：座位被顶替前必须先过 220 秒(40秒宽限+180秒托管)，本人随时可回不受此限
   await query(`
     CREATE TABLE IF NOT EXISTS gdo6_rounds (
       id                SERIAL PRIMARY KEY,

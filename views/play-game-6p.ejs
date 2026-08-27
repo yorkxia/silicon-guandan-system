@@ -129,7 +129,12 @@
     .side-row { display: flex; align-items: center; gap: 5.5px; font-size: .62rem; font-weight: 800; white-space: nowrap; }
     .side-lbl { letter-spacing: 1px; }
     .side-lv  { font-size: .88rem; font-weight: 900; min-width: 12px; text-align: center; }
-    .side-lv-sup { font-size: .5em; font-weight: 900; margin-left: 1px; opacity: .9; }   /* A级冲关次数角标：A¹/A²/A³ */
+    /* A级冲关次数：A1/A2/A3——原来用 <sup> 角标(0.5em)在赛事大屏上太小几乎看不清，
+       改成同一行内的醒目小徽章，一眼就能看出这是第几次冲A */
+    .side-lv-attempt {
+      font-size: .62rem; font-weight: 900; margin-left: 2px; padding: 0 4px;
+      border-radius: 5px; background: rgba(255,255,255,.28); vertical-align: middle;
+    }
     .side-win { font-size: .58rem; font-weight: 900; opacity: 1; letter-spacing: .5px; }
     .side-win b { font-size: .72rem; }
     .side-row.red  { color: #FF3030; }  .side-row.red  .side-lv { color: #FF3030; }
@@ -1302,13 +1307,13 @@ var curFinish  = [];       // 当前已出完座位的 finishOrder
 
 var LVN = ['','','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 function lvName(n){ return LVN[n] || String(n); }
-var A_SUP = ['','¹','²','³'];
-/* 记分牌上的级牌角标：仅A级显示第几次冲关(冲关次数=已失败次数+1，封顶3) */
+/* 记分牌上的级牌标注：仅A级显示"A1/A2/A3"(冲关次数=已失败次数+1，封顶3)，
+   用清晰可辨的数字徽章而不是容易被忽略的极小角标 */
 function lvBadgeHtml(n, fails){
   var base = lvName(n);
   if (n !== 14) return base;
   var attempt = Math.min((fails || 0) + 1, 3);
-  return base + '<sup class="side-lv-sup">' + A_SUP[attempt] + '</sup>';
+  return base + '<span class="side-lv-attempt">' + attempt + '</span>';
 }
 var POS_LABELS = ['','头游','二游','三游','四游','五游','末游'];
 var POS_CLASS  = ['','p1','p2','p3','p3','p3','p4'];
@@ -2360,11 +2365,15 @@ function sortHandLevel(hand, level){
    从不派发 pointerup，导致纯 Pointer Events 方案在这些设备上永远点不中牌（iPhone 因
    Safari 支持完整而不受影响）。这里独立再挂一条 touch 事件通路 + 保底 click，
    用时间戳去重，确保任意一条通路命中都能触发，不再要求某一种事件模型完整可靠。 */
+/* 移动判定阈值：必须和 swipeMove() 的滑选阈值(TAP_MOVE_PX)保持一致——如果这里比滑选阈值小，
+   会出现"两边都不认"的死区：本函数已判定为拖动(放弃toggle)，但滑选阈值还没到(也不出手加选)，
+   一次点击就这么被两边一起吞掉，正是"华为/安卓点击牌要点好几次才成功"的根因之一。 */
+var TAP_MOVE_PX = 10;
 function attachTap(el, fn){
   var lastFire = 0;
   function fire(){
     var now = Date.now();
-    if (now - lastFire < 400) return;   // 同一次点击可能被多条通路重复触发，去重
+    if (now - lastFire < 300) return;   // 同一次点击可能被多条通路重复触发，去重
     lastFire = now;
     fn();
   }
@@ -2372,7 +2381,7 @@ function attachTap(el, fn){
   el.addEventListener('pointerdown', function(e){ down = true; moved = false; sx = e.clientX; sy = e.clientY; });
   el.addEventListener('pointermove', function(e){
     if (!down) return;
-    if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) moved = true;
+    if (Math.abs(e.clientX - sx) > TAP_MOVE_PX || Math.abs(e.clientY - sy) > TAP_MOVE_PX) moved = true;
   });
   el.addEventListener('pointerup',     function(){ if (down && !moved) fire(); down = false; });
   el.addEventListener('pointercancel', function(){ down = false; moved = false; });
@@ -2386,7 +2395,7 @@ function attachTap(el, fn){
   el.addEventListener('touchmove', function(e){
     if (!tdown) return;
     var t = e.changedTouches && e.changedTouches[0];
-    if (t && (Math.abs(t.clientX - tx) > 8 || Math.abs(t.clientY - ty) > 8)) tmoved = true;
+    if (t && (Math.abs(t.clientX - tx) > TAP_MOVE_PX || Math.abs(t.clientY - ty) > TAP_MOVE_PX)) tmoved = true;
   }, { passive: true });
   el.addEventListener('touchend',    function(){ if (tdown && !tmoved) fire(); tdown = false; });
   el.addEventListener('touchcancel', function(){ tdown = false; tmoved = false; });
@@ -2573,21 +2582,34 @@ function syncButtons(){
   updatePlayButtonState();
 }
 
-/* ── 出牌 / 不出 ── */
+/* ── 出牌 / 不出 ──
+   任何一步意外抛错(比如 selected 里混进了重渲染后失效的下标)都不能让点击按钮"悄无声息地
+   没反应"——那样玩家会以为是自己没点中，越点越困惑。包一层 try/catch，出错也要给出提示
+   并引导去点"重置"，而不是让异常在控制台里默默吞掉。 */
 function doPlay(){
-  if(!isMyTurn) return;
-  if(selected.length===0){ showToast('请先选牌'); return; }
-  var cards = selected.map(function(key){ return key.split('_')[0]; });
-  var pt = gdDetect(cards, levelCard);
-  if(!pt){ showToast('无效牌型，请重新选择'); return; }
-  /* 牌型合法就发给服务端，由服务端做最终裁判(压不过会回 play:invalid 提示)。
-     不再本地硬挡「压不过」——避免弱网/状态残留误判导致「明明轮到我却永远出不了牌」。*/
-  socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
+  try {
+    if(!isMyTurn) return;
+    if(selected.length===0){ showToast('请先选牌'); return; }
+    var cards = selected.map(function(key){ return key.split('_')[0]; });
+    var pt = gdDetect(cards, levelCard);
+    if(!pt){ showToast('无效牌型，请重新选择'); return; }
+    /* 牌型合法就发给服务端，由服务端做最终裁判(压不过会回 play:invalid 提示)。
+       不再本地硬挡「压不过」——避免弱网/状态残留误判导致「明明轮到我却永远出不了牌」。*/
+    socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
+  } catch(err) {
+    console.error('[doPlay]', err);
+    showToast('⚠️ 出牌出错，请点「重置」后重试');
+  }
 }
 
 function doPass(){
-  if(!isMyTurn||!hasLastPlay) return;
-  socket.emit('play:pass',{ token:MY_TOKEN, roomCode:ROOM_CODE });
+  try {
+    if(!isMyTurn||!hasLastPlay) return;
+    socket.emit('play:pass',{ token:MY_TOKEN, roomCode:ROOM_CODE });
+  } catch(err) {
+    console.error('[doPass]', err);
+    showToast('⚠️ 操作出错，请点「重置」后重试');
+  }
 }
 
 /* ── 退出比赛：确认后离开大屏回大厅（断开连接，座位 40 秒宽限后转托管）── */
@@ -3283,6 +3305,7 @@ function resetCombos(){
   lockedCombos   = [];
   selected       = [];                           // 清空一切选中
   _straightCycle = null;                         // 清顺子/同花顺凑牌循环状态
+  if (typeof swipeEnd === 'function') swipeEnd();  // 万一滑选状态卡死(触摸序列被打断)，重置也要顺带救回来
   myHand = sortHandLevel(myHand, levelCard);     // 恢复原始级牌排序（不再有锁定组置左）
   comboReRender();                               // 重绘 + 刷新出牌按钮状态
   /* 万能急救：向服务端重新拉取权威状态，修正任何残留的"必须压过"死锁
@@ -3421,11 +3444,22 @@ function comboTapBall(el, fn){
   if (typeof fn === 'function') fn();
 }
 
-/* ── 滑动选牌：手指/鼠标划过多张牌=依次选中（松手不自动出，仍需点绿色"出牌"）── */
-var _swipe = { active:false, seen:null };
+/* ── 滑动选牌：手指/鼠标划过多张牌=依次选中（松手不自动出，仍需点绿色"出牌"）──
+   ⚠️ 原则性修复：swipeMove 原来从 pointerdown/touchstart 那一刻起就"零阈值"生效——
+   哪怕只是单击一张卡产生的 1~2px 自然抖动，也会被当成"划过"直接把卡加进 selected；
+   随后 touchend/pointerup 触发 attachTap 的 toggle 又把同一张卡切换掉，一来一回等于
+   白点——这正是"华为/安卓点击牌要点好几次才成功"的另一半根因(前一半是两边阈值不一致
+   的死区，见 TAP_MOVE_PX 处注释)。现在滑选必须先越过和单击同样大小的 TAP_MOVE_PX 阈值
+   才"真正启动"，越阈值之前的抖动完全不介入选牌，交给 attachTap 的单击 toggle 独立处理，
+   两者不再互相打架。 */
+var _swipe = { active:false, seen:null, armed:false, sx:0, sy:0 };
 function swipeMove(e){
   if (!_swipe.active) return;
   var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;   // 兼容 touch/pointer 两种事件对象
+  if (!_swipe.armed) {
+    if (Math.abs(pt.clientX - _swipe.sx) <= TAP_MOVE_PX && Math.abs(pt.clientY - _swipe.sy) <= TAP_MOVE_PX) return;
+    _swipe.armed = true;   // 越过阈值，确认是真滑动而非单击抖动，才开始接管选牌
+  }
   var el = document.elementFromPoint(pt.clientX, pt.clientY);
   var card = el && el.closest ? el.closest('.hand-card') : null;
   if (!card || card.dataset.code == null) return;
@@ -3439,7 +3473,7 @@ function swipeMove(e){
   }
 }
 function swipeEnd(){
-  _swipe.active = false; _swipe.seen = null;
+  _swipe.active = false; _swipe.seen = null; _swipe.armed = false;
   document.removeEventListener('pointermove', swipeMove);
   document.removeEventListener('pointerup', swipeEnd);
   document.removeEventListener('pointercancel', swipeEnd);
@@ -3449,7 +3483,9 @@ function swipeEnd(){
 }
 function swipeStart(e){
   if (typeof tbEx !== 'undefined' && tbEx.length) return;   // 进贡态不滑选（供/还是单张点选）
-  _swipe.active = true; _swipe.seen = {};
+  var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
+  _swipe.active = true; _swipe.seen = {}; _swipe.armed = false;
+  _swipe.sx = pt.clientX; _swipe.sy = pt.clientY;
   document.addEventListener('pointermove', swipeMove);
   document.addEventListener('pointerup', swipeEnd);
   document.addEventListener('pointercancel', swipeEnd);
@@ -3458,6 +3494,11 @@ function swipeStart(e){
   document.addEventListener('touchend', swipeEnd);
   document.addEventListener('touchcancel', swipeEnd);
 }
+/* 兜底：万一一次触摸序列中途被打断(切后台/来电/系统手势抢占)，touchend/pointerup/cancel
+   都没能触发，_swipe.active 会永久卡 true——此后哪怕只是正常点单张牌，只要指头有一点点
+   移动就会被当成"还在滑选"而误加牌。绝不能靠"重置"才能救回来，页面一旦不可见就直接强制收尾。 */
+document.addEventListener('visibilitychange', function(){ if (document.hidden) swipeEnd(); });
+window.addEventListener('blur', swipeEnd);
 (function(){
   var h = document.getElementById('hand-scroll-6p');
   if (h) {

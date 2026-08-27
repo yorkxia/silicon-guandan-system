@@ -843,7 +843,7 @@ module.exports = function(io, socket) {
         return socket.emit('room:closed', {});
       }
 
-      await query('UPDATE gdo6_seats SET socket_id=$1, is_connected=TRUE WHERE id=$2',
+      await query('UPDATE gdo6_seats SET socket_id=$1, is_connected=TRUE, disconnected_at=NULL WHERE id=$2',
         [socket.id, seat.id]);
       socket.join(roomCode);
 
