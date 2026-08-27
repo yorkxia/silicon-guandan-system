@@ -23,6 +23,20 @@
     window.addEventListener('pageshow', fit);
     window.addEventListener('orientationchange', function(){ setTimeout(fit,60); setTimeout(fit,300); });
     document.addEventListener('DOMContentLoaded', fit);
+    /* 兜底：安卓系（华为/小米/OPPO/vivo 自带浏览器）地址栏收起展开、横竖屏切换时经常不触发
+       （或严重延迟触发）resize/orientationchange，导致 --app-w/--app-h 卡在错误值上——
+       整个旋转后的舞台尺寸全靠这两个变量撑起来，一旦卡死，中心倒计时圆盘/指针、不出出牌
+       按钮全部继承这个错误位置，且没有任何东西会再次触发 fit() 去纠正。
+       visualViewport 是安卓/iOS 都支持的更可靠的真实视口变化信号；ResizeObserver 直接监听
+       html 元素的渲染尺寸变化，只要真实视口变了就必然触发，不依赖任何事件是否被正确派发。
+       两者都只是新增触发时机，fit() 本身逻辑不变，不会影响已经工作正常的设备。 */
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', fit);
+      window.visualViewport.addEventListener('scroll', fit);
+    }
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(fit).observe(root);
+    }
   })();
   </script>
   <style>
@@ -589,6 +603,10 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.4);
     }
     .sp-more { color: #fff; font-size: 11px; margin-left: 3px; align-self: center; text-shadow: 0 1px 2px #000; }
+    /* 出牌统一展示：从小到大，每行固定最多6张(不依赖容器宽度自动换行的flex-wrap，
+       保证任何屏幕上"一排6张"都是同一个数字) */
+    .pc-rows { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .pc-row  { display: flex; gap: 2px; justify-content: center; }
     /* 出牌结构化分列：同点数一列竖叠(牌同点，重叠不丢信息)，列按点数升序左→右，视觉对等平衡 */
     .sp-cols { display: flex; align-items: flex-start; justify-content: center; gap: 4px; }
     .sp-col  { display: flex; flex-direction: column; align-items: center; }
@@ -1918,12 +1936,8 @@ function renderSeatPlays(sp){
     if (play.pass){
       el.innerHTML = '<span class="sp-pass">不出</span>';
     } else {
-      /* 原有横向平铺：一张张横排(最多14张) */
-      var cards = play.cards || [], html = '';
-      var show = Math.min(cards.length, 14);
-      for (var i = 0; i < show; i++) html += miniCardHtml(cards[i]);
-      if (cards.length > show) html += '<span class="sp-more">共'+cards.length+'</span>';
-      el.innerHTML = html;
+      /* 从小到大排列，每行最多6张(最多14张) */
+      el.innerHTML = playCardsRowsHtml(play.cards, 14);
     }
     var px = r.left + r.width/2, py = r.top + r.height/2;
     var dx = cx - px, dy = cy - py, len = Math.sqrt(dx*dx + dy*dy) || 1;
@@ -2212,6 +2226,24 @@ function miniCardHtml(code){
   return '<div class="mc">' + GDCard.faceSVG(code) + '</div>';
 }
 
+/* 出牌展示统一规则：从小到大排列，每行最多6张自动换行(不依赖容器宽度的flex-wrap，
+   保证任何屏幕上"一排6张"都是同一个数字，不会因为屏宽不同一排显示5张或8张)。
+   王最大排最后；级牌排序沿用 _rv()(不含"级牌提升"，出牌展示只按面值，牌型判断已在别处做过)。*/
+function sortPlayCards(cards){
+  return (cards || []).slice().sort(function(a, b){ return _rv(a) - _rv(b); });
+}
+function playCardsRowsHtml(cards, maxTotal){
+  var sorted = sortPlayCards(cards);
+  var show = maxTotal ? sorted.slice(0, maxTotal) : sorted;
+  var rows = [];
+  for (var i = 0; i < show.length; i += 6) rows.push(show.slice(i, i + 6));
+  var html = rows.map(function(row){
+    return '<div class="pc-row">' + row.map(miniCardHtml).join('') + '</div>';
+  }).join('');
+  if (sorted.length > show.length) html += '<span class="sp-more">共' + sorted.length + '张</span>';
+  return '<div class="pc-rows">' + html + '</div>';
+}
+
 /* 座位旁出牌·结构化分列：同点数一列竖叠，列按点数升序左→右。
    姊妹对 223344→22|33|44；钢板 222333→222|333；三代二 22233→222|33；
    顺子/同花顺→每列1张即成横排；炸弹/单/对/三→单列竖叠。视觉对等平衡。*/
@@ -2262,8 +2294,8 @@ function trickCardsHtml(lastPlay){
       return html + '</div>';
     }
   }
-  /* 其它牌型：平铺(最多13张) */
-  return cards.slice(0, 13).map(miniCardHtml).join('');
+  /* 其它牌型(顺子/同花顺/炸弹/单/对/三张等)：从小到大排列，每行最多6张(最多13张) */
+  return playCardsRowsHtml(cards, 13);
 }
 
 /* ═══════ 掼蛋级牌排序 + 竖排分组 ═══════ */
