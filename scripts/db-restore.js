@@ -60,10 +60,12 @@ function orderedTables() {
 
 const pool = new Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
 
-// 值按列类型转换：jsonb/json → 字符串；其余(含 pg 数组、时间戳字符串)交给驱动
+// 值按列类型转换：jsonb/json → 字符串；bytea → 备份里的 base64 字符串解回 Buffer；
+// 其余(含 pg 数组、时间戳字符串)交给驱动
 function convert(val, udt) {
   if (val === null || val === undefined) return null;
   if (udt === 'jsonb' || udt === 'json') return typeof val === 'string' ? val : JSON.stringify(val);
+  if (udt === 'bytea') return typeof val === 'string' ? Buffer.from(val, 'base64') : val;
   return val;
 }
 
