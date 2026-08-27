@@ -84,6 +84,10 @@
       transition: transform .1s;
     }
     #exit-btn:active { transform: scale(.88); }
+    /* 浏览器标签页直开(未装桌面图标)：地址栏/手势条不像已装PWA那样固定，
+       右上角按钮离物理边缘再远一点，降低被浏览器自身UI遮住或误触的概率 */
+    body.gd-browser-mode #exit-btn,
+    body.gd-browser-mode #support-btn { top: 16px; }
 
     /* 右上角「客服」按钮：置于退出圆钮左侧，与网上赛事管理员对话 */
     #support-btn {
@@ -420,6 +424,11 @@
       height: calc(38px + env(safe-area-inset-bottom, 0));
       padding: 0 9px env(safe-area-inset-bottom, 0) 10px;
       background: transparent;   /* 底带透明，露出青绿毡面 */
+    }
+    /* 浏览器标签页直开：底部手势条/工具栏不固定，锁牌/重置等按钮离物理底边再多留一点 */
+    body.gd-browser-mode #combo-bar {
+      height: calc(38px + env(safe-area-inset-bottom, 0) + 10px);
+      padding-bottom: calc(env(safe-area-inset-bottom, 0) + 10px);
     }
     #combo-bar #my-info-6p { flex: 1 1 auto; min-width: 0; overflow: hidden; }
     #combo-bar .cb-pills { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -1285,6 +1294,12 @@
 var ROOM_CODE  = '<%= roomCode %>';
 var MY_TOKEN   = gdLS.get('gd-token', '');   // 安全读取：华为/鸿蒙/无痕禁存储也不崩
 var GAME_MODE  = '';    // '4p' 或 '6p'，game:hand 时赋值
+/* 未装桌面图标、直接在浏览器标签页里打开：浏览器自己的地址栏/手势条会占用/遮挡屏幕边缘，
+   且不像已装PWA那样固定不动。不弹"建议安装"打扰玩家，只悄悄给关键按钮/座位框多留一点
+   安全边距，降低被浏览器自身UI遮挡或误触的概率。 */
+var IS_STANDALONE = window.navigator.standalone === true ||
+  (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+if (!IS_STANDALONE) document.body.classList.add('gd-browser-mode');
 var tributeSelectedCard = null;  // 进贡还贡选中的牌
 var MY_NAME_LS = gdLS.get('gd-name', '我');
 
@@ -1893,12 +1908,15 @@ function positionActionBar6p(){
   /* 竖屏旋转后，左侧座位对和右侧座位对并不是镜像对称地分居屏幕上/下——旋转会把其中一对
      甩到物理屏幕顶边、另一对甩到物理屏幕底边(局部坐标系里对称，物理坐标系里不对称)。
      所以"贴在座位对下方"不能死认下方：下方放不下(会出屏)就改放上方 */
+  /* 浏览器标签页直开时边距留大一点，降低被浏览器自己的地址栏/手势条遮住或误触的概率
+     （已装桌面的PWA是固定全屏，不需要这层额外余量）*/
+  var EDGE_MARGIN = IS_STANDALONE ? 8 : 20;
   function safeY(box){
     var below = box.bottom + 16 + btnH / 2;
-    if (below + btnH / 2 <= vh - 8) return below;
+    if (below + btnH / 2 <= vh - EDGE_MARGIN) return below;
     var above = box.top - 16 - btnH / 2;
-    if (above - btnH / 2 >= 8) return above;
-    return Math.min(Math.max(below, btnH / 2 + 8), vh - btnH / 2 - 8);
+    if (above - btnH / 2 >= EDGE_MARGIN) return above;
+    return Math.min(Math.max(below, btnH / 2 + EDGE_MARGIN), vh - btnH / 2 - EDGE_MARGIN);
   }
   var leftBox  = pairBox([5, 6]);   // 左侧两个座位框(左上+左下)
   var rightBox = pairBox([2, 3]);   // 右侧两个座位框(右下+右上)
