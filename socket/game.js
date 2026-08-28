@@ -13,8 +13,8 @@ const gameStates = require('./gameState');
    在线玩家 30 秒 / 掉线玩家 12 秒；超时自动托管
 */
 const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
-const FIRST_TURN_SECONDS = 40;   // 开局第一手：留 40 秒看牌（第一张牌出去后转 25 秒）
-const DC_TURN_SECONDS    = 3;    // 掉线托管：AI 约 3 秒即接替出牌（比真人更快，不拖节奏）
+const FIRST_TURN_SECONDS = 60;   // 开局第一手：留 60 秒理牌（第一张牌出去后转 25 秒）
+const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
 const TRIBUTE_SECONDS    = 10;   // 供牌/还牌：玩家 10 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 const LAST_PLAY_DISPLAY_MS = 5000;     // 末游出完牌后，最后一手牌型停留展示的时长，再切到结算页
@@ -262,6 +262,13 @@ function broadcastState(io, state) {
   /* 每个座位在线状态（阶段九）*/
   const connected = {};
   for (const s of state.seats) connected[s.seat] = !isSeatDisconnected(state, s.seat);
+  /* 座位被局中顶替(remapSeatOwner)后，已经在场的其它玩家客户端不会自己再去请求一次
+     game:hand，本地缓存的座位名字/playerId 就会一直停留在旧玩家上，直到刷新页面才会
+     更新——这里把最新的座位归属也一起广播出去，客户端据此立即刷新座位框昵称，
+     不用等重连/刷新才能看到新玩家的名字。 */
+  const seatOwners = state.seats.map(s => ({
+    seat: s.seat, team: s.team, playerId: s.playerId, name: s.name
+  }));
   io.to(state.roomCode).emit('game:state', {
     turnSeat:    state.turnSeat,
     leadSeat:    state.leadSeat,
@@ -275,7 +282,8 @@ function broadcastState(io, state) {
     finishOrder:  state.finishOrder,
     connected,
     turnDeadline: state.turnDeadline || 0,
-    seatPlays:    state.seatPlays || {}      // 各座位最近一手（贴座位显示）
+    seatPlays:    state.seatPlays || {},     // 各座位最近一手（贴座位显示）
+    seatOwners                                // 各座位当前归属(座位被顶替后立即刷新昵称用)
   });
 }
 
@@ -876,7 +884,7 @@ module.exports = function(io, socket) {
         return socket.emit('room:closed', {});
       }
 
-      await query('UPDATE gdo_seats SET socket_id=$1, is_connected=TRUE WHERE id=$2',
+      await query('UPDATE gdo_seats SET socket_id=$1, is_connected=TRUE, disconnected_at=NULL WHERE id=$2',
         [socket.id, seat.id]);
       socket.join(roomCode);
 
@@ -1133,6 +1141,12 @@ module.exports.remapSeatOwner = function(roomCode, seatNum, oldPlayerId, newPlay
   if (state.hands && Object.prototype.hasOwnProperty.call(state.hands, oldKey)) {
     state.hands[newKey] = state.hands[oldKey];
     delete state.hands[oldKey];
+  }
+
+  /* 清掉该座位贴身显示的"上一手出的牌"(seatPlays)——那是掉线者本人出的牌，
+     座位换了新主人之后继续挂着，会让人以为是新玩家出了老玩家的牌(与六人版同一处修复对称)。 */
+  if (state.seatPlays && Object.prototype.hasOwnProperty.call(state.seatPlays, seatNum)) {
+    delete state.seatPlays[seatNum];
   }
 
   if (state.tributePhase) {

@@ -5,9 +5,10 @@ const { getOrCreatePlayer, levelName } = require('./gdo');   // 玩家/工具共
 
 const MAX_SEAT = 6;
 /* 掉线座位被"别人"顶替前必须先冷却这么久：40秒宽限期(game6.js TAKEOVER_GRACE_MS，机器人开始代打)
-   + 180秒机器人托管(用户明确要求的时长)。玩家本人拿着房间码/走随机匹配回到自己的座位不受此限——
-   见下面 joinRoomByCode 的 mine 分支，永远不受 status/时间限制。 */
-const STEAL_AFTER_MS = (40 + 180) * 1000;
+   + 240秒机器人托管(用户明确要求的时长，2026-08-28 由180秒调整为240秒)。玩家本人拿着房间码/
+   走随机匹配回到自己的座位不受此限——见下面 joinRoomByCode 的 mine 分支，永远不受 status/时间限制。
+   四人版 db/gdo.js 用同名常量、同样的计算方式，两边数值必须保持一致。 */
+const STEAL_AFTER_MS = (40 + 240) * 1000;
 
 /* ── 生成房间短码（在 gdo6_rooms 内唯一）── */
 function genCode() {
@@ -115,7 +116,7 @@ async function findOrCreateOpenRoom() {
 }
 
 /* ── 找一个"待救援"的随机赛事：满员(6)、局间(waiting)或局中(playing)、
-   且至少 1 个座位掉线超过 220 秒(40秒宽限+180秒机器人托管，见 STEAL_AFTER_MS) ──
+   且至少 1 个座位掉线超过 280 秒(40秒宽限+240秒机器人托管，见 STEAL_AFTER_MS) ──
    2026-08-21 放开 status 也匹配 playing，允许局中随时顶替(不再局限于局间)。
    2026-08-27 加上时间门槛：不然随机匹配会把新玩家瞬间塞进一个"刚断线2秒"的座位，
    原玩家网络一抖就被顶替，完全没有给他们回来的时间。只匹配"random"房间——

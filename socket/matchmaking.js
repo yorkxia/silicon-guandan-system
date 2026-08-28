@@ -311,7 +311,7 @@ module.exports = function(io, socket) {
   socket.on('room:leave', async function(data) {
     try {
       const { roomCode } = data;
-      await query(`UPDATE gdo_seats SET is_connected=FALSE WHERE socket_id=$1`, [socket.id]);
+      await query(`UPDATE gdo_seats SET is_connected=FALSE, disconnected_at=NOW() WHERE socket_id=$1`, [socket.id]);
       socket.leave(roomCode);
       const state = await getRoomState(roomCode);
       if (state) io.to(roomCode).emit('room:update', { state });
@@ -340,7 +340,7 @@ module.exports = function(io, socket) {
   /* ── 断线处理 ── */
   socket.on('disconnect', async function() {
     try {
-      await query(`UPDATE gdo_seats SET is_connected=FALSE WHERE socket_id=$1`, [socket.id]);
+      await query(`UPDATE gdo_seats SET is_connected=FALSE, disconnected_at=NOW() WHERE socket_id=$1`, [socket.id]);
       await query(
         `UPDATE gdo_queue SET status='cancelled' WHERE socket_id=$1 AND status='waiting'`,
         [socket.id]
