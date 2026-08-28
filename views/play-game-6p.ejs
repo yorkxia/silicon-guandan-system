@@ -53,6 +53,22 @@
     #beach-table { display: none; }
     body.mode-6p #beach-table { top: 52%; width: 98vw; height: 76vh; max-width: 1380px; }
 
+    /* 微信/QQ等内置浏览器提示条：position:fixed 的元素，只要祖先(body)有 transform，
+       就会以该祖先的旋转后的框为基准定位——跟 #exit-btn/#combo-bar 等既有元素同一套原理，
+       不用再手算竖屏旋转坐标 */
+    #inapp-fs-guide {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+      align-items: center; gap: 10px; padding: 8px 14px;
+      background: linear-gradient(135deg,#2C0A0A,#1a0505); color: #fff;
+      font-size: .74rem; line-height: 1.5; box-shadow: 0 3px 10px rgba(0,0,0,.4);
+    }
+    #inapp-fs-guide span { flex: 1; }
+    #inapp-fs-guide b { color: #FFE066; }
+    #inapp-fs-guide button {
+      flex-shrink: 0; background: rgba(255,255,255,.15); border: none; color: #fff;
+      width: 22px; height: 22px; border-radius: 50%; font-size: .8rem; cursor: pointer;
+    }
+
     /* 竖屏 → 整个牌桌自动旋转成横屏满屏（微信内置浏览器无法锁定方向，用CSS旋转）*/
     #rotate-hint { display: none !important; }   /* 不再提示横屏，改为自动旋转 */
     @media (orientation: portrait) {
@@ -1004,6 +1020,14 @@
 </head>
 <body>
 
+<!-- 微信/QQ/微博等内置浏览器：顶部/底部会被对方App自己的工具条遮住一块屏幕(这层UI我们
+     去不掉，是对方App的产品策略)，只能提示玩家自己去系统浏览器打开才能真正满屏。
+     可关闭，关闭后本次访问不再提示；绝不阻挡出牌，纯提示条。 -->
+<div id="inapp-fs-guide">
+  <span>📱 检测到在微信/QQ等App内打开，画面会被顶部工具条遮住一截 · 点右上角<b>⋯</b>菜单 →<b>在浏览器中打开</b>可完整满屏</span>
+  <button type="button" onclick="dismissInappFsGuide()">✕</button>
+</div>
+
 <!-- 竖屏提示：请横屏 -->
 <div id="rotate-hint">
   <div class="rot-inner">
@@ -1300,6 +1324,22 @@ var GAME_MODE  = '';    // '4p' 或 '6p'，game:hand 时赋值
 var IS_STANDALONE = window.navigator.standalone === true ||
   (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
 if (!IS_STANDALONE) document.body.classList.add('gd-browser-mode');
+
+/* 微信/QQ/微博/钉钉/飞书/百度App等内置浏览器：顶部(有时还有底部)会被对方App自己的
+   工具条遮住一截屏幕——这层UI是对方App的产品策略，任何网页都去不掉，只能提示玩家
+   自己去系统浏览器打开。不阻挡出牌，纯提示条，可关闭且本次访问记住不再提示。 */
+(function(){
+  var ua = navigator.userAgent || '';
+  var isInApp = /MicroMessenger|\bQQ\/|MQQBrowser\/|Weibo|DingTalk|Lark|feishu|baiduboxapp|FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram/i.test(ua);
+  if (!isInApp) return;
+  if (gdLS.get('gd-inapp-fs-guide-dismissed-6p', '')) return;
+  var el = document.getElementById('inapp-fs-guide');
+  if (el) el.style.display = 'flex';
+})();
+function dismissInappFsGuide(){
+  var el = document.getElementById('inapp-fs-guide'); if (el) el.style.display = 'none';
+  try { gdLS.set('gd-inapp-fs-guide-dismissed-6p', '1'); } catch(_){}
+}
 var tributeSelectedCard = null;  // 进贡还贡选中的牌
 var MY_NAME_LS = gdLS.get('gd-name', '我');
 
