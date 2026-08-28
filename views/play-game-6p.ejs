@@ -1694,10 +1694,24 @@ socket.on('game:state', function(d){
   lastPlayType = (d.lastPlay && d.lastPlay.cards) ? gdDetect(d.lastPlay.cards, levelCard) : null;  // 需压过的牌型
   if (d.connected) connMap = d.connected;      // 阶段九：座位在线状态
 
-  players.forEach(function(p){
-    if(d.handCounts && d.handCounts[p.playerId] !== undefined)
-      p.cardCount = d.handCounts[p.playerId];
-  });
+  /* 座位被局中顶替后，服务端会在 seatOwners 里带上最新的座位归属——不能只 patch cardCount，
+     必须整体刷新 players，否则座位名字/playerId 会一直停在旧玩家上，直到手动刷新页面才更新
+     （之前只 patch cardCount 时，cardCount 查找还是按旧 playerId 对不上新 handCounts，连剩余
+     张数都会跟着显示错）。没有 seatOwners(理论不会发生)时保留旧的 patch 逻辑兜底。 */
+  if (d.seatOwners) {
+    players = d.seatOwners.map(function(so){
+      return {
+        seat: so.seat, team: so.team, name: so.name, playerId: so.playerId,
+        isMe: so.playerId === myPlayerId,
+        cardCount: (d.handCounts && d.handCounts[so.playerId] !== undefined) ? d.handCounts[so.playerId] : 0
+      };
+    });
+  } else {
+    players.forEach(function(p){
+      if(d.handCounts && d.handCounts[p.playerId] !== undefined)
+        p.cardCount = d.handCounts[p.playerId];
+    });
+  }
 
   if (GAME_MODE === '6p') {
     render6pPlayers(players, curFinish, d.turnSeat);
@@ -3313,21 +3327,24 @@ function remapCombos(newHand){
   });
   lockedCombos = keep;
 }
-/* 「锁牌」把所有已锁定组合搬到手牌最左端（组内大牌在左）；其余散牌照常级牌排序。
-   撤销/重置后散牌自动归位到原始排列。*/
+/* 「锁牌」按牌型分两端摆放：炸弹类(普通炸弹4/5/6张、同花顺、王炸/天炸——_isBomb() 判定，
+   跟出牌比大小时的"炸弹"定义完全一致)锁到手牌最左端；非炸弹类(顺子/三带二/钢板/姊妹对等)
+   锁到手牌最右端。中间是未锁定的散牌，照常级牌排序。撤销/重置后散牌自动归位到原始排列。 */
 function reorderHandLockedFirst(){
-  var inCombo = {}, front = [];
+  var inCombo = {}, front = [], back = [];
   lockedCombos.forEach(function(combo){
     var cards = [];
     combo.keys.forEach(function(key){
       var idx = parseInt(key.slice(key.lastIndexOf('_') + 1), 10);
       if (!inCombo[idx]) { inCombo[idx] = true; cards.push(myHand[idx]); }
     });
-    front = front.concat(sortHandLevel(cards, levelCard));
+    var sorted = sortHandLevel(cards, levelCard);
+    if (_isBomb({ type: combo.type })) front = front.concat(sorted);
+    else                                back  = back.concat(sorted);
   });
   var rest = [];
   myHand.forEach(function(code, idx){ if (!inCombo[idx]) rest.push(code); });
-  myHand = front.concat(sortHandLevel(rest, levelCard));
+  myHand = front.concat(sortHandLevel(rest, levelCard)).concat(back);
   remapCombos(myHand);
 }
 function comboReRender(){
@@ -3341,9 +3358,9 @@ function lockCombo(){
   var cards = selected.map(function(k){ return k.split('_')[0]; });
   var pt = gdDetect(cards, levelCard);
   if(!pt || LOCKABLE_TYPES.indexOf(pt.type) < 0){ showToast('⚠️ 非法组合，无法锁定'); return; }
-  lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合' });
+  lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合', type: pt.type });
   selected = [];
-  reorderHandLockedFirst();   // 搬到手牌最左端
+  reorderHandLockedFirst();   // 炸弹类锁最左，非炸弹类锁最右
   comboReRender();
   showToast('✅ 已锁定：' + (pt.label || '组合'));
 }
