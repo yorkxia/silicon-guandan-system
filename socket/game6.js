@@ -1076,6 +1076,13 @@ module.exports.remapSeatOwner = function(roomCode, seatNum, oldPlayerId, newPlay
     delete state.hands[oldKey];
   }
 
+  /* 清掉该座位贴身显示的"上一手出的牌"(seatPlays)——那是掉线者本人出的牌，
+     座位换了新主人之后继续挂着，会让人以为是新玩家出了老玩家的牌(视觉上像是"张冠李戴")。
+     座位号不变，只是清空这一格的历史残留，不影响手牌/分数等真正的游戏逻辑数据。 */
+  if (state.seatPlays && Object.prototype.hasOwnProperty.call(state.seatPlays, seatNum)) {
+    delete state.seatPlays[seatNum];
+  }
+
   if (state.tributePhase) {
     (state.tributePhase.exchanges || []).forEach(ex => {
       if (ex.giverId    === oldPlayerId) ex.giverId    = newPlayerId;
