@@ -56,9 +56,14 @@
     /* 微信/QQ等内置浏览器提示条：position:fixed 的元素，只要祖先(body)有 transform，
        就会以该祖先的旋转后的框为基准定位——跟 #exit-btn/#combo-bar 等既有元素同一套原理，
        不用再手算竖屏旋转坐标 */
+    /* ⚠️ 原则性修复：早期版本 right:0(通顶到最右)，跟 #exit-btn/#support-btn(z-index:200，
+       右上角固定按钮)在本地坐标上是重叠的——本条 z-index:99999 更高，会整块盖住二者的点击
+       区域，导致"退出"点了没反应。右侧留 120px 让开这两个圆钮，和 #top-bar 的既有做法
+       一致(#top-bar 也是 padding-right:120px 出于同一个理由)。另加 max-height+overflow:hidden
+       兜底，即使文案在极窄机型上换行也不会意外把可点击范围撑得更高更大。 */
     #inapp-fs-guide {
-      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
-      align-items: center; gap: 10px; padding: 8px 14px;
+      display: none; position: fixed; top: 0; left: 0; right: 120px; z-index: 99999;
+      align-items: center; gap: 10px; padding: 8px 14px; max-height: 60px; overflow: hidden;
       background: linear-gradient(135deg,#2C0A0A,#1a0505); color: #fff;
       font-size: .74rem; line-height: 1.5; box-shadow: 0 3px 10px rgba(0,0,0,.4);
     }
@@ -1024,7 +1029,7 @@
      去不掉，是对方App的产品策略)，只能提示玩家自己去系统浏览器打开才能真正满屏。
      可关闭，关闭后本次访问不再提示；绝不阻挡出牌，纯提示条。 -->
 <div id="inapp-fs-guide">
-  <span>📱 检测到在微信/QQ等App内打开，画面会被顶部工具条遮住一截 · 点右上角<b>⋯</b>菜单 →<b>在浏览器中打开</b>可完整满屏</span>
+  <span>📱 在微信/QQ内打开 · 点<b>⋯</b>菜单→<b>在浏览器中打开</b>可满屏</span>
   <button type="button" onclick="dismissInappFsGuide()">✕</button>
 </div>
 
@@ -1785,12 +1790,20 @@ function ensureNeedleEl(){
    #hex-center 在 flex 布局里的实际位置会随顶栏/手牌区高度、横竖屏变化，猜死的百分比容易偏移，
    之前箭头看起来"没对准桌心"正是这个原因 */
 function turnCenterAnchor(){
+  /* ⚠️ 原则性修复：这里之前唯独漏了 gdToLocal() 转换——同一个文件里所有其它"量出真实屏幕
+     坐标、再赋给 position:fixed 元素"的地方(positionActionBar6p/renderSeatPlays/供还牌飞牌
+     等)全都会先过一遍 gdToLocal() 才赋值，因为 getBoundingClientRect() 返回的是"视觉/物理
+     屏幕坐标"，而竖屏旋转后 position:fixed 元素的 left/top 认的是"旋转前的本地坐标"——
+     两者不是同一套坐标系，直接把物理坐标塞给 left/top 在竖屏旋转下必然算错，且偏移方式
+     正好是"跑到本地坐标系里差着一次旋转的另一个方位"，与用户反馈的"圆盘/箭头跑到手牌
+     区旁边、不在桌心"完全吻合。补上这一步转换后，横屏(gdToLocal 直接原样返回)不受影响，
+     竖屏旋转下才会第一次真正指向 #hex-center 的物理位置。 */
   var hc = document.getElementById('hex-center');
   if (hc) {
     var r = hc.getBoundingClientRect();
-    if (r.width) return { x: r.left + r.width/2, y: r.top + r.height/2 };
+    if (r.width) return gdToLocal(r.left + r.width/2, r.top + r.height/2);
   }
-  return { x: window.innerWidth/2, y: window.innerHeight*0.37 };   // 兜底(桌面区还未渲染时)
+  return gdToLocal(window.innerWidth/2, window.innerHeight*0.37);   // 兜底(桌面区还未渲染时)
 }
 function stopTurnCountdown(){
   if(_turnInterval){ clearInterval(_turnInterval); _turnInterval = null; }
@@ -2687,7 +2700,9 @@ function doPass(){
 /* ── 退出比赛：确认后离开大屏回大厅（断开连接，座位 40 秒宽限后转托管）── */
 function exitGame(){
   if (confirm('确定要退出本局比赛吗？\n退出后本局将由系统托管代打。')) {
-    try { if (typeof socket !== 'undefined' && socket) socket.disconnect(); } catch(_){}
+    /* 主动退出=意图明确，不用等 40 秒宽限期，服务端收到后立即转机器人代打并负责断开连接；
+       这里不再自己调 socket.disconnect()，避免"emit 后立刻断线"把这条消息弄丢。 */
+    try { if (typeof socket !== 'undefined' && socket) socket.emit('game:leave_now', { token: MY_TOKEN, roomCode: ROOM_CODE }); } catch(_){}
     location.href = '/play';
   }
 }
@@ -3164,13 +3179,17 @@ function cardEmoji(code) {
    seat 1=bottom-center, 2=bottom-right, 3=top-right,
    4=top-center, 5=top-left, 6=bottom-left
 */
+/* 座位3/5(top:10%)之前贴 #hex-board 顶边太近：昵称字号翻倍后方框变高，
+   translate(-50%,-50%) 居中会让方框顶部探出 #hex-board 的可视范围，被
+   #game-6p-board 的 overflow:hidden 切掉一截(华为/苹果实测截图均可见)——
+   10%→17% 留出安全距离，不影响其它座位。 */
 var HEX_POS = [
   null,                        // placeholder index 0
   { left:'50%', top:'99%' },   // seat 1 = bottom-center (me)：底边贴近牌桌底部（配合 translate -100% 下移）
   { left:'94%', top:'80%' },   // seat 2 = bottom-right
-  { left:'94%', top:'10%' },   // seat 3 = top-right
+  { left:'94%', top:'17%' },   // seat 3 = top-right
   { left:'50%', top:'3%'  },   // seat 4 = top-center
-  { left:'6%',  top:'10%' },   // seat 5 = top-left
+  { left:'6%',  top:'17%' },   // seat 5 = top-left
   { left:'6%',  top:'80%' },   // seat 6 = bottom-left
 ];
 

@@ -966,6 +966,29 @@ module.exports = function(io, socket) {
     }
   });
 
+  /* ── 玩家主动点"退出比赛"：立即转机器人代打，不必等 40 秒宽限期 ──
+     宽限期(scheduleTakeover)是为了照顾"网络抖动/误触断线"这类非本意的掉线，给点时间回来；
+     但这里是玩家自己确认要走(exitGame 已经弹过确认框)，意图非常明确，没有理由让队友/对手
+     还要多等 40 秒才由 AI 接手，越早接手对局越流畅。DB 侧 is_connected/disconnected_at 仍由
+     随后的 socket 'disconnect' 事件按老流程写入，280 秒顶替门槛从那一刻起算，逻辑不变。 */
+  socket.on('game:leave_now', async function(data) {
+    try {
+      const { token, roomCode } = data;
+      const state = gameStates.get(roomCode);
+      if (!state) return;
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+      const seatObj = state.seats.find(s => s.playerId === player.id);
+      if (!seatObj) return;
+      cancelTakeover(state, seatObj.seat);          // 清掉可能已排队的宽限计时器，改走立即托管
+      await applyTakeover(io, state, seatObj.seat); // 立即转机器人代打
+    } catch (e) {
+      console.error('[game:leave_now]', e.message);
+    } finally {
+      socket.disconnect(true);   // 服务端主动收尾，避免客户端"emit 后立刻 disconnect"的时序竞态丢包
+    }
+  });
+
   /* ── 不出（过牌）── */
   socket.on('play:pass', async function(data) {
     try {
