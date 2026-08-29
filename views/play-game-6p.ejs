@@ -12,11 +12,22 @@
      输入框聚焦(键盘弹出)时不重算，避免牌桌被压缩 ── */
   (function(){
     var root = document.documentElement;
+    /* ⚠️ 原则性修复：要不要旋转("是否竖屏")以前交给 CSS 的 @media(orientation:portrait)
+       自己判断，跟这里注入 --app-w/--app-h 尺寸是两套完全独立、各自触发的机制——浏览器原生
+       媒体查询的重新求值时机由浏览器自己决定，不受我们控制，正常情况下和 resize 事件差不多
+       同步，但个别定制 WebView(华为鸿蒙4.2 等)在系统级浮层(如微信通话悬浮窗)改变可视区域时，
+       媒体查询已经按新尺寸重新判定了"旋转/不旋转"，但 --app-w/--app-h 这两个自定义属性的更新
+       事件(resize/visualViewport等)却还没触发或被吞掉——旋转状态和尺寸状态短暂"对不上"，
+       会导致 body 的实际渲染框和触摸事件坐标系整体错位，出现"什么都点不中"（六人这里出过，
+       四人从来没用过媒体查询、一直是用 JS 一次性把旋转和尺寸算在一起设，天然不会有这个不同步
+       窗口，这正是本次要对齐的地方）。现在把"是否旋转"也放进这个函数里，跟尺寸同一次算、
+       同一次写，浏览器只会看到一次样式变化，不会有旧尺寸配新状态/新尺寸配旧状态的中间态。 */
     function fit(){
       var ae = document.activeElement;
       if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
       root.style.setProperty('--app-w', window.innerWidth  + 'px');
       root.style.setProperty('--app-h', window.innerHeight + 'px');
+      root.classList.toggle('gd-portrait', window.innerHeight > window.innerWidth);
     }
     fit();
     window.addEventListener('resize', fit);
@@ -76,15 +87,17 @@
 
     /* 竖屏 → 整个牌桌自动旋转成横屏满屏（微信内置浏览器无法锁定方向，用CSS旋转）*/
     #rotate-hint { display: none !important; }   /* 不再提示横屏，改为自动旋转 */
-    @media (orientation: portrait) {
-      html, body { overflow: hidden; }
-      body {
-        position: fixed; top: 0; left: 0;
-        width: var(--app-h, 100dvh);    /* 旋转后：宽=屏高（长边），--app-h 为真实视口高 */
-        height: var(--app-w, 100dvw);   /* 旋转后：高=屏宽（短边），--app-w 为真实视口宽 */
-        transform-origin: top left;
-        transform: translateX(var(--app-w, 100dvw)) rotate(90deg);   /* 真满屏，不依赖 dvw 支持 */
-      }
+    /* 用 JS 写的 html.gd-portrait 类代替 @media(orientation:portrait)——原因见上面 fit() 里的
+       长注释：类和 --app-w/--app-h 由同一次 fit() 调用一起写，不会出现"旋转状态"和"尺寸状态"
+       各自独立触发、短暂互相对不上的中间态。 */
+    html.gd-portrait { overflow: hidden; }
+    html.gd-portrait body {
+      overflow: hidden;
+      position: fixed; top: 0; left: 0;
+      width: var(--app-h, 100dvh);    /* 旋转后：宽=屏高（长边），--app-h 为真实视口高 */
+      height: var(--app-w, 100dvw);   /* 旋转后：高=屏宽（短边），--app-w 为真实视口宽 */
+      transform-origin: top left;
+      transform: translateX(var(--app-w, 100dvw)) rotate(90deg);   /* 真满屏，不依赖 dvw 支持 */
     }
 
     /* ═══════════════ 顶部状态栏 ═══════════════ */
@@ -1938,7 +1951,9 @@ function clearSeatPlays(){
 }
 /* 竖屏时整个 body 被旋转90°，getBoundingClientRect 返回"屏幕视觉坐标"，
    fixed 子元素 left/top 是"body 本地坐标"，需换算：本地=(视觉y, 屏宽-视觉x) */
-function gdPortrait(){ return !!(window.matchMedia && window.matchMedia('(orientation: portrait)').matches); }
+/* 跟 CSS 旋转判定读同一个信号(html.gd-portrait，由 fit() 和尺寸一起原子写入)，
+   不再单独调 matchMedia 现查一次——避免这里查到的"是否竖屏"跟 CSS 实际用的状态不同步 */
+function gdPortrait(){ return document.documentElement.classList.contains('gd-portrait'); }
 function gdToLocal(vx, vy){
   if (!gdPortrait()) return { x: vx, y: vy };
   return { x: vy, y: window.innerWidth - vx };
