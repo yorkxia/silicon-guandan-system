@@ -3662,19 +3662,38 @@ function toggleCard6p(code, idx) {
   if (typeof tbTapCard === 'function' && tbEx.length && tbTapCard(code)) return;  // 进贡态：点牌=供/还
   var key = code + '_' + idx;
   var cmb = comboOfKey(key);
+  var affectedKeys;
   if (cmb) {
     /* 锁定组：点组内任意一张 = 选中/取消整组（一次一组，替换原选择）*/
     var allSel = cmb.keys.every(function(k){ return selected.indexOf(k) >= 0; });
     selected = allSel ? selected.filter(function(k){ return cmb.keys.indexOf(k) < 0; })
                       : cmb.keys.slice();
+    affectedKeys = cmb.keys;
   } else {
-    /* 散牌：若原来选中的是某锁定组，先清空避免混合 */
-    if (selected.some(function(k){ return comboOfKey(k); })) selected = [];
+    /* 散牌：若原来选中的是某锁定组，先清空避免混合——这种情况很少见，
+       牌型互斥直接整手重绘最简单可靠，不必为这个冷门分支做增量优化 */
+    if (selected.some(function(k){ return comboOfKey(k); })){
+      selected = [];
+      render6pHand(myHand);
+      syncButtons6p(); updateSelInfo6p(); updatePlayButtonState();
+      return;
+    }
     var i = selected.indexOf(key);
     if (i >= 0) selected.splice(i, 1);
     else         selected.push(key);
+    affectedKeys = [key];
   }
-  render6pHand(myHand);
+  /* ⚠️ 性能修复："苹果丝滑、华为/安卓不跟手"的主要原因：以前这里点一下就 render6pHand()
+     整手重绘——六人手牌常有20+张，每张都带SVG矢量牌面+好几套触摸/指针事件监听，每次点击
+     都全部销毁重建，在低端安卓/华为上有明显可感知的卡顿延迟，iPhone硬件更强所以不明显。
+     改成只切换被点中这几张牌(单张或整组)的 selected 样式类，不碰其余 DOM，跟 swipeMove()
+     滑选时"直接加类不重绘"是同一个思路。 */
+  affectedKeys.forEach(function(k){
+    var sep = k.lastIndexOf('_');
+    var c = k.slice(0, sep), ix = k.slice(sep + 1);
+    var el = document.querySelector('.hand-card-6p[data-code="' + c + '"][data-idx="' + ix + '"]');
+    if (el) el.classList.toggle('selected', selected.indexOf(k) >= 0);
+  });
   syncButtons6p();
   updateSelInfo6p();
   updatePlayButtonState();
