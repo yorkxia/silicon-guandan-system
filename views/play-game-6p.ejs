@@ -3134,7 +3134,7 @@ function showTributeNotice(text, ms) {
 }
 
 /* 供/还牌：正面高清牌从 fromSeat 飞向 toSeat，约3.5秒，全桌都看清牌型 */
-var TRIBUTE_FLY_MS = 3500;
+var TRIBUTE_FLY_MS = 5000;   // 供/还贡飞牌动画时长(用户要求5秒，让全桌都能看清进贡/还供的是哪张牌)
 function flyTributeCard(fromSeat, toSeat, code, labelTxt) {
   var fromEl = (typeof tbSeatEl==='function') ? tbSeatEl(fromSeat) : null;
   var toEl   = (typeof tbSeatEl==='function') ? tbSeatEl(toSeat)   : null;

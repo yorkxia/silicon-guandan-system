@@ -104,22 +104,41 @@ function armTributeTimer(io, state) {
     onTributeTimeout(io, state).catch(e => console.error('[tribute_timeout]', e.message));
   }, TRIBUTE_SECONDS * 1000);
 }
-/* 到点：把当前所有待办的供/还各推进一步（不论是否在线），再续 10 秒给新产生的还供 */
+/* 候选里随机挑一张——供牌方超时未选时，"没有大小王(比如手里并列的都是级牌)"这种平手候选
+   不该总固定选同一张，随机才公平；只有一张候选时随机等于就是那张，行为不变。 */
+function _randomOf(arr) {
+  if (!arr || !arr.length) return null;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/* 到点：把当前所有待办的供/还各推进一步（不论是否在线），再续 10 秒给新产生的还供。
+   ⚠️ 死锁防线：每一笔供/还都单独 try/catch，某一笔意外出错(理论不应发生，但比如手牌
+   数据异常)绝不能连累同批次里其它玩家的供还也跟着卡住；最外层用 finally 保证不管前面
+   有没有出错，只要进贡阶段还在，10秒计时器必定重新武装——不会出现"超时处理器自己抛错、
+   导致以后再也没有下一次超时"这种永久卡死。 */
 async function onTributeTimeout(io, state) {
   if (gameStates.get(state.roomCode) !== state || !state.tributePhase) return;
-  const returnsToDo = state.tributePhase.exchanges.filter(e => e.stage === 'return');
-  const givesToDo   = state.tributePhase.exchanges.filter(e => e.stage === 'give');
-  for (const ex of returnsToDo) {
-    if (!state.tributePhase) break;
-    const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
-    if (card) await applyTributeReturn(io, state, ex.receiverId, card);
+  try {
+    const returnsToDo = state.tributePhase.exchanges.filter(e => e.stage === 'return');
+    const givesToDo   = state.tributePhase.exchanges.filter(e => e.stage === 'give');
+    for (const ex of returnsToDo) {
+      if (!state.tributePhase) break;
+      try {
+        const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
+        if (card) await applyTributeReturn(io, state, ex.receiverId, card);
+      } catch (e) { console.error('[tribute_timeout:return]', e.message); }
+    }
+    for (const ex of givesToDo) {
+      if (!state.tributePhase) break;
+      try {
+        const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+        const card = _randomOf(cands);
+        if (card) await applyTributeGive(io, state, ex.giverId, card);
+      } catch (e) { console.error('[tribute_timeout:give]', e.message); }
+    }
+  } finally {
+    if (gameStates.get(state.roomCode) === state && state.tributePhase) armTributeTimer(io, state);
   }
-  for (const ex of givesToDo) {
-    if (!state.tributePhase) break;
-    const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
-    if (cands[0]) await applyTributeGive(io, state, ex.giverId, cands[0]);
-  }
-  if (gameStates.get(state.roomCode) === state && state.tributePhase) armTributeTimer(io, state);
 }
 
 function isSeatDisconnected(state, seat) {
@@ -510,14 +529,22 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     return true;
   }
 
-  /* 首出座位（PDF 2.1）：全下→头游的下家首抓；否则→下游(第一贡者)首抓 */
+  /* 首出座位：
+     a) 进贡最大的那张牌的贡牌方先出——exchanges 继承自 giversByTop 按贡牌大小降序排列，
+        exchanges[0] 就是贡牌最大的人，不分全下还是单人进贡都适用；
+     b) 全下(双下/六人三下)且并列最大(比如都进贡级牌，大小相同、分不出谁更大)时，
+        才退回"头游的下家"这条平手仲裁规则。
+     旧版全下时无条件用"头游的下家"，完全没看谁贡的牌大——tributeLeadId 当时其实已经算出
+     "贡给头游的那个人"却从未真正用来定 leadSeat，是遗留的半成品，这次一并接上。 */
   const isFullDown = pendingCount >= teamSize;
+  const topVal      = _tributeVal(exchanges[0].mustGiveCard, state.levelCard);
+  const tiedAtTop   = exchanges.filter(e => _tributeVal(e.mustGiveCard, state.levelCard) === topVal).length > 1;
   let leadSeat;
-  if (isFullDown && headSeatObj) {
+  if (isFullDown && tiedAtTop && headSeatObj) {
     leadSeat = nextSeat(headSeatObj.seat, state.seats, []);
   } else {
-    const soleGiver = state.seats.find(s => s.playerId === exchanges[0].giverId);
-    leadSeat = soleGiver ? soleGiver.seat : (headSeatObj ? headSeatObj.seat : state.turnSeat);
+    const topGiver = state.seats.find(s => s.playerId === exchanges[0].giverId);
+    leadSeat = topGiver ? topGiver.seat : (headSeatObj ? nextSeat(headSeatObj.seat, state.seats, []) : state.turnSeat);
   }
 
   state.tributePhase = { exchanges, pendingCount, tributeLeadId, leadSeat,
@@ -656,22 +683,26 @@ async function finalizeTribute(io, state) {
    保证任何玩家退出/掉线满 40 秒后，供牌/还供不会卡死。*/
 async function driveTributeBots(io, state) {
   let progressed = true;
-  while (progressed && state.tributePhase) {
+  let guard = 0;   // 保底：exchanges 数量有限，正常不会转很多轮；万一出现意外情况也不会真死循环
+  while (progressed && state.tributePhase && guard++ < 50) {
     progressed = false;
     for (const ex of state.tributePhase.exchanges) {
-      if (ex.stage === 'give' && isPlayerSeatDisconnected(state, ex.giverId)) {
-        const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
-        if (cands[0]) {
-          const r = await applyTributeGive(io, state, ex.giverId, cands[0]);
-          if (r.ok) { progressed = true; break; }
+      try {
+        if (ex.stage === 'give' && isPlayerSeatDisconnected(state, ex.giverId)) {
+          const cands = (ex.giveCandidates && ex.giveCandidates.length) ? ex.giveCandidates : [ex.mustGiveCard];
+          const card = _randomOf(cands);
+          if (card) {
+            const r = await applyTributeGive(io, state, ex.giverId, card);
+            if (r.ok) { progressed = true; break; }
+          }
+        } else if (ex.stage === 'return' && isPlayerSeatDisconnected(state, ex.receiverId)) {
+          const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
+          if (card) {
+            const r = await applyTributeReturn(io, state, ex.receiverId, card);
+            if (r.ok) { progressed = true; break; }
+          }
         }
-      } else if (ex.stage === 'return' && isPlayerSeatDisconnected(state, ex.receiverId)) {
-        const card = _botReturnCard(state.hands[String(ex.receiverId)] || [], state);
-        if (card) {
-          const r = await applyTributeReturn(io, state, ex.receiverId, card);
-          if (r.ok) { progressed = true; break; }
-        }
-      }
+      } catch (e) { console.error('[driveTributeBots6]', e.message); }
     }
   }
 }
