@@ -22,18 +22,20 @@ async function tributeEnabled(mode, roomType) {
 /* 结算时生成写入下局的 tribute_json：
    · 过A重开 → null（不进贡）
    · 不进贡模式 → { noTribute:true, headPlayerId }（下局由头游先出）
+   · 末游与头游同队(该局规则上本就不用进贡，如"末胜") → 同样 { noTribute:true }，
+     否则 exchanges 为空时 tribute_json 写 null，下局没人显式安排先出座位，
+     会退回"座位数组第一个座位先出"这种和上局胜负毫无关系的随机结果。
    · 正常 → 走 computeTribute 的供还信息 */
 async function buildTributeJson(state, result, adj, mode, roomType, computeTribute) {
   if (adj.guoA) return null;
+  const head = state.finishOrder && state.finishOrder[0];
   const enabled = await tributeEnabled(mode, roomType);
   if (!enabled) {
-    const head = state.finishOrder && state.finishOrder[0];
     return head ? JSON.stringify({ noTribute: true, headPlayerId: head.playerId, delta: result.delta }) : null;
   }
   const tributeInfo = computeTribute(state.finishOrder, result.winnerTeam);
-  return tributeInfo.exchanges.length > 0
-    ? JSON.stringify({ ...tributeInfo, delta: result.delta })
-    : null;
+  if (tributeInfo.exchanges.length > 0) return JSON.stringify({ ...tributeInfo, delta: result.delta });
+  return head ? JSON.stringify({ noTribute: true, headPlayerId: head.playerId, delta: result.delta }) : null;
 }
 
 module.exports = { tributeEnabled, buildTributeJson };

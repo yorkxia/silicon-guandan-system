@@ -895,6 +895,27 @@
     .tribute-log-item { background: rgba(255,255,255,.05); border-radius: 8px; padding: 8px 12px; font-size: .75rem; color: rgba(255,255,255,.6); text-align: center; }
     .tribute-log-item.done { color: #80D4A8; }
 
+    /* 并列贡牌：还供牌摆在大屏正中央，供并列的进贡方选牌(谁离头游名次近谁先选，7/20 秒仲裁) */
+    #tie-overlay {
+      display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      z-index: 320; background: rgba(10,6,20,.94); border: 2px solid #FFE066; border-radius: 18px;
+      padding: 18px 26px 22px; text-align: center; box-shadow: 0 10px 46px rgba(0,0,0,.6);
+      max-width: 92vw;
+    }
+    #tie-overlay .tie-title { font-size: 1.05rem; font-weight: 900; color: #FFE066; letter-spacing: 3px; margin-bottom: 6px; }
+    #tie-overlay .tie-hint  { font-size: .8rem; color: rgba(255,255,255,.75); letter-spacing: 1px; margin-bottom: 12px; min-height: 1.2em; }
+    #tie-overlay .tie-cards { display: flex; gap: 16px; justify-content: center; margin-bottom: 10px; }
+    .tie-card-box {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 8px; border-radius: 12px; border: 2px solid rgba(255,255,255,.15);
+      background: rgba(255,255,255,.04); transition: all .2s;
+    }
+    .tie-card-box .tc-face { font-size: 1.7rem; }
+    .tie-card-box .tc-who  { font-size: .62rem; color: rgba(255,255,255,.4); letter-spacing: 1px; }
+    .tie-card-box.pickable { cursor: pointer; border-color: #FFE066; box-shadow: 0 0 14px rgba(255,224,102,.35); }
+    .tie-card-box.pickable:hover { transform: translateY(-4px); }
+    #tie-overlay .tie-countdown { font-size: .78rem; color: #FF9E6B; font-weight: 900; letter-spacing: 2px; }
+
     /* ═══════════════ 等候层 ═══════════════ */
     #wait-overlay {
       display: none; position: fixed; inset: 0; z-index: 150;
@@ -1040,7 +1061,7 @@
   <!-- 进贡方：手动点最大牌 -->
   <div id="tribute-giver-panel" style="display:none">
     <div class="tribute-title">请 供 牌</div>
-    <div class="tr-label" id="tribute-give-hint">请点击你手中最大的一张牌进贡给对方</div>
+    <div class="tr-label" id="tribute-give-hint">请点击你手中最大的一张牌进贡</div>
     <div id="tribute-give-hand"></div>
     <button id="tribute-give-btn" disabled onclick="doTributeGive()">进 贡</button>
     <div class="tribute-waiting-text" id="tribute-give-waiting" style="display:none">已进贡，等待对方还贡...</div>
@@ -1065,6 +1086,14 @@
     </div>
     <button id="tribute-return-btn" disabled onclick="doTributeReturn()">还 贡</button>
   </div>
+</div>
+
+<!-- 并列贡牌选牌层：还供牌摆在大屏中间，供并列的进贡方选 -->
+<div id="tie-overlay">
+  <div class="tie-title">还供牌次序待定</div>
+  <div class="tie-hint" id="tie-hint"></div>
+  <div class="tie-cards" id="tie-cards"></div>
+  <div class="tie-countdown" id="tie-countdown"></div>
 </div>
 
 <!-- 抗贡提示浮层 -->
@@ -2172,6 +2201,27 @@ function sortHandLevel(hand, level){
     return suitVal(a) - suitVal(b);
   });
 }
+/* 顺子/同花顺锁定组含逢人配(红桃级牌)时，按牌型的连续点数序列摆位，让逢人配落在它代打的
+   那个点数位——否则 sortHandLevel 会把逢人配当"近王牌"整组提到最前，看起来牌序错乱不像顺子。*/
+function sortComboCards(cards, combo, level){
+  var wild = level ? ('H' + _rankChar(level)) : null;
+  if (!wild || cards.indexOf(wild) < 0 || (combo.type !== 'straight' && combo.type !== 'flush_straight') || !combo.value) {
+    return sortHandLevel(cards, level);
+  }
+  var top = combo.value;
+  var ranks = (top === 5) ? [14, 5, 4, 3, 2] : [top, top-1, top-2, top-3, top-4];
+  var naturals = cards.filter(function(c){ return c !== wild; });
+  var wildCount = cards.length - naturals.length;
+  var byRank = {};
+  naturals.forEach(function(c){ var r = RANK_ORD[c.slice(1)]; (byRank[r] = byRank[r] || []).push(c); });
+  var out = [];
+  ranks.forEach(function(r){
+    var arr = byRank[r];
+    if (arr && arr.length) out.push(arr.shift());
+    else if (wildCount > 0) { out.push(wild); wildCount--; }
+  });
+  return (out.length === cards.length) ? out : sortHandLevel(cards, level);
+}
 
 /* 触摸友好的点选：静止轻点才触发；滑动（滚动手牌）不触发，规避横向滚动吞掉 click。
    兼容鼠标（pointer 事件覆盖鼠标）。 */
@@ -2347,7 +2397,7 @@ function reorderHandLockedFirst(){
       var idx = parseInt(key.slice(key.lastIndexOf('_') + 1), 10);
       if (!inCombo[idx]) { inCombo[idx] = true; cards.push(myHand[idx]); }
     });
-    var sorted = sortHandLevel(cards, levelCard);
+    var sorted = sortComboCards(cards, combo, levelCard);
     if (_isBomb({ type: combo.type })) front = front.concat(sorted);
     else                                back  = back.concat(sorted);
   });
@@ -2369,7 +2419,7 @@ function lockCombo(){
   var cards = selected.map(function(k){ return k.split('_')[0]; });
   var pt = gdDetect(cards, levelCard);
   if(!pt || LOCKABLE_TYPES.indexOf(pt.type) < 0){ showToast('⚠️ 非法组合，无法锁定'); return; }
-  lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合', type: pt.type });
+  lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合', type: pt.type, value: pt.value });
   selected = [];
   reorderHandLockedFirst();   // 炸弹类锁最左，非炸弹类锁最右
   comboReRender();
@@ -2960,6 +3010,56 @@ function tbTapCard(code){
   return false;   // 非进贡态 → 交给普通选牌
 }
 window.addEventListener('resize', function(){ if (tbEx.length) renderTributeUI(); });
+
+/* ══════ 并列贡牌：还供牌摆中间供选(谁离头游名次近谁先选，7/20 秒仲裁，超时随机) ══════
+   仅双下(或六人三下)且贡牌大小分不出高低时才会触发；tieCards 保存 {giverId, card} 列表。 */
+var tieCards = [], tieGiverIds = [], tieActiveId = null, tieDeadline = 0, tieCountdownTimer = null;
+function tieNameOf(pid){ var p = players.find(function(x){ return x.playerId===pid; }); return p?p.name:''; }
+function stopTieCountdown(){ if (tieCountdownTimer){ clearInterval(tieCountdownTimer); tieCountdownTimer=null; } }
+function renderTieOverlay(){
+  var ov = document.getElementById('tie-overlay');
+  if (!tieCards.length){ ov.style.display = 'none'; stopTieCountdown(); return; }
+  ov.style.display = 'block';
+  var iAmActive = (tieActiveId === myPlayerId);
+  var hint = document.getElementById('tie-hint');
+  hint.textContent = iAmActive
+    ? '两张进贡的牌大小相同，轮到您先选一张还供牌'
+    : ('请靠近头游的玩家先选牌：等待 ' + esc(tieNameOf(tieActiveId)) + ' 选牌…');
+  var box = document.getElementById('tie-cards');
+  box.innerHTML = '';
+  tieCards.forEach(function(c){
+    var el = document.createElement('div');
+    el.className = 'tie-card-box' + (iAmActive ? ' pickable' : '');
+    el.innerHTML = '<div class="tc-face">' + cardEmoji(c.card) + '</div><div class="tc-who">' + esc(tieNameOf(c.giverId)) + '</div>';
+    if (iAmActive) el.onclick = function(){
+      socket.emit('tribute:tie_pick', { token: MY_TOKEN, roomCode: ROOM_CODE, card: c.card });
+    };
+    box.appendChild(el);
+  });
+  stopTieCountdown();
+  var cd = document.getElementById('tie-countdown');
+  var tick = function(){
+    var s = Math.max(0, Math.ceil((tieDeadline - Date.now()) / 1000));
+    cd.textContent = s > 0 ? ('剩余 ' + s + ' 秒，超时系统将随机分配') : '正在结算…';
+  };
+  tick();
+  tieCountdownTimer = setInterval(tick, 500);
+}
+socket.on('tribute:tie_pending', function(d){
+  tieCards     = (d.giverIds || []).map(function(gid, i){ return { giverId: gid, card: (d.cards||[])[i] }; });
+  tieGiverIds  = d.giverIds || [];
+  tieActiveId  = d.firstPickerId;
+  tieDeadline  = Date.now() + (d.totalMs || 20000);
+  renderTieOverlay();
+});
+socket.on('tribute:tie_turn', function(d){
+  tieActiveId = d.activeGiverId;
+  renderTieOverlay();
+});
+socket.on('tribute:tie_done', function(){
+  tieCards = []; tieGiverIds = []; tieActiveId = null;
+  renderTieOverlay();
+});
 
 socket.on('tribute:phase', function(d) {
   document.getElementById('tribute-overlay').style.display = 'none';   // 不再用弹框

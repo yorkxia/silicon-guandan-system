@@ -553,7 +553,8 @@ async function startTributePhase(io, roomCode, tributeInfo) {
         是遗留的半成品，这次一并接上。 */
   const isFullDown = pendingCount >= teamSize;
   const topVal      = _tributeVal(exchanges[0].mustGiveCard, state.levelCard);
-  const tiedAtTop   = exchanges.filter(e => _tributeVal(e.mustGiveCard, state.levelCard) === topVal).length > 1;
+  const tiedGivers  = exchanges.filter(e => _tributeVal(e.mustGiveCard, state.levelCard) === topVal);
+  const tiedAtTop   = tiedGivers.length > 1;
   let leadSeat;
   if (isFullDown && tiedAtTop && headSeatObj) {
     leadSeat = nextSeat(headSeatObj.seat, state.seats, []);
@@ -562,7 +563,13 @@ async function startTributePhase(io, roomCode, tributeInfo) {
     leadSeat = topGiver ? topGiver.seat : (headSeatObj ? nextSeat(headSeatObj.seat, state.seats, []) : state.turnSeat);
   }
 
-  state.tributePhase = { exchanges, pendingCount, tributeLeadId, leadSeat,
+  /* 全下(双下/三下)且贡牌大小并列时，"谁的还供牌该配对给哪个进贡方"本就分不出大小；
+     不再默默按名次兜底配对——两张(或更多)还供牌都还完后，交给这些并列的进贡方自己选
+     (谁离头游名次更近谁先选，见 startTieResolve/TIE_WINDOW_MS)。 */
+  const tieGroup = (isFullDown && tiedAtTop) ? tiedGivers.map(e => e.giverId) : null;
+
+  state.tributePhase = { exchanges, pendingCount, tributeLeadId, leadSeat, tieGroup,
+                         tiePending: false, tieResolve: null,
                          headPlayerId: tributeInfo.headPlayerId };
   await persistState(state);
 
@@ -674,8 +681,138 @@ async function applyTributeReturn(io, state, receiverId, returnCard) {
     giverId: ex.giverId, receiverId: ex.receiverId, tributeCard: ex.tributeCard, returnCard
   });
 
-  if (state.tributePhase.pendingCount === 0) await finalizeTribute(io, state);
+  const tieGroup = state.tributePhase.tieGroup;
+  if (tieGroup && tieGroup.indexOf(ex.giverId) >= 0) {
+    const allTieDone = tieGroup.every(gid => {
+      const e = state.tributePhase.exchanges.find(x => x.giverId === gid);
+      return e && e.stage === 'done';
+    });
+    if (allTieDone) { startTieResolve(io, state, tieGroup); return { ok: true }; }
+    return { ok: true };   // 组里还有人没还完，先不结算，等齐了再进选牌环节
+  }
+
+  if (state.tributePhase.pendingCount === 0 && !state.tributePhase.tiePending) await finalizeTribute(io, state);
   return { ok: true };
+}
+
+/* ── 并列贡牌的还供配对仲裁：双下/三下且贡牌大小分不出高低时，默认按名次的兜底配对
+   不再悄悄生效——两张(或多张)还供牌都还完后，摆出来让这些并列的进贡方自己选。
+   规则：按"离头游名次更近"排的优先级，每人独占 7 秒优先选权，轮流顺延，总计 20 秒；
+   20 秒内没人选→ 随机分配剩余——任何情况下都不会卡住供还阶段。 ── */
+const TIE_WINDOW_MS = 7000, TIE_TOTAL_MS = 20000;
+
+function clearTieTimers(state) {
+  const tr = state && state.tributePhase && state.tributePhase.tieResolve;
+  if (tr && tr.timers) { tr.timers.forEach(t => clearTimeout(t)); tr.timers = []; }
+}
+
+function startTieResolve(io, state, tieGiverIds) {
+  const tp = state.tributePhase;
+  const cards = tieGiverIds.map(gid => {
+    const ex = tp.exchanges.find(e => e.giverId === gid);
+    return { giverId: gid, card: ex.returnCard };
+  });
+  tp.tiePending = true;
+  tp.tieResolve = {
+    giverIds: tieGiverIds.slice(),
+    pool: cards.slice(),
+    remaining: tieGiverIds.slice(),
+    assigned: {},
+    startedAt: Date.now(),
+    timers: []
+  };
+  io.to(state.roomCode).emit('tribute:tie_pending', {
+    giverIds: tieGiverIds, cards: cards.map(c => c.card),
+    firstPickerId: tieGiverIds[0], windowMs: TIE_WINDOW_MS, totalMs: TIE_TOTAL_MS
+  });
+  armTieSchedule(io, state);
+}
+
+function armTieSchedule(io, state) {
+  const tp = state.tributePhase;
+  const tr = tp && tp.tieResolve;
+  if (!tr) return;
+  clearTieTimers(state);
+  const elapsed = Date.now() - tr.startedAt;
+  for (let i = 1; i < tr.remaining.length; i++) {
+    const ms = i * TIE_WINDOW_MS;
+    if (ms > elapsed && ms < TIE_TOTAL_MS) {
+      tr.timers.push(setTimeout(() => {
+        if (!(gameStates.get(state.roomCode) === state && state.tributePhase && state.tributePhase.tieResolve === tr)) return;
+        const idx = Math.min(Math.floor((Date.now() - tr.startedAt) / TIE_WINDOW_MS), tr.remaining.length - 1);
+        io.to(state.roomCode).emit('tribute:tie_turn', { activeGiverId: tr.remaining[idx] });
+      }, ms - elapsed));
+    }
+  }
+  tr.timers.push(setTimeout(() => {
+    finishTieResolveTimeout(io, state).catch(e => console.error('[tie_timeout]', e.message));
+  }, Math.max(0, TIE_TOTAL_MS - elapsed)));
+}
+
+async function applyTributeTiePick(io, state, giverId, chosenCard) {
+  const tp = state.tributePhase;
+  const tr = tp && tp.tieResolve;
+  if (!tr) return { error: '非选牌阶段' };
+  if (tr.remaining.indexOf(giverId) < 0) return { error: '您无需选牌或已选过' };
+  const elapsed = Date.now() - tr.startedAt;
+  if (elapsed >= TIE_TOTAL_MS) return { error: '已超时' };
+  const idx = Math.min(Math.floor(elapsed / TIE_WINDOW_MS), tr.remaining.length - 1);
+  if (tr.remaining[idx] !== giverId) return { error: '还没轮到您选' };
+  const found = tr.pool.findIndex(c => c.card === chosenCard);
+  if (found < 0) return { error: '该牌已被选走' };
+  const picked = tr.pool.splice(found, 1)[0];
+  tr.assigned[giverId] = picked.card;
+  tr.remaining = tr.remaining.filter(id => id !== giverId);
+  if (tr.remaining.length === 1 && tr.pool.length === 1) {
+    tr.assigned[tr.remaining[0]] = tr.pool[0].card;
+    tr.remaining = []; tr.pool = [];
+  }
+  if (tr.remaining.length === 0) await finalizeTieResolve(io, state);
+  else armTieSchedule(io, state);
+  return { ok: true };
+}
+
+async function finishTieResolveTimeout(io, state) {
+  if (gameStates.get(state.roomCode) !== state) return;   // 房间已换局/关闭，state 已作废
+  const tp = state.tributePhase;
+  const tr = tp && tp.tieResolve;
+  if (!tr) return;
+  const shuffled = tr.pool.slice().sort(() => Math.random() - 0.5);
+  tr.remaining.forEach((gid, i) => { tr.assigned[gid] = shuffled[i] ? shuffled[i].card : null; });
+  tr.remaining = []; tr.pool = [];
+  await finalizeTieResolve(io, state);
+}
+
+async function finalizeTieResolve(io, state) {
+  const tp = state.tributePhase;
+  const tr = tp.tieResolve;
+  clearTieTimers(state);
+  /* 一次性重算：先把这几位手里"原本按兜底顺位分到的"还供牌都摘掉，再按最终选定结果
+     重新发一遍——避免多人环形交换(A 要 B 的、B 要 C 的…)用两两互换处理不干净。 */
+  const oldCards = {};
+  tr.giverIds.forEach(gid => {
+    const ex = tp.exchanges.find(e => e.giverId === gid);
+    oldCards[gid] = ex.returnCard;
+    const hand = state.hands[String(gid)] || [];
+    const i = hand.indexOf(ex.returnCard);
+    if (i >= 0) hand.splice(i, 1);
+  });
+  tr.giverIds.forEach(gid => {
+    const ex = tp.exchanges.find(e => e.giverId === gid);
+    const newCard = tr.assigned[gid] || oldCards[gid];
+    ex.returnCard = newCard;
+    state.hands[String(gid)] = [...(state.hands[String(gid)] || []), newCard];
+    emitHand(io, state, gid, state.hands[String(gid)]);
+  });
+  tp.tiePending = false;
+  tp.tieResolve = null;
+  await persistState(state);
+  io.to(state.roomCode).emit('tribute:tie_done', {
+    assignments: tr.giverIds.map(gid => ({
+      giverId: gid, returnCard: tp.exchanges.find(e => e.giverId === gid).returnCard
+    }))
+  });
+  if (tp.pendingCount === 0) await finalizeTribute(io, state);
 }
 
 /* 所有还贡完毕 → 按首抓规则开局 */
@@ -719,6 +856,22 @@ async function driveTributeBots(io, state) {
           }
         }
       } catch (e) { console.error('[driveTributeBots4]', e.message); }
+    }
+    /* 并列供牌选牌环节：轮到的那位若已托管，立刻随机代选，避免干等 7/20 秒 */
+    const tr = state.tributePhase && state.tributePhase.tieResolve;
+    if (tr && tr.remaining.length) {
+      const elapsed = Date.now() - tr.startedAt;
+      const idx = Math.min(Math.floor(elapsed / TIE_WINDOW_MS), tr.remaining.length - 1);
+      const activeGiverId = tr.remaining[idx];
+      if (isPlayerSeatDisconnected(state, activeGiverId)) {
+        try {
+          const pick = _randomOf(tr.pool);
+          if (pick) {
+            const r = await applyTributeTiePick(io, state, activeGiverId, pick.card);
+            if (r.ok) progressed = true;
+          }
+        } catch (e) { console.error('[driveTributeBots4:tie]', e.message); }
+      }
     }
   }
 }
@@ -1096,6 +1249,23 @@ module.exports = function(io, socket) {
       armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 10 秒
     } catch (e) {
       console.error('[tribute:return]', e.message);
+    }
+  });
+
+  /* ── 并列贡牌：进贡方选还供牌(谁离头游名次近谁先选，7/20 秒仲裁) ── */
+  socket.on('tribute:tie_pick', async function(data) {
+    try {
+      const { token, roomCode, card } = data;
+      const state = gameStates.get(roomCode);
+      if (!state || !state.tributePhase || !state.tributePhase.tieResolve) return;
+
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+
+      const r = await applyTributeTiePick(io, state, player.id, card);
+      if (r.error) return socket.emit('tribute:invalid', { message: r.error });
+    } catch (e) {
+      console.error('[tribute:tie_pick]', e.message);
     }
   });
 

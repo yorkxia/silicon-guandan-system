@@ -121,11 +121,14 @@ function simRound(mode, level, roundTag) {
   check(res && res.delta >= 1 && res.delta <= 4, `${roundTag} 结算 delta 异常: ${res && res.delta}`);
   check(res && (res.winnerTeam === 1 || res.winnerTeam === 2), `${roundTag} 结算 winnerTeam 异常`);
 
-  /* 进贡角色检查：giver/receiver 必须异队；四人双下=2贡、单下=1贡 */
+  /* 进贡角色检查：四人双下=2贡(必异队)、单下=1贡(通常异队，但末游与头游同队/"末胜"时
+     是队内进贡——末游仍要供牌、头游还牌、末游先出，此时 giver/receiver 同队是合规的)。
+     六人任何时候只要出现进贡，giver/receiver 都必须异队(末游与头游同队时六人直接不进贡)。 */
   const trib = tribFn(finishOrder, res.winnerTeam);
   (trib.exchanges || []).forEach(ex => {
     const g = seatObj(ex.giverSeat), r = seatObj(ex.receiverSeat);
-    check(g && r && g.team !== r.team, `${roundTag} 进贡 giver/receiver 同队! 座${ex.giverSeat}→座${ex.receiverSeat}`);
+    const sameTeamOK = is6 ? false : (g && r && g.team === res.winnerTeam && r.team === res.winnerTeam);
+    check(g && r && (g.team !== r.team || sameTeamOK), `${roundTag} 进贡 giver/receiver 同队! 座${ex.giverSeat}→座${ex.receiverSeat}`);
   });
 
   return { finishOrder, res, tribCount: (trib.exchanges || []).length };

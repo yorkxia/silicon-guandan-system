@@ -301,8 +301,17 @@ function settle6p(finishOrder, lv1, lv2) {
   return { resultType, winnerTeam, delta, newLv1, newLv2 };
 }
 
-/* ── 6P 进贡计算 ── */
+/* ── 6P 进贡计算 ──
+   规则：末游(排名最后一位)是否与头游同队，决定这一局要不要进贡——
+   末游与头游同队 → 不进贡(哪怕中间名次仍有对方队员)；
+   末游不是头游队 → 再按 4/5/6 名里"非头游队"的人数决定单下/双下/三下。
+   之前的写法只逐个检查 4、5、6 名各自队伍，没有先看末游归属，
+   导致"末胜"(头游队自己垫底)时中间名次的对方队员被误判成要进贡的一方。 */
 function computeTribute6p(finishOrder, headTeam) {
+  const headTeamOrder0 = finishOrder.find(f => f.team === headTeam);
+  if (finishOrder[5].team === headTeam) {
+    return { headPlayerId: headTeamOrder0 ? headTeamOrder0.playerId : null, tributeLeaderId: null, exchanges: [] };
+  }
   const givers    = [];
   const receivers = [];
   for (let i = 3; i <= 5; i++) {
@@ -326,15 +335,17 @@ function computeTribute6p(finishOrder, headTeam) {
 }
 
 /* ── 4P 进贡计算 ──
-   四人：teamSize=2，下游=后两名(名次 index 2,3)中的输方玩家。
-   · 双下(输方占3、4名)→ 两名输家分别向两名赢家(头游/二游)进贡；
-   · 单下(输方仅一人落入后两名)→ 该输家(通常末游)向头游进贡。
-   receiver 与 6P 一致：按头游队完成顺序对应。 */
+   四人：teamSize=2。末游(第4名)是判断进贡的关键——
+   · 双下：3、4名都是对方队(即与末游同队) → 两名输家分别向头游/二游进贡；
+   · 单下(其余情况)：只有末游一人进贡给头游——即使末游正好与头游同队(头游队友垫底/"末胜")，
+     末游依然要"进贡"给头游、头游还一张牌，且由末游先出（4人赛事的规则，和 6 人不同：
+     6 人"末游与头游同队"时直接不进贡、头游先出，见 computeTribute6p）。
+   之前的写法只逐个检查 2、3 名是否"非头游队"，没有先看末游归属，
+   导致"末胜"时三游被误判成进贡方(该局其实是末游对头游内部进贡，不该轮到三游)。 */
 function computeTribute4p(finishOrder, headTeam) {
-  const givers = [];
-  for (let i = 2; i <= 3; i++) {
-    if (finishOrder[i] && finishOrder[i].team !== headTeam) givers.push(finishOrder[i]);
-  }
+  const doubleDown = finishOrder[2] && finishOrder[3] &&
+                      finishOrder[2].team === finishOrder[3].team && finishOrder[2].team !== headTeam;
+  const givers = doubleDown ? [finishOrder[2], finishOrder[3]] : (finishOrder[3] ? [finishOrder[3]] : []);
   const headTeamOrder = finishOrder.filter(f => f.team === headTeam);
   const receivers = [];
   for (let i = 0; i < givers.length; i++) {
