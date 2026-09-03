@@ -1598,12 +1598,12 @@ header{
   </div>
 </div>
 
-<!-- 首次进入客服：输入微信姓名（存本地，以后不再弹） -->
+<!-- 首次进入：输入昵称（存本地，三端共用，以后不再弹） -->
 <div id="gd-wxname-overlay" onclick="if(event.target===this)gdWxNameCancel()">
   <div id="gd-wxname-box">
     <div id="gd-wxname-title">💬 联系在线客服</div>
-    <div id="gd-wxname-tip">首次咨询请输入您的<b>微信姓名</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。</div>
-    <input type="text" id="gd-wxname-input" placeholder="请输入微信姓名…" maxlength="40" autocomplete="off">
+    <div id="gd-wxname-tip">首次咨询请输入您的<b>昵称</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。</div>
+    <input type="text" id="gd-wxname-input" placeholder="请输入昵称…" maxlength="40" autocomplete="off">
     <div id="gd-wxname-btns">
       <button id="gd-wxname-cancel" onclick="gdWxNameCancel()">取消</button>
       <button id="gd-wxname-ok" onclick="gdWxNameConfirm()">进入客服</button>
@@ -1674,7 +1674,17 @@ header{
       .then(function(d){ if(d.ok && d.messages && d.messages.length){ render(d.messages, true); } })
       .catch(function(){});
   }
-  function gdGetWxName(){ try{ return (localStorage.getItem('gd_wx_name')||'').trim(); }catch(e){ return ''; } }
+  /* 昵称：三端(计分器/4人/6人)共用同一对 localStorage 键(gd-name + gd-name-set)。
+     迁移：老用户本地若只有旧键 gd_wx_name，直接接管为 gd-name，不用重新问一遍。*/
+  function gdGetWxName(){
+    try{
+      var n = (localStorage.getItem('gd-name')||'').trim();
+      if(n && localStorage.getItem('gd-name-set')==='1') return n;
+      var legacy = (localStorage.getItem('gd_wx_name')||'').trim();
+      if(legacy){ localStorage.setItem('gd-name', legacy); localStorage.setItem('gd-name-set','1'); return legacy; }
+      return '';
+    }catch(e){ return ''; }
+  }
   var wxMandatory = false;   // true=开页强制闸门(不可取消)
   // 上报微信登录：姓名 + IP位置 + 设备 + 登录时间（后端 geoLocate/UA/时间）
   function gdWxPostLogin(nm){
@@ -1688,12 +1698,12 @@ header{
     var title=el('gd-wxname-title'), tip=el('gd-wxname-tip'), cancel=el('gd-wxname-cancel'), ok=el('gd-wxname-ok');
     if(wxMandatory){
       if(title) title.textContent = '👋 欢迎使用硅谷掼蛋计分器';
-      if(tip)   tip.innerHTML = '请输入您的<b>微信姓名</b>后开始使用。<br>只需填一次，以后自动记住。';
+      if(tip)   tip.innerHTML = '请输入您的<b>昵称</b>后开始使用。<br>只需填一次，以后自动记住。';
       if(cancel) cancel.style.display = 'none';
       if(ok)     ok.textContent = '确定，开始使用';
     }else{
       if(title) title.textContent = '💬 联系在线客服';
-      if(tip)   tip.innerHTML = '首次咨询请输入您的<b>微信姓名</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。';
+      if(tip)   tip.innerHTML = '首次咨询请输入您的<b>昵称</b>，方便客服识别与回复。<br>只需填一次，以后自动带上。';
       if(cancel) cancel.style.display = '';
       if(ok)     ok.textContent = '进入客服';
     }
@@ -1713,18 +1723,20 @@ header{
     var v = (el('gd-wxname-input').value||'').trim();
     if(!v){ try{ el('gd-wxname-input').focus(); }catch(e){} return; }
     v = v.slice(0,40);
-    try{ localStorage.setItem('gd_wx_name', v); }catch(e){}
+    try{ localStorage.setItem('gd-name', v); localStorage.setItem('gd-name-set','1'); }catch(e){}
     gdWxPostLogin(v);                       // 记录 姓名+位置+设备+登录时间
     el('gd-wxname-overlay').classList.remove('open');
     var wasMandatory = wxMandatory; wxMandatory = false;
     if(!wasMandatory) gdSupportOpenChat();   // 开页闸门只关窗；客服入口则进对话
   };
-  // 开页强制闸门：首次必须输入微信姓名；已填过则静默记录本次登录(位置/时间)
-  window.addEventListener('load', function(){
+  // 开页强制闸门：首次必须输入昵称；已填过则静默记录本次登录(位置/时间)
+  // 注意：不要挂在 window 的 load 事件上——广告/图片等资源较慢时 load 迟迟不触发，弹窗就永远不出来。
+  // 这段 <script> 已经在 #gd-wxname-overlay 之后，DOM 已就绪，直接执行即可。
+  (function(){
     var nm = gdGetWxName();
     if(!nm){ gdWxShowModal(true); }
     else   { gdWxPostLogin(nm); }
-  });
+  })();
   function gdSupportOpenChat(){
     el('gd-support-overlay').classList.add('open');
     opened = true; lastId = 0;

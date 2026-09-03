@@ -505,15 +505,35 @@
     }
     #chat-panel .cp-q:active { background: rgba(255,255,255,.24); }
     #chat-panel .cp-e { font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 2px 3px; background: none; border: none; }
-    #chat-panel .cp-input-row { display: flex; gap: 6px; }
-    #chat-panel .cp-input {
-      flex: 1; min-width: 0; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
-      border-radius: 9px; color: #fff; font-size: .85rem; padding: 7px 9px; outline: none;
+    #chat-panel .cp-foot-row { display: flex; justify-content: flex-end; }
+    #chat-panel .cp-edit-btn {
+      background: rgba(255,255,255,.08); color: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.18);
+      border-radius: 9px; padding: 5px 10px; font-size: .72rem; cursor: pointer;
     }
-    #chat-panel .cp-send {
-      background: #1E6BE5; color: #fff; border: none; border-radius: 9px; padding: 0 14px;
-      font-size: .85rem; font-weight: 800; cursor: pointer;
+    /* 预设话术编辑弹窗（管理员账号密码验证）*/
+    #chat-edit-overlay { position: fixed; inset: 0; z-index: 400; display: none;
+      align-items: center; justify-content: center; padding: 20px; background: rgba(0,0,0,.6); }
+    #chat-edit-overlay.open { display: flex; }
+    #chat-edit-box { background: #fff; width: 100%; max-width: 340px; border-radius: 16px;
+      padding: 20px 18px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+    .cem-title { font-size: 1rem; font-weight: 800; color: #1E6BE5; text-align: center; margin-bottom: 12px; }
+    #chat-edit-box input[type=text], #chat-edit-box input[type=password] {
+      width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px;
+      font-size: .9rem; outline: none; margin-bottom: 10px; box-sizing: border-box;
     }
+    .cem-err { min-height: 16px; font-size: .74rem; color: #e04040; margin-bottom: 6px; text-align: center; }
+    .cem-btns { display: flex; gap: 10px; margin-top: 4px; }
+    .cem-btns button { flex: 1; border: none; border-radius: 22px; padding: 10px 0;
+      font-size: .88rem; font-weight: 800; cursor: pointer; }
+    .cem-cancel { background: #eef1f4; color: #555; }
+    .cem-ok { background: linear-gradient(135deg,#2E7BF5,#1E5BC5); color: #fff; }
+    #cem-list { max-height: 260px; overflow-y: auto; margin-bottom: 10px; }
+    .cem-row { display: flex; gap: 6px; margin-bottom: 7px; }
+    .cem-row input { flex: 1; min-width: 0; margin-bottom: 0 !important; }
+    .cem-del { flex-shrink: 0; width: 30px; border: none; border-radius: 8px; background: #fdecec;
+      color: #e04040; font-weight: 800; cursor: pointer; }
+    #cem-add { width: 100%; border: 1px dashed #9db6e0; border-radius: 10px; background: #f2f6fd;
+      color: #1E6BE5; font-weight: 700; padding: 8px 0; cursor: pointer; margin-bottom: 6px; }
     .chat-bubble {
       position: fixed; transform: translate(-50%, -100%); z-index: 250;
       background: #fff; color: #1a1a2e; border-radius: 13px; padding: 6px 12px;
@@ -1345,9 +1365,35 @@
 <div id="chat-panel">
   <div class="cp-quick" id="cp-quick"></div>
   <div class="cp-emoji" id="cp-emoji"></div>
-  <div class="cp-input-row">
-    <input class="cp-input" id="cp-input" maxlength="30" placeholder="说点什么…" onkeydown="if(event.key==='Enter'){chatSendInput();}">
-    <button type="button" class="cp-send" onclick="chatSendInput()">发送</button>
+  <div class="cp-foot-row">
+    <button type="button" class="cp-edit-btn" onclick="openChatEditModal()">✏️ 编辑</button>
+  </div>
+</div>
+
+<!-- 预设话术编辑：先验证系统管理员账号密码，再编辑列表 -->
+<div id="chat-edit-overlay" onclick="if(event.target===this)closeChatEditModal()">
+  <div id="chat-edit-box">
+    <div id="cem-login">
+      <div class="cem-title">🔒 管理员验证</div>
+      <input type="text" id="cem-user" placeholder="管理员账号" autocomplete="off">
+      <input type="password" id="cem-pass" placeholder="密码" autocomplete="off"
+        onkeydown="if(event.key==='Enter'){chatEditVerify();}">
+      <div class="cem-err" id="cem-err"></div>
+      <div class="cem-btns">
+        <button type="button" class="cem-cancel" onclick="closeChatEditModal()">取消</button>
+        <button type="button" class="cem-ok" onclick="chatEditVerify()">验证</button>
+      </div>
+    </div>
+    <div id="cem-editor" style="display:none">
+      <div class="cem-title">✏️ 编辑预设话术</div>
+      <div id="cem-list"></div>
+      <button type="button" id="cem-add" onclick="chatEditAddRow()">+ 添加一条</button>
+      <div class="cem-err" id="cem-err2"></div>
+      <div class="cem-btns">
+        <button type="button" class="cem-cancel" onclick="closeChatEditModal()">取消</button>
+        <button type="button" class="cem-ok" onclick="chatEditSave()">💾 存储</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1912,7 +1958,7 @@ socket.on('game:turn_timer', function(d){
   _turnInterval = setInterval(tickTurn, 250);
 });
 
-/* 供牌/还牌 10 秒倒计时（与出牌倒计时同款圆盘样式）*/
+/* 供牌/还牌 20 秒倒计时（与出牌倒计时同款圆盘样式）*/
 var _tribDeadline = 0, _tribInterval = null;
 function ensureTribTimerEl(){
   var el = document.getElementById('gd-trib-center');
@@ -1922,7 +1968,7 @@ function ensureTribTimerEl(){
     el.style.cssText = 'position:fixed;top:41%;left:50%;transform:translate(-50%,-50%);z-index:71;display:none;pointer-events:none;';
     el.innerHTML = '<div id="gd-trib-num" style="width:54px;height:54px;border-radius:50%;display:flex;'
       + 'align-items:center;justify-content:center;font-size:23px;font-weight:900;color:#fff;'
-      + 'background:rgba(0,0,0,.55);border:3px solid #FFB020;box-shadow:0 2px 12px rgba(0,0,0,.45);">10</div>';
+      + 'background:rgba(0,0,0,.55);border:3px solid #FFB020;box-shadow:0 2px 12px rgba(0,0,0,.45);">20</div>';
     document.body.appendChild(el);
   }
   return el;
@@ -1938,7 +1984,7 @@ function tickTrib(){
   if(remain<=0) stopTribCountdown();
 }
 socket.on('tribute:timer', function(d){
-  _tribDeadline = Date.now() + (d.seconds || 10) * 1000;
+  _tribDeadline = Date.now() + (d.seconds || 20) * 1000;
   if(_tribInterval) clearInterval(_tribInterval);
   tickTrib();
   _tribInterval = setInterval(tickTrib, 250);
@@ -2900,13 +2946,15 @@ function clearTributeUI(){
   var p = document.getElementById('tb-prompt');       if (p) p.style.display = 'none';
 }
 
-/* ═══════════ 发消息（快捷短语 + 表情 + 自由打字）═══════════ */
-var CHAT_QUICKS = ['快点出牌','好牌！','再来一局','谢谢','不好意思','加油！','稳住','走一个'];
+/* ═══════════ 发消息（预设话术 + 表情，无自由打字）═══════════ */
+/* 预设话术由服务端注入(gd_settings.chat_quick_phrases)，4人/6人共用同一份；管理员可在下方"编辑"入口维护 */
+var CHAT_QUICKS = <%- JSON.stringify(locals.chatPhrases && locals.chatPhrases.length ? locals.chatPhrases : ['快点出牌','好牌！','再来一局','谢谢','不好意思','加油！','稳住','走一个']) %>;
 var CHAT_EMOJIS = ['😄','😅','👍','🎉','😭','🤝','🌹','💪'];
 var _chatBubbles = {};
 function initChatPanel(){
   var q = document.getElementById('cp-quick');
-  if (q && !q.childElementCount) CHAT_QUICKS.forEach(function(t){
+  if (q) q.innerHTML = '';
+  if (q) CHAT_QUICKS.forEach(function(t){
     var b=document.createElement('button'); b.type='button'; b.className='cp-q'; b.textContent=t;
     b.onclick=function(){ chatSend(t); }; q.appendChild(b);
   });
@@ -2918,7 +2966,69 @@ function initChatPanel(){
 }
 function closeChatPanel(){ var p=document.getElementById('chat-panel'); if(p) p.classList.remove('open'); var bd=document.getElementById('chat-backdrop'); if(bd) bd.classList.remove('open'); }
 function toggleChatPanel(){ initChatPanel(); var p=document.getElementById('chat-panel'); if(!p) return; p.classList.toggle('open'); var bd=document.getElementById('chat-backdrop'); if(bd){ if(p.classList.contains('open')) bd.classList.add('open'); else bd.classList.remove('open'); } }
-function chatSendInput(){ var i=document.getElementById('cp-input'); if(!i) return; var t=(i.value||'').trim(); if(t){ chatSend(t); i.value=''; } }
+
+/* ── 预设话术编辑（管理员账号密码验证，无本地会话，每次操作都重新校验） ── */
+var _chatEditCred = null;
+function openChatEditModal(){
+  document.getElementById('chat-edit-overlay').classList.add('open');
+  document.getElementById('cem-login').style.display = '';
+  document.getElementById('cem-editor').style.display = 'none';
+  document.getElementById('cem-err').textContent = '';
+  document.getElementById('cem-user').value = '';
+  document.getElementById('cem-pass').value = '';
+  setTimeout(function(){ try{ document.getElementById('cem-user').focus(); }catch(e){} }, 100);
+}
+function closeChatEditModal(){
+  document.getElementById('chat-edit-overlay').classList.remove('open');
+  _chatEditCred = null;
+}
+function chatEditVerify(){
+  var u = document.getElementById('cem-user').value.trim();
+  var p = document.getElementById('cem-pass').value;
+  var errEl = document.getElementById('cem-err');
+  if(!u || !p){ errEl.textContent = '请输入账号和密码'; return; }
+  errEl.textContent = '验证中...';
+  fetch('/api/gd/chat-phrases/verify', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username:u, password:p }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ errEl.textContent = d.error || '验证失败'; return; }
+      _chatEditCred = { username:u, password:p };
+      errEl.textContent = '';
+      var box = document.getElementById('cem-list'); box.innerHTML = '';
+      (d.phrases || CHAT_QUICKS).forEach(function(t){ chatEditAddRow(t); });
+      document.getElementById('cem-login').style.display = 'none';
+      document.getElementById('cem-editor').style.display = '';
+    })
+    .catch(function(){ errEl.textContent = '网络错误，请重试'; });
+}
+function chatEditAddRow(val){
+  var box = document.getElementById('cem-list');
+  var row = document.createElement('div'); row.className = 'cem-row';
+  var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 20; inp.value = val || '';
+  var del = document.createElement('button'); del.type = 'button'; del.className = 'cem-del'; del.textContent = '✕';
+  del.onclick = function(){ row.remove(); };
+  row.appendChild(inp); row.appendChild(del);
+  box.appendChild(row);
+}
+function chatEditSave(){
+  if(!_chatEditCred) return;
+  var rows = document.querySelectorAll('#cem-list input');
+  var phrases = Array.prototype.map.call(rows, function(i){ return i.value.trim(); }).filter(function(s){ return s; });
+  var errEl = document.getElementById('cem-err2');
+  if(!phrases.length){ errEl.textContent = '至少保留一条话术'; return; }
+  errEl.textContent = '保存中...';
+  fetch('/api/gd/chat-phrases/save', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ username:_chatEditCred.username, password:_chatEditCred.password, phrases:phrases }) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ errEl.textContent = d.error || '保存失败'; return; }
+      CHAT_QUICKS = d.phrases;
+      initChatPanel();
+      closeChatEditModal();
+    })
+    .catch(function(){ errEl.textContent = '网络错误，请重试'; });
+}
 function chatSend(text){
   if(!text) return;
   socket.emit('chat:msg', { token:MY_TOKEN, roomCode:ROOM_CODE, text:String(text).slice(0,30) });
@@ -3073,7 +3183,7 @@ socket.on('tribute:phase', function(d) {
 socket.on('tribute:resisted', function(d) {
   clearTributeUI();
   document.getElementById('tribute-overlay').style.display = 'none';
-  showTributeNotice('对家抓到所有的大王：抗供\n请头游出牌', 5000);
+  showTributeNotice('末游还供方抗供', 5000);
   render6pHand(myHand);
 });
 
@@ -3244,7 +3354,7 @@ function flyTributeCard(fromSeat, toSeat, code, labelTxt) {
   var layer = document.getElementById('tribute-fly-layer');
   if (!layer) { layer = document.createElement('div'); layer.id = 'tribute-fly-layer';
     layer.style.cssText = 'position:fixed;inset:0;z-index:300;pointer-events:none;'; document.body.appendChild(layer); }
-  var W = 66, H = 92;
+  var W = 46, H = 64;
   var fc = gdToLocal(fr.left + fr.width/2, fr.top + fr.height/2);   // 竖屏旋转换算
   var tc = gdToLocal(tr.left + tr.width/2, tr.top + tr.height/2);
   var x0 = fc.x - W/2, y0 = fc.y - H/2;
@@ -3432,7 +3542,9 @@ function render6pCenter(lastPlay, turnSeat) {
 
 /* ══════════ 锁定牌型（预先理牌 · 个人本地辅助 · 不影响规则/不发服务端）══════════
    仅锁 5 张及以上组合 + 4 张以上炸弹；单张/对子/三张不锁。
-   每组一个独立颜色；出牌时点组内任意一张=选中整组，再"出牌"整体打出。*/
+   每组一个独立颜色；点组内任意一张=选中整组，再"出牌"整体打出——锁定的必须是能一次性
+   整体合法出完的牌型，不允许只拆一部分选。已整组选中时再点一下=直接解锁回散牌，
+   保证锁牌绝不会让玩家因"只能整组出"而卡住找不到需要的那一张。*/
 var lockedCombos  = [];   // [{ cards:[code...], keys:[code_idx...], color, label }]
 var COMBO_COLORS  = ['#FFD54A','#5AD17A','#5AA9FF','#C89BFF','#FF9E6B','#4DD0C0','#F06BB0','#B0C94D'];
 var LOCKABLE_TYPES = ['fullhouse','straight','flush_straight','bomb','flush_bomb','dbl_straight','triple_straight','joker_bomb'];
@@ -3465,7 +3577,7 @@ function remapCombos(newHand){
    跟出牌比大小时的"炸弹"定义完全一致)锁到手牌最左端；非炸弹类(顺子/三带二/钢板/姊妹对等)
    锁到手牌最右端。中间是未锁定的散牌，照常级牌排序。撤销/重置后散牌自动归位到原始排列。 */
 function reorderHandLockedFirst(){
-  var inCombo = {}, front = [], back = [];
+  var inCombo = {}, frontGroups = [], backGroups = [];
   lockedCombos.forEach(function(combo){
     var cards = [];
     combo.keys.forEach(function(key){
@@ -3473,9 +3585,16 @@ function reorderHandLockedFirst(){
       if (!inCombo[idx]) { inCombo[idx] = true; cards.push(myHand[idx]); }
     });
     var sorted = sortComboCards(cards, combo, levelCard);
-    if (_isBomb({ type: combo.type })) front = front.concat(sorted);
-    else                                back  = back.concat(sorted);
+    var isBomb = _isBomb({ type: combo.type });
+    /* 每组按牌型大小算一个可比分：炸弹类用 _bombScore（跟出牌比大小同一套标准），
+       非炸弹类(顺子/三带二/钢板/姊妹对)直接用 value(点数序)——多组同侧锁定时按大小顺序竖排 */
+    var score = isBomb ? _bombScore({ type: combo.type, size: cards.length, value: combo.value }) : (combo.value || 0);
+    (isBomb ? frontGroups : backGroups).push({ cards: sorted, score: score });
   });
+  frontGroups.sort(function(a,b){ return b.score - a.score; });
+  backGroups.sort(function(a,b){ return b.score - a.score; });
+  var front = [].concat.apply([], frontGroups.map(function(g){ return g.cards; }));
+  var back  = [].concat.apply([], backGroups.map(function(g){ return g.cards; }));
   var rest = [];
   myHand.forEach(function(code, idx){ if (!inCombo[idx]) rest.push(code); });
   myHand = front.concat(sortHandLevel(rest, levelCard)).concat(back);
@@ -3486,6 +3605,13 @@ function comboReRender(){
   else                    { renderHand(myHand);   syncButtons();   updateSelInfo();   }
   updatePlayButtonState();
 }
+/* 锁定后手牌区可能横向溢出：新锁的组炸弹靠最左/非炸弹靠最右，若不在可视区看起来就像"没锁住"，
+   这里自动把手牌横向滚动条拉到对应一侧，确保刚锁的组立刻可见。 */
+function scrollLockedIntoView(isBomb){
+  var el = document.getElementById(GAME_MODE === '6p' ? 'hand-scroll-6p' : 'hand-scroll');
+  if (!el) return;
+  el.scrollLeft = isBomb ? 0 : el.scrollWidth;
+}
 function lockCombo(){
   if(selected.length < 4){ showToast('单张/对子/三张不用锁，请选 5 张以上组合或炸弹'); return; }
   for (var i=0;i<selected.length;i++){ if(comboOfKey(selected[i])){ showToast('选中的牌里有已锁定的，请先撤销那一组'); return; } }
@@ -3494,8 +3620,9 @@ function lockCombo(){
   if(!pt || LOCKABLE_TYPES.indexOf(pt.type) < 0){ showToast('⚠️ 非法组合，无法锁定'); return; }
   lockedCombos.push({ cards: cards.slice(), keys: selected.slice(), color: comboNextColor(), label: pt.label || '组合', type: pt.type, value: pt.value });
   selected = [];
-  reorderHandLockedFirst();   // 炸弹类锁最左，非炸弹类锁最右
+  reorderHandLockedFirst();   // 炸弹类锁最左，非炸弹类锁最右，同侧按大小顺序竖排
   comboReRender();
+  scrollLockedIntoView(_isBomb({ type: pt.type }));
   showToast('✅ 已锁定：' + (pt.label || '组合'));
 }
 function unlockCombo(){
@@ -3726,11 +3853,10 @@ function build6pCardEl(code, idx){
   card.innerHTML = GDCard.faceSVG(code);              // 高清矢量牌面
   var _cmb = comboOfKey(key);
   if (_cmb) { card.classList.add('locked'); card.style.setProperty('--combo', _cmb.color); }
-  /* 进贡态：高亮可供/可还的牌，其余变暗 */
+  /* 进贡态：仅供牌方高亮最大牌，其余变暗；还供方不再锁牌高亮(挡视线)，手牌正常显示、直接点选 */
   if (typeof tbEx !== 'undefined' && tbEx.length) {
-    var _g = tbMyGiveEx(), _r = tbMyReturnEx();
-    if (_g)      card.classList.add(tbGiveCandsOf(_g).indexOf(code) >= 0 ? 'tb-cand' : 'tb-dim');
-    else if (_r) card.classList.add(canReturnCard(code) ? 'tb-retok' : 'tb-dim');
+    var _g = tbMyGiveEx();
+    if (_g) card.classList.add(tbGiveCandsOf(_g).indexOf(code) >= 0 ? 'tb-cand' : 'tb-dim');
   }
   attachTap(card, (function(c, i){ return function(){ toggleCard6p(c, i); }; })(code, idx));
   return card;
@@ -3764,10 +3890,20 @@ function toggleCard6p(code, idx) {
   var cmb = comboOfKey(key);
   var affectedKeys;
   if (cmb) {
-    /* 锁定组：点组内任意一张 = 选中/取消整组（一次一组，替换原选择）*/
+    /* 锁定组的原则：被锁定的牌型必须是能按掼蛋规则一次性整体出完的合法牌型（锁定时已校验），
+       所以点选时只能整组选/整组出，不允许只拆一部分——那样就不再是"锁定的那个合法牌型"了。
+       已整组选中时再点一下 = 直接解锁回散牌（不用去点单独的"撤销设置"按钮），
+       这样锁牌绝不会让玩家因为"只能整组出"而找不到需要的那一张卡住出不了牌。 */
     var allSel = cmb.keys.every(function(k){ return selected.indexOf(k) >= 0; });
-    selected = allSel ? selected.filter(function(k){ return cmb.keys.indexOf(k) < 0; })
-                      : cmb.keys.slice();
+    if (allSel) {
+      lockedCombos = lockedCombos.filter(function(c){ return c !== cmb; });
+      selected = [];
+      reorderHandLockedFirst();
+      comboReRender();
+      showToast('↩️ 已解锁该组合');
+      return;
+    }
+    selected = cmb.keys.slice();
     affectedKeys = cmb.keys;
   } else {
     /* 散牌：若原来选中的是某锁定组，先清空避免混合——这种情况很少见，

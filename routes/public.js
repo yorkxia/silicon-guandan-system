@@ -6,6 +6,7 @@ const { geoLocate, ipHash } = require('../utils/geo');
 const { rateLimit } = require('../middleware/httpRateLimit');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const bcrypt = require('bcryptjs');
 
 /* 限流器：报名(表单) + 掼蛋计分器付款登记(会发邮件，防轰炸) */
 const registerLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20,
@@ -649,17 +650,76 @@ router.get('/play/6p', (req, res) => {
 router.get('/play/tournaments-4p', (req, res) => res.redirect('/play/4p'));
 router.get('/play/tournaments-6p', (req, res) => res.redirect('/play/6p'));
 
-router.get('/play/game/:code', (req, res) => {
+/* 大屏发话·预设话术：4人/6人共用同一份，管理员账号密码验证后可编辑（见下方 /api/gd/chat-phrases）*/
+const DEFAULT_CHAT_PHRASES = ['快点出牌', '好牌！', '再来一局', '谢谢', '不好意思', '加油！', '稳住', '走一个'];
+async function getChatPhrases() {
+  try {
+    const row = await queryOne("SELECT sval FROM gd_settings WHERE skey='chat_quick_phrases'");
+    if (row && row.sval) {
+      const arr = JSON.parse(row.sval);
+      if (Array.isArray(arr) && arr.length) return arr;
+    }
+  } catch (e) { /* 解析失败降级到默认话术 */ }
+  return DEFAULT_CHAT_PHRASES;
+}
+
+router.get('/play/game/:code', async (req, res) => {
   const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) return res.redirect('/play');
-  res.render('play-game', { roomCode });
+  res.render('play-game', { roomCode, chatPhrases: await getChatPhrases() });
 });
 
 /* 六人赛事大屏（独立页面 + /g6 命名空间 + gdo6_ 表）*/
-router.get('/play/game6/:code', (req, res) => {
+router.get('/play/game6/:code', async (req, res) => {
   const roomCode = req.params.code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (!roomCode) return res.redirect('/play/6p');
-  res.render('play-game-6p', { roomCode });
+  res.render('play-game-6p', { roomCode, chatPhrases: await getChatPhrases() });
+});
+
+/* ── 大屏发话·预设话术编辑（管理员账号密码校验，无会话状态，每次都重新校验） ── */
+const chatPhraseLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20,
+  message: '操作过于频繁，请稍后再试' });
+
+async function checkAdminCred(username, password) {
+  if (!username || !password) return false;
+  const user = await queryOne('SELECT password_hash, is_locked FROM users WHERE username = $1', [String(username).slice(0, 80)]);
+  if (!user || user.is_locked) return false;
+  return bcrypt.compareSync(String(password), user.password_hash);
+}
+
+router.post('/api/gd/chat-phrases/verify', chatPhraseLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
+    if (!(await checkAdminCred(username, password))) {
+      return res.status(401).json({ ok: false, error: '账号或密码错误' });
+    }
+    res.json({ ok: true, phrases: await getChatPhrases() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+router.post('/api/gd/chat-phrases/save', chatPhraseLimiter, async (req, res) => {
+  try {
+    const { username, password, phrases } = req.body || {};
+    if (!(await checkAdminCred(username, password))) {
+      return res.status(401).json({ ok: false, error: '账号或密码错误' });
+    }
+    if (!Array.isArray(phrases)) return res.status(400).json({ ok: false, error: 'phrases must be an array' });
+    const cleaned = phrases
+      .map((s) => String(s || '').trim().slice(0, 20))
+      .filter((s) => s.length > 0)
+      .slice(0, 20);
+    if (!cleaned.length) return res.status(400).json({ ok: false, error: '至少保留一条话术' });
+    await query(
+      `INSERT INTO gd_settings(skey, sval, updated_at) VALUES('chat_quick_phrases', $1, NOW())
+       ON CONFLICT (skey) DO UPDATE SET sval = $1, updated_at = NOW()`,
+      [JSON.stringify(cleaned)]
+    );
+    res.json({ ok: true, phrases: cleaned });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 router.get('/play/lobby/:code', (req, res) => {

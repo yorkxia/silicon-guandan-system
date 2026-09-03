@@ -80,7 +80,7 @@
       '<div style="background:linear-gradient(145deg,#12324a,#0a2033);border:1px solid rgba(212,172,13,.35);' +
         'border-radius:20px;padding:26px 24px;max-width:340px;width:100%;text-align:center;' +
         'box-shadow:0 12px 40px rgba(0,0,0,.5);">' +
-        '<div style="font-size:1.15rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:6px;">请输入你的名字</div>' +
+        '<div style="font-size:1.15rem;font-weight:900;color:#FFE066;letter-spacing:2px;margin-bottom:6px;">请输入您的昵称</div>' +
         '<div style="font-size:.78rem;color:rgba(255,255,255,.55);margin-bottom:18px;">必须填写才能加入赛事，队友和对手在牌桌上会看到它</div>' +
         '<input id="gd-name-input" type="text" maxlength="12" placeholder="输入昵称，如：老王 / Karen" ' +
           'style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.25);' +
