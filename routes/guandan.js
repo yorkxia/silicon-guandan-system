@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { query } = require('../db/init');
+const { query, queryOne } = require('../db/init');
 const { geoLocate, ipHash } = require('../utils/geo');
 
 // 掼蛋计分器（服务端渲染版）
@@ -10,11 +10,16 @@ router.get('/', async (req, res) => {
     const geo = await geoLocate(ip);
     const now = new Date();
 
-    // 服务端记录访问（fire and forget）
-    query(
-      'INSERT INTO sb_visits (ip_hash, country, region_code, city, page, user_agent) VALUES ($1,$2,$3,$4,$5,$6)',
-      [ipHash(ip), geo.country, geo.region_code, geo.city, 'guandan', (req.headers['user-agent'] || '').slice(0, 200)]
-    ).catch(() => {});
+    // 服务端记录访问，拿到这条访问行的 id 传给前端：前端起名后按 id 精确回填昵称，
+    // 不再靠 IP+时间窗口猜「哪一行是这次访问」(移动网络 IP 会漂移，猜不准就导致监控台昵称永远空着)。
+    let visitId = null;
+    try {
+      const row = await queryOne(
+        'INSERT INTO sb_visits (ip_hash, country, region_code, city, page, user_agent) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+        [ipHash(ip), geo.country, geo.region_code, geo.city, 'guandan', (req.headers['user-agent'] || '').slice(0, 200)]
+      );
+      visitId = row ? row.id : null;
+    } catch (e) { /* 访问记录失败不影响页面渲染 */ }
 
     // 查询本区域广告（服务端直接注入，无需客户端 fetch）
     const ads = await query(`
@@ -37,10 +42,10 @@ router.get('/', async (req, res) => {
         a.created_at DESC
     `, [now, geo.region_code]).catch(() => []);
 
-    res.render('guandan', { ads, geo });
+    res.render('guandan', { ads, geo, visitId });
   } catch (e) {
     console.error('Guandan route error:', e.message);
-    res.render('guandan', { ads: [], geo: {} });
+    res.render('guandan', { ads: [], geo: {}, visitId: null });
   }
 });
 

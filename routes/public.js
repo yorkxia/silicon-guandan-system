@@ -423,7 +423,7 @@ const gdWxLoginLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 30,
   message: '操作过于频繁，请稍后再试' });
 router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
   try {
-    const { device_id, name } = req.body || {};
+    const { device_id, name, visit_id } = req.body || {};
     if (!device_id || !name || !String(name).trim()) return res.json({ ok: false, error: 'missing' });
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip;
     let geo = {};
@@ -447,20 +447,29 @@ router.post('/api/gd/wxlogin', gdWxLoginLimiter, async (req, res) => {
        city.slice(0, 80), region.slice(0, 40), deviceInfo]
     );
     // 让监控台「最近访问记录」显示"谁在何时何地登陆计分器"：
-    // 先把昵称回填到刚刚 GET /guandan 记录的那条访问行（同 IP、近2分钟、尚未署名）；
-    // 若匹配不到（如 PWA 从缓存直开、未走服务端渲染），就补一条带昵称的访问记录。
+    // 首选 visit_id 直接按主键回填(页面渲染时服务端已把这次 GET /guandan 的行 id 写进页面，100%精确，
+    // 不受移动网络 IP 漂移/多设备共享出口 IP 影响)；没有 visit_id 时(老缓存页面)才退回旧的 IP+2分钟 匹配。
     try {
-      const updated = await query(
-        `UPDATE sb_visits SET wx_name = $1
-         WHERE id = (
-           SELECT id FROM sb_visits
-           WHERE page = 'guandan' AND ip_hash = $2
-             AND (wx_name IS NULL OR wx_name = '')
-             AND visited_at > NOW() - INTERVAL '2 minutes'
-           ORDER BY visited_at DESC LIMIT 1
-         ) RETURNING id`,
-        [nameClean, iph]
-      );
+      let updated = null;
+      if (visit_id) {
+        updated = await query(
+          `UPDATE sb_visits SET wx_name = $1 WHERE id = $2 AND page = 'guandan' RETURNING id`,
+          [nameClean, parseInt(visit_id, 10) || 0]
+        );
+      }
+      if (!updated || updated.length === 0) {
+        updated = await query(
+          `UPDATE sb_visits SET wx_name = $1
+           WHERE id = (
+             SELECT id FROM sb_visits
+             WHERE page = 'guandan' AND ip_hash = $2
+               AND (wx_name IS NULL OR wx_name = '')
+               AND visited_at > NOW() - INTERVAL '2 minutes'
+             ORDER BY visited_at DESC LIMIT 1
+           ) RETURNING id`,
+          [nameClean, iph]
+        );
+      }
       if (!updated || updated.length === 0) {
         await query(
           `INSERT INTO sb_visits (ip_hash, country, region_code, city, page, user_agent, wx_name)
