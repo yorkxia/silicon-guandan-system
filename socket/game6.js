@@ -15,7 +15,7 @@ const gameStates = require('./gameState6');
 const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
 const FIRST_TURN_SECONDS = 60;   // 开局第一手：留 60 秒理牌（第一张牌出去后转 25 秒）
 const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
-const TRIBUTE_SECONDS    = 10;   // 供牌/还牌：玩家 10 秒不操作则系统按规则自动供/还
+const TRIBUTE_SECONDS    = 20;   // 供牌/还牌：玩家 20 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
@@ -1206,7 +1206,7 @@ module.exports = function(io, socket) {
       const r = await applyTributeGive(io, state, player.id, card);
       if (r.error) return socket.emit('tribute:invalid', { message: r.error });
       await driveTributeBots(io, state);   // 接收方若已托管 → 机器人自动还贡
-      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 10 秒
+      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 20 秒
     } catch (e) {
       console.error('[tribute:give]', e.message);
     }
@@ -1227,7 +1227,7 @@ module.exports = function(io, socket) {
       const r = await applyTributeReturn(io, state, player.id, returnCard);
       if (r.error) return socket.emit('tribute:invalid', { message: r.error });
       await driveTributeBots(io, state);   // 其余待办若为托管座位 → 机器人自动接替
-      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 10 秒
+      armTributeTimer(io, state);          // 有人操作 → 为剩余供/还重置 20 秒
     } catch (e) {
       console.error('[tribute:return]', e.message);
     }
