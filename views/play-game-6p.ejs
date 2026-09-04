@@ -563,6 +563,8 @@
     .tb-cursor.ret  { background: #1E6BE5; color: #fff; border-color: #7ab6ff;
       animation: tbPulse 1s ease-in-out infinite; }
     @keyframes tbPulse { 0%,100%{ transform:translate(-50%,-50%) scale(1);} 50%{ transform:translate(-50%,-50%) scale(1.08);} }
+    /* 贴边裁剪后若仍与手牌/按钮/顶栏重叠，降半透明而非强行遮挡（浮层本身 pointer-events:none，不影响点击）*/
+    .gd-float-dim { opacity: .55; }
     .hand-card.tb-cand  { box-shadow: 0 0 0 3px #FFD54A, 0 0 14px 3px rgba(255,213,74,.7); border-color:#FFD54A; }
     .hand-card.tb-retok { box-shadow: 0 0 0 3px #66D17A, 0 0 12px 2px rgba(102,209,122,.6); border-color:#66D17A; }
     .hand-card.tb-dim   { opacity: .4; }
@@ -571,6 +573,7 @@
       z-index: 245; background: rgba(20,8,8,.92); color: #FFE066; border: 1px solid rgba(212,172,13,.6);
       padding: 7px 16px; border-radius: 12px; font-size: .85rem; font-weight: 800; letter-spacing: 1px;
       white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+      pointer-events: none;   /* 提示条绝不能挡住点击——即使视觉上盖住某张牌，点击也必须穿透到牌上 */
     }
 
     /* 按点数竖排成列 */
@@ -2033,6 +2036,42 @@ function gdToLocal(vx, vy){
   if (!gdPortrait()) return { x: vx, y: vy };
   return { x: vy, y: window.innerWidth - vx };
 }
+/* 关键区域：手牌/操作按钮/顶部比分栏——浮层裁剪后若仍压到这些区域，只降半透明，绝不能移走或盖住它们 */
+var GD_PROTECT_IDS = ['my-hand-area','action-bar','action-bar-6p','top-bar'];
+function gdAvoidCollision(el){
+  var r = el.getBoundingClientRect();
+  var hit = GD_PROTECT_IDS.some(function(id){
+    var p = document.getElementById(id); if (!p) return false;
+    var pr = p.getBoundingClientRect(); if (!pr.width || !pr.height) return false;
+    return !(r.right < pr.left || r.left > pr.right || r.bottom < pr.top || r.top > pr.bottom);
+  });
+  el.classList.toggle('gd-float-dim', hit);
+}
+/* 浮层安全摆放：量出真实宽高后按当前朝向的可视边界做贴边裁剪，避免大半个浮标探出屏幕外。
+   vAnchor 控制竖直方向的锚点（对应元素自身的 CSS transform）：mid=居中，top=锚在元素顶边，bottom=锚在元素底边。
+   裁剪后仍与关键区域重叠时改半透明（见 .gd-float-dim），不改变位置——绝不遮挡可点击的手牌/按钮。*/
+function gdSafePlace(el, vx, vy, parent, vAnchor){
+  vAnchor = vAnchor || 'mid';
+  parent.appendChild(el);
+  var prevVis = el.style.visibility; el.style.visibility = 'hidden';
+  var w = el.offsetWidth, h = el.offsetHeight;
+  el.style.visibility = prevVis;
+  var pos = gdToLocal(vx, vy);
+  var boundW = gdPortrait() ? window.innerHeight : window.innerWidth;
+  var boundH = gdPortrait() ? window.innerWidth  : window.innerHeight;
+  var margin = 6, halfW = w / 2;
+  var minX = margin + halfW, maxX = boundW - margin - halfW;
+  if (minX <= maxX) pos.x = Math.min(Math.max(pos.x, minX), maxX);
+  var minY, maxY;
+  if      (vAnchor === 'top')    { minY = margin;       maxY = boundH - margin - h; }
+  else if (vAnchor === 'bottom') { minY = margin + h;    maxY = boundH - margin; }
+  else                            { minY = margin + h/2;  maxY = boundH - margin - h/2; }
+  if (minY <= maxY) pos.y = Math.min(Math.max(pos.y, minY), maxY);
+  el.style.left = pos.x + 'px';
+  el.style.top  = pos.y + 'px';
+  gdAvoidCollision(el);
+  return pos;
+}
 /* 六人"不出/出牌"：不再用手牌区/顶栏的边界去猜左右位置——那套换算只在竖屏旋转90度时成立
    (旋转后手牌区在物理左边、顶栏在物理右边)，一到真横屏(不旋转，手牌在物理最下、顶栏在物理最上，
    左右方向根本用不上手牌/顶栏的边界)就会失效，两个键因此被挤在正中间。
@@ -3043,19 +3082,15 @@ function showChatBubble(seat, text, name){
   var b=document.createElement('div'); b.className='chat-bubble';
   if(name){ var nm=document.createElement('span'); nm.className='cb-name'; nm.textContent=name+'：'; b.appendChild(nm); }
   b.appendChild(document.createTextNode(text));
-  var pos;
   if(anchored){
-    pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 40));   // 座位上方（竖屏旋转换算）
     b.style.transform = 'translate(-50%, -100%)';
+    gdSafePlace(b, r.left + r.width/2, Math.max(r.top, 40), document.body, 'bottom');   // 座位上方（竖屏旋转换算+贴边裁剪）
   } else {
     /* 兜底：座位锚点隐藏/0尺寸/等候中时，从屏幕顶部中央飘出，保证消息一定可见 */
-    pos = gdToLocal(window.innerWidth/2, 58);
     b.style.transform = 'translate(-50%, 0)';
     b.classList.add('cb-toast');
+    gdSafePlace(b, window.innerWidth/2, 58, document.body, 'top');
   }
-  b.style.left = pos.x+'px';
-  b.style.top  = pos.y+'px';
-  document.body.appendChild(b);
   var t=setTimeout(function(){ if(b) b.remove(); delete _chatBubbles[key]; }, 4200);
   _chatBubbles[key]={el:b,t:t};
 }
@@ -3071,21 +3106,19 @@ function tbPlaceCursor(seat, text, cls){
   var r = el.getBoundingClientRect(); if (!r.width) return;
   var b = document.createElement('div');
   b.className = 'tb-cursor ' + cls; b.textContent = text;
-  var pos = gdToLocal(r.left + r.width/2, Math.max(r.top, 30) - 4);   // 竖屏旋转换算
-  b.style.left = pos.x + 'px';
-  b.style.top  = pos.y + 'px';
-  document.getElementById('tb-cursor-layer').appendChild(b);
+  gdSafePlace(b, r.left + r.width/2, Math.max(r.top, 30) - 4, document.getElementById('tb-cursor-layer'), 'mid');
 }
 function renderTributeUI(){
   var layer = document.getElementById('tb-cursor-layer'); if (layer) layer.innerHTML = '';
   var prompt = document.getElementById('tb-prompt');      if (prompt) prompt.style.display = 'none';
   if (!tbEx.length){ render6pHand(myHand); return; }
   tbEx.forEach(function(e){
+    /* 自己座位不再挂座位浮标：手牌上方的 tb-prompt 已经在讲同一件事，挂两条会重叠/多余 */
     if (e.stage === 'give'){
-      tbPlaceCursor(e.giverSeat,    '🔴 请点击供牌', 'give');
-      tbPlaceCursor(e.receiverSeat, '⚪ 请点击还供', 'wait');
+      if (e.giverSeat    !== mySeat) tbPlaceCursor(e.giverSeat,    '🔴 请点击供牌', 'give');
+      if (e.receiverSeat !== mySeat) tbPlaceCursor(e.receiverSeat, '⚪ 请点击还供', 'wait');
     } else if (e.stage === 'return'){
-      tbPlaceCursor(e.receiverSeat, '🔵 请点击还供', 'ret');
+      if (e.receiverSeat !== mySeat) tbPlaceCursor(e.receiverSeat, '🔵 请点击还供', 'ret');
     }
   });
   if (!tbBusy && prompt){
@@ -3114,7 +3147,9 @@ function tbTapCard(code){
   }
   return false;
 }
-window.addEventListener('resize', function(){ if (tbEx.length) renderTributeUI(); });
+function _reflowTributeUI(){ if (tbEx.length) renderTributeUI(); }
+window.addEventListener('resize', _reflowTributeUI);
+window.addEventListener('orientationchange', function(){ setTimeout(_reflowTributeUI, 60); setTimeout(_reflowTributeUI, 350); });
 
 /* ══════ 并列贡牌：还供牌摆中间供选(谁离头游名次近谁先选，7/20 秒仲裁，超时随机) ══════
    仅全下(双下/六人三下)且贡牌大小分不出高低时才会触发；tieCards 保存 {giverId, card} 列表。 */
