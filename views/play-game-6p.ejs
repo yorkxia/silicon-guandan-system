@@ -989,26 +989,28 @@
     .tribute-log-item { background: rgba(255,255,255,.05); border-radius: 8px; padding: 8px 12px; font-size: .75rem; color: rgba(255,255,255,.6); text-align: center; }
     .tribute-log-item.done { color: #80D4A8; }
 
-    /* 并列贡牌：还供牌摆在大屏正中央，供并列的进贡方选牌(谁离头游名次近谁先选，7/20 秒仲裁) */
+    /* 并列贡牌：还供牌摆在大屏正中央，供并列的进贡方选牌(谁离头游名次近谁先选，按人数均分 20 秒仲裁)
+       不再用整块不透明黑框——那会连同下面玩家自己的手牌一起挡住，改成只有两张候选牌+一行浮字，
+       其余区域 pointer-events:none 穿透，手牌照常可见/可点 */
     #tie-overlay {
       display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
-      z-index: 320; background: rgba(10,6,20,.94); border: 2px solid #FFE066; border-radius: 18px;
-      padding: 18px 26px 22px; text-align: center; box-shadow: 0 10px 46px rgba(0,0,0,.6);
-      max-width: 92vw;
+      z-index: 320; text-align: center; max-width: 92vw; pointer-events: none;
     }
-    #tie-overlay .tie-title { font-size: 1.05rem; font-weight: 900; color: #FFE066; letter-spacing: 3px; margin-bottom: 6px; }
-    #tie-overlay .tie-hint  { font-size: .8rem; color: rgba(255,255,255,.75); letter-spacing: 1px; margin-bottom: 12px; min-height: 1.2em; }
-    #tie-overlay .tie-cards { display: flex; gap: 16px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+    #tie-overlay .tie-hint  {
+      font-size: .92rem; font-weight: 900; color: #FFE066; letter-spacing: 2px; margin-bottom: 12px; min-height: 1.2em;
+      text-shadow: 0 2px 3px #000, 0 0 12px rgba(0,0,0,.8);
+    }
+    #tie-overlay .tie-cards { display: flex; gap: 16px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; pointer-events: auto; }
     .tie-card-box {
       display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 8px; border-radius: 12px; border: 2px solid rgba(255,255,255,.15);
-      background: rgba(255,255,255,.04); transition: all .2s;
+      padding: 8px; border-radius: 12px; border: 2px solid rgba(255,255,255,.25);
+      background: rgba(10,6,20,.88); box-shadow: 0 6px 22px rgba(0,0,0,.6); transition: all .2s;
     }
     .tie-card-box .tc-face { font-size: 1.7rem; }
-    .tie-card-box .tc-who  { font-size: .62rem; color: rgba(255,255,255,.4); letter-spacing: 1px; }
-    .tie-card-box.pickable { cursor: pointer; border-color: #FFE066; box-shadow: 0 0 14px rgba(255,224,102,.35); }
+    .tie-card-box .tc-who  { font-size: .62rem; color: rgba(255,255,255,.55); letter-spacing: 1px; }
+    .tie-card-box.pickable { cursor: pointer; border-color: #FFE066; box-shadow: 0 0 14px rgba(255,224,102,.5); }
     .tie-card-box.pickable:hover { transform: translateY(-4px); }
-    #tie-overlay .tie-countdown { font-size: .78rem; color: #FF9E6B; font-weight: 900; letter-spacing: 2px; }
+    #tie-overlay .tie-countdown { font-size: .78rem; color: #FF9E6B; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 3px #000, 0 0 10px rgba(0,0,0,.8); }
 
     /* ═══════════════ 等候层 ═══════════════ */
     #wait-overlay {
@@ -1191,7 +1193,6 @@
 
 <!-- 并列贡牌选牌层：还供牌摆在大屏中间，供并列的进贡方选 -->
 <div id="tie-overlay">
-  <div class="tie-title">还供牌次序待定</div>
   <div class="tie-hint" id="tie-hint"></div>
   <div class="tie-cards" id="tie-cards"></div>
   <div class="tie-countdown" id="tie-countdown"></div>
@@ -1765,6 +1766,8 @@ socket.on('game:hand', function(d){
   myHand     = sortHandLevel(d.hand, levelCard);           // 级牌感知排序
   updateCurrentLevel();
   lockedCombos = [];   // 新一局：清空上一局的锁定牌型组
+  selected     = [];   // 新一局：清空上一局残留的选中态(否则新手牌里同 code+idx 的牌会莫名带着红框，
+                        // 还贡阶段最容易被误当成"强制高亮"——见供还牌红框反馈)
 
   /* 切换布局 */
   if (GAME_MODE === '6p') {
@@ -2824,6 +2827,7 @@ function syncButtons(){
 function doPlay(){
   try {
     if(!isMyTurn) return;
+    if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先出牌
     if(selected.length===0){ showToast('请先选牌'); return; }
     var cards = selected.map(function(key){ return key.split('_')[0]; });
     var pt = gdDetect(cards, levelCard);
@@ -2840,6 +2844,7 @@ function doPlay(){
 function doPass(){
   try {
     if(!isMyTurn||!hasLastPlay) return;
+    if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先操作
     socket.emit('play:pass',{ token:MY_TOKEN, roomCode:ROOM_CODE });
   } catch(err) {
     console.error('[doPass]', err);
@@ -3163,8 +3168,8 @@ function renderTieOverlay(){
   var iAmActive = (tieActiveId === myPlayerId);
   var hint = document.getElementById('tie-hint');
   hint.textContent = iAmActive
-    ? '几张进贡的牌大小相同，轮到您先选一张还供牌'
-    : ('请靠近头游的玩家先选牌：等待 ' + esc(tieNameOf(tieActiveId)) + ' 选牌…');
+    ? '轮到您了，请选一张还供牌'
+    : ('请靠近头游的玩家（' + esc(tieNameOf(tieActiveId)) + '）先选');
   var box = document.getElementById('tie-cards');
   box.innerHTML = '';
   tieCards.forEach(function(c){

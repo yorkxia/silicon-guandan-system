@@ -446,6 +446,8 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
     guoA:         !!result.guoA,
     winsTeam1:    parseInt(wrow ? wrow.wins_team1 || 0 : 0),
     winsTeam2:    parseInt(wrow ? wrow.wins_team2 || 0 : 0),
+    aFail1:       new1,
+    aFail2:       new2,
     tributePending: !!tributeJson,
     /* 局间续局：客户端据此起 15 秒倒计时→round:autostart；过半掉线则提示"开放纳新" */
     majorityOffline: state.disconnected ? (state.disconnected.size * 2 > state.seats.length) : false
@@ -550,7 +552,7 @@ async function startTributePhase(io, roomCode, tributeInfo) {
 
   /* 全下(双下/三下)且贡牌大小并列时，"谁的还供牌该配对给哪个进贡方"分不出大小——
      不再默默按名次兜底配对，交给这些并列的进贡方自己选(谁离头游名次更近谁先选，
-     见 startTieResolve/TIE_WINDOW_MS)。 */
+     见 startTieResolve/armTieSchedule)。 */
   const tieGroup = (isFullDown && tiedAtTop) ? tiedGivers.map(e => e.giverId) : null;
 
   state.tributePhase = { exchanges, pendingCount, tributeLeadId, leadSeat, tieGroup,
@@ -681,9 +683,10 @@ async function applyTributeReturn(io, state, receiverId, returnCard) {
 
 /* ── 并列贡牌的还供配对仲裁：双下/三下且贡牌大小分不出高低时，默认按名次的兜底配对
    不再悄悄生效——两张(或多张)还供牌都还完后，摆出来让这些并列的进贡方自己选。
-   规则：按"离头游名次更近"排的优先级，每人独占 7 秒优先选权，轮流顺延，总计 20 秒；
-   20 秒内没人选→ 随机分配剩余——任何情况下都不会卡住供还阶段。 ── */
-const TIE_WINDOW_MS = 7000, TIE_TOTAL_MS = 20000;
+   规则：按"离头游名次更近"排的优先级，每人独占一段优先选权，轮流顺延，总计 20 秒；
+   每人的窗口按参与人数均分(双下=10+10，三下≈6.7×3)，20 秒内没人选→ 随机分配剩余——
+   任何情况下都不会卡住供还阶段。 ── */
+const TIE_TOTAL_MS = 20000;
 
 function clearTieTimers(state) {
   const tr = state && state.tributePhase && state.tributePhase.tieResolve;
@@ -696,6 +699,7 @@ function startTieResolve(io, state, tieGiverIds) {
     const ex = tp.exchanges.find(e => e.giverId === gid);
     return { giverId: gid, card: ex.returnCard };
   });
+  const windowMs = Math.max(1000, Math.floor(TIE_TOTAL_MS / tieGiverIds.length));
   tp.tiePending = true;
   tp.tieResolve = {
     giverIds: tieGiverIds.slice(),
@@ -703,11 +707,12 @@ function startTieResolve(io, state, tieGiverIds) {
     remaining: tieGiverIds.slice(),
     assigned: {},
     startedAt: Date.now(),
+    windowMs,
     timers: []
   };
   io.to(state.roomCode).emit('tribute:tie_pending', {
     giverIds: tieGiverIds, cards: cards.map(c => c.card),
-    firstPickerId: tieGiverIds[0], windowMs: TIE_WINDOW_MS, totalMs: TIE_TOTAL_MS
+    firstPickerId: tieGiverIds[0], windowMs, totalMs: TIE_TOTAL_MS
   });
   armTieSchedule(io, state);
 }
@@ -719,11 +724,11 @@ function armTieSchedule(io, state) {
   clearTieTimers(state);
   const elapsed = Date.now() - tr.startedAt;
   for (let i = 1; i < tr.remaining.length; i++) {
-    const ms = i * TIE_WINDOW_MS;
+    const ms = i * tr.windowMs;
     if (ms > elapsed && ms < TIE_TOTAL_MS) {
       tr.timers.push(setTimeout(() => {
         if (!(gameStates.get(state.roomCode) === state && state.tributePhase && state.tributePhase.tieResolve === tr)) return;
-        const idx = Math.min(Math.floor((Date.now() - tr.startedAt) / TIE_WINDOW_MS), tr.remaining.length - 1);
+        const idx = Math.min(Math.floor((Date.now() - tr.startedAt) / tr.windowMs), tr.remaining.length - 1);
         io.to(state.roomCode).emit('tribute:tie_turn', { activeGiverId: tr.remaining[idx] });
       }, ms - elapsed));
     }
@@ -740,7 +745,7 @@ async function applyTributeTiePick(io, state, giverId, chosenCard) {
   if (tr.remaining.indexOf(giverId) < 0) return { error: '您无需选牌或已选过' };
   const elapsed = Date.now() - tr.startedAt;
   if (elapsed >= TIE_TOTAL_MS) return { error: '已超时' };
-  const idx = Math.min(Math.floor(elapsed / TIE_WINDOW_MS), tr.remaining.length - 1);
+  const idx = Math.min(Math.floor(elapsed / tr.windowMs), tr.remaining.length - 1);
   if (tr.remaining[idx] !== giverId) return { error: '还没轮到您选' };
   const found = tr.pool.findIndex(c => c.card === chosenCard);
   if (found < 0) return { error: '该牌已被选走' };
@@ -841,11 +846,11 @@ async function driveTributeBots(io, state) {
         }
       } catch (e) { console.error('[driveTributeBots6]', e.message); }
     }
-    /* 并列供牌选牌环节：轮到的那位若已托管，立刻随机代选，避免干等 7/20 秒 */
+    /* 并列供牌选牌环节：轮到的那位若已托管，立刻随机代选，避免干等 20 秒 */
     const tr = state.tributePhase && state.tributePhase.tieResolve;
     if (tr && tr.remaining.length) {
       const elapsed = Date.now() - tr.startedAt;
-      const idx = Math.min(Math.floor(elapsed / TIE_WINDOW_MS), tr.remaining.length - 1);
+      const idx = Math.min(Math.floor(elapsed / tr.windowMs), tr.remaining.length - 1);
       const activeGiverId = tr.remaining[idx];
       if (isPlayerSeatDisconnected(state, activeGiverId)) {
         try {
@@ -867,6 +872,7 @@ async function driveTributeBots(io, state) {
 async function applyPlay(io, state, playerId, cards, isAuto = false) {
   const mySeat = state.seats.find(s => s.playerId === playerId);
   if (!mySeat) return { error: '您不在此房间中' };
+  if (state.tributePhase) return { error: '进贡/还贡尚未完成，请稍候' };
   if (mySeat.seat !== state.turnSeat) return { error: '还没有轮到您出牌' };
 
   const hand    = state.hands[String(playerId)];
@@ -949,7 +955,9 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
 
 async function applyPass(io, state, playerId, isAuto = false) {
   const mySeat = state.seats.find(s => s.playerId === playerId);
-  if (!mySeat || mySeat.seat !== state.turnSeat) return { error: '还没有轮到您' };
+  if (!mySeat) return { error: '您不在此房间中' };
+  if (state.tributePhase) return { error: '进贡/还贡尚未完成，请稍候' };
+  if (mySeat.seat !== state.turnSeat) return { error: '还没有轮到您' };
 
   if (!state.lastPlay) return { error: '先出方必须出牌，不能不出' };
 
@@ -1024,7 +1032,7 @@ module.exports = function(io, socket) {
       const seat = await queryOne(`
         SELECT s.*, '6p' AS game_mode, r.status, r.id AS room_id,
                r.level_team1, r.level_team2, r.round_count, r.banker_team,
-               r.wins_team1, r.wins_team2
+               r.wins_team1, r.wins_team2, r.a_fails_team1, r.a_fails_team2
         FROM gdo6_seats s JOIN gdo6_rooms r ON r.id = s.room_id
         WHERE r.room_code=$1 AND s.player_id=$2
       `, [roomCode, player.id]);
@@ -1097,6 +1105,8 @@ module.exports = function(io, socket) {
       /* 胜局(盘胜)=过A次数，存于房间 */
       const winsTeam1 = parseInt(seat.wins_team1 || 0);
       const winsTeam2 = parseInt(seat.wins_team2 || 0);
+      const aFail1 = parseInt(seat.a_fails_team1 || 0);
+      const aFail2 = parseInt(seat.a_fails_team2 || 0);
 
       socket.emit('game:hand', {
         hand: myHand, myPlayerId: player.id,
@@ -1107,6 +1117,7 @@ module.exports = function(io, socket) {
         levelTeam2: state.levelTeam2,
         levelCard:  state.levelCard,
         winsTeam1, winsTeam2,
+        aFail1, aFail2,
         players
       });
 
