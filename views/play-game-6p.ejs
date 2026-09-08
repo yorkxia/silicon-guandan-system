@@ -3629,16 +3629,28 @@ function reorderHandLockedFirst(){
     /* 每组按牌型大小算一个可比分：炸弹类用 _bombScore（跟出牌比大小同一套标准），
        非炸弹类(顺子/三带二/钢板/姊妹对)直接用 value(点数序)——多组同侧锁定时按大小顺序竖排 */
     var score = isBomb ? _bombScore({ type: combo.type, size: cards.length, value: combo.value }) : (combo.value || 0);
-    (isBomb ? frontGroups : backGroups).push({ cards: sorted, score: score });
+    (isBomb ? frontGroups : backGroups).push({ cards: sorted, score: score, combo: combo });
   });
   frontGroups.sort(function(a,b){ return b.score - a.score; });
   backGroups.sort(function(a,b){ return b.score - a.score; });
-  var front = [].concat.apply([], frontGroups.map(function(g){ return g.cards; }));
-  var back  = [].concat.apply([], backGroups.map(function(g){ return g.cards; }));
   var rest = [];
   myHand.forEach(function(code, idx){ if (!inCombo[idx]) rest.push(code); });
-  myHand = front.concat(sortHandLevel(rest, levelCard)).concat(back);
-  remapCombos(myHand);
+  rest = sortHandLevel(rest, levelCard);
+  /* #5 直接按拼接顺序给每组分配连续 idx 区间写回 combo.keys，不再靠 remapCombos()「按 code 反查」——
+     双副牌里同点数同花色的牌本来就会重复出现，顺子/三带二/姊妹对/钢板这类组合几乎必然与散牌区
+     撞出重复 code；反查时永远从头找"第一个未占用的相同 code"，一撞上散牌区的重复牌就会张冠李戴，
+     把锁定组里的一张牌错记成散牌的下标，散牌又被误记成锁定组——组里的牌因此有的在最右整齐排好、
+     有的却散落在手牌中间，看起来像没锁住。这里位置本就是我们自己拼出来的，直接按下标赋值不会错。 */
+  var newHand = [];
+  function appendGroup(g){
+    var start = newHand.length;
+    newHand = newHand.concat(g.cards);
+    g.combo.keys = g.cards.map(function(code, i){ return code + '_' + (start + i); });
+  }
+  frontGroups.forEach(appendGroup);
+  newHand = newHand.concat(rest);
+  backGroups.forEach(appendGroup);
+  myHand = newHand;
 }
 function comboReRender(){
   if (GAME_MODE === '6p') { render6pHand(myHand); syncButtons6p(); updateSelInfo6p(); }
