@@ -21,6 +21,23 @@ async function queryOne(sql, params = []) {
   return rows[0] || null;
 }
 
+/* 事务：同一个连接跑完整个 fn 再一次性提交/回滚（等候室互换座位这类"必须两行一起改对，
+   中途绝不能只改一半"的操作要用它，不能像 query() 那样每条语句各自占一个连接自动提交）*/
+async function withTransaction(fn) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 async function initDB() {
   await query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -619,4 +636,4 @@ async function initDB() {
   console.log('✅ Database initialized');
 }
 
-module.exports = { query, queryOne, initDB };
+module.exports = { query, queryOne, withTransaction, initDB };

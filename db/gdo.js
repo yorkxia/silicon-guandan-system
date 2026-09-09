@@ -1,5 +1,5 @@
 /* 网上掼蛋对战 · 数据库辅助层 */
-const { query, queryOne } = require('./init');
+const { query, queryOne, withTransaction } = require('./init');
 const { geoLocate } = require('../utils/geo');
 
 const LEVEL_NAME = { 2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'10',11:'J',12:'Q',13:'K',14:'A' };
@@ -188,6 +188,33 @@ async function getRoomState(roomCode) {
   return { room, seats };
 }
 
+/* ── 等候室互换座位（私人房，开局前）──
+   把 seatA 的人挪到 seatB：seatB 有人则两人对调，seatB 是空位则单纯移过去。
+   队伍随座位号奇偶重新计算(四人1={1,3}/2={2,4}，与建座时的规则一致)——挪去对家位置的人，
+   队伍会跟着变，这正是这个功能存在的意义(自由安排搭档)。
+   UNIQUE(room_id,seat) 约束下不能直接"A→B、B→A"两条语句顺序执行(第一条就会撞上B还占着
+   seat=B)，用该玩家自己 seats 表主键的负值当临时座位号过渡，同房间内绝不会跟任何人（包括
+   另一场同时进行的互换）真正撞上。*/
+async function swapSeats(roomCode, seatA, seatB) {
+  const room = await queryOne('SELECT * FROM gdo_rooms WHERE room_code=$1', [roomCode]);
+  if (!room) return { error: '房间不存在' };
+  if (room.room_type !== 'private') return { error: '仅私人房间支持调整座位' };
+  if (room.status !== 'waiting') return { error: '对局已经开始，无法调整座位' };
+
+  const seats = await query('SELECT * FROM gdo_seats WHERE room_id=$1', [room.id]);
+  const a = seats.find(s => s.seat === seatA);
+  const b = seats.find(s => s.seat === seatB);
+  if (!a) return { error: '该座位是空的，没有玩家可以移动' };
+  const teamOf = n => (n % 2 === 1) ? 1 : 2;
+
+  await withTransaction(async (client) => {
+    await client.query('UPDATE gdo_seats SET seat=$1 WHERE id=$2', [-a.id, a.id]);
+    if (b) await client.query('UPDATE gdo_seats SET seat=$1,team=$2 WHERE id=$3', [seatA, teamOf(seatA), b.id]);
+    await client.query('UPDATE gdo_seats SET seat=$1,team=$2 WHERE id=$3', [seatB, teamOf(seatB), a.id]);
+  });
+  return { ok: true };
+}
+
 /* ── 找或建"永远有房间等候"的公开房间 ── */
 async function findOrCreateOpenRoom(mode) {
   const maxSeats = mode === '6p' ? 6 : 4;
@@ -233,5 +260,6 @@ module.exports = {
   createMatch,
   joinRoomByCode,
   getRoomState,
+  swapSeats,
   levelName
 };

@@ -1,8 +1,8 @@
 /* 网上掼蛋 · 匹配系统 Socket 事件 */
-const { query } = require('../db/init');
+const { query, queryOne } = require('../db/init');
 const {
   getOrCreatePlayer, createRoom, findOrCreateOpenRoom, findRevivalRoom,
-  joinRoomByCode, getRoomState
+  joinRoomByCode, getRoomState, swapSeats
 } = require('../db/gdo');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
 const rateGuard = require('./rateGuard');
@@ -62,9 +62,41 @@ async function armRoomTimer(io, roomCode) {
   roomTimers.set(roomCode, { warn });
 }
 
+/* ══════════════════════════════════════════════════════
+ * 等候室座位互换：同一时刻全房间只允许一笔"正在移动中"的操作，
+ * 避免两人同时各拖一个座位时互相踩踏、把座位表改乱。
+ * roomCode -> { seat, playerId, socketId, timer }
+ * ══════════════════════════════════════════════════════ */
+const seatLocks   = new Map();
+const SEAT_LOCK_MS = 20 * 1000;   // 选中座位后 20 秒内无人确认目标位/取消 → 自动解锁，绝不卡死
+
+function releaseSeatLock(io, roomCode, expectedSeat) {
+  const lock = seatLocks.get(roomCode);
+  if (!lock) return;
+  if (expectedSeat != null && lock.seat !== expectedSeat) return;   // 已被新一轮选座替换，不能误删
+  clearTimeout(lock.timer);
+  seatLocks.delete(roomCode);
+  io.to(roomCode).emit('seat:lock_update', { seat: null });
+}
+
+/* 双保险：万一数据库连接卡住(连接池耗尽/网络抖动)，实际的 swapSeats() 迟迟不返回，
+   也绝不能让内存里的座位锁跟着一起卡死——最多等 8 秒，超时就当失败处理并放锁。
+   （这把锁只挡"等候室调整座位"这一个动作本身，从不参与、也不会拖累发牌/出牌等
+   核心对局逻辑——见 dealAndStart/tryStartNextRound 均不读取 seatLocks，所以哪怕
+   这里真的卡住，也只是"暂时不能调座位"，绝不会让整局游戏卡住。） */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise(function(_, reject){
+      setTimeout(function(){ reject(new Error((label || 'operation') + ' timed out')); }, ms);
+    })
+  ]);
+}
+
 /* ─── 发牌并启动游戏（满员后调用）──────────────── */
 async function dealAndStart(io, roomCode, state) {
   cancelRoomTimer(roomCode);   // 满员开赛，停止关闭计时
+  releaseSeatLock(io, roomCode);   // 等候室座位互换锁也一并清掉（开局后等候层不再显示，锁已无意义）
   /* 并发锁：只有把 waiting→playing 抢到的调用才继续发牌，
      避免多端 room:ready / round:autostart 同时触发导致重复发牌 */
   const claimed = await query(
@@ -308,6 +340,72 @@ module.exports = function(io, socket) {
     }
   });
 
+  /* ── 等候室调整座位（仅私人房、开局前）──────────────────────
+     用法：先点一个"有人"的座位选中 = 占用该房唯一的移动锁；再点第二个座位(有人=对调/
+     空位=移过去)提交；点同一个座位第二次 = 取消选中。任何时刻全房间只允许一笔进行中的
+     移动，别人这时选座会被明确拒绝并提示"其他用户正在调整该玩家位置，请稍等"——
+     不是"悄悄失败"，也不会因为谁忘了确认而永远卡住(20秒无操作自动解锁 + 断线立即解锁)。 */
+  socket.on('seat:select', async function(data) {
+    try {
+      const { token, roomCode, seat } = data || {};
+      if (!roomCode || !seat) return;
+      const state = await getRoomState(roomCode);
+      if (!state || state.room.room_type !== 'private' || state.room.status !== 'waiting') return;
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+      if (!state.seats.some(s => s.seat === seat)) return;   // 空位没有玩家可选
+
+      const lock = seatLocks.get(roomCode);
+      if (lock && lock.playerId !== player.id) {
+        socket.emit('seat:error', { message: '其他用户正在调整该玩家位置，请稍等' });
+        return;
+      }
+      if (lock) clearTimeout(lock.timer);   // 同一玩家换选了别的座位：直接顶替旧锁，不用先取消
+
+      const timer = setTimeout(function(){ releaseSeatLock(io, roomCode, seat); }, SEAT_LOCK_MS);
+      seatLocks.set(roomCode, { seat, playerId: player.id, socketId: socket.id, timer });
+      io.to(roomCode).emit('seat:lock_update', { seat, byPlayerId: player.id });
+    } catch (e) { console.error('[seat:select]', e.message); }
+  });
+
+  socket.on('seat:cancel', async function(data) {
+    try {
+      const { token, roomCode } = data || {};
+      if (!roomCode) return;
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+      const lock = seatLocks.get(roomCode);
+      if (lock && lock.playerId === player.id) releaseSeatLock(io, roomCode, lock.seat);
+    } catch (e) { console.error('[seat:cancel]', e.message); }
+  });
+
+  socket.on('seat:move', async function(data) {
+    try {
+      const { token, roomCode, toSeat } = data || {};
+      if (!roomCode || !toSeat) return;
+      const player = await queryOne('SELECT id FROM gdo_players WHERE player_token=$1', [token]);
+      if (!player) return;
+      const lock = seatLocks.get(roomCode);
+      if (!lock || lock.playerId !== player.id) {
+        socket.emit('seat:error', { message: '请先选中要调整的座位' });
+        return;
+      }
+      const fromSeat = lock.seat;
+      if (toSeat === fromSeat) { releaseSeatLock(io, roomCode, fromSeat); return; }   // 点回自己选中的座位=取消
+
+      const result = await withTimeout(swapSeats(roomCode, fromSeat, toSeat), 8000, 'swapSeats');
+      releaseSeatLock(io, roomCode, fromSeat);   // 无论成功失败都必须释放，绝不能让锁卡住
+      if (result.error) { socket.emit('seat:error', { message: result.error }); return; }
+
+      const state = await getRoomState(roomCode);
+      if (state) await broadcastWaiting(io, roomCode, state);
+    } catch (e) {
+      console.error('[seat:move]', e.message);
+      releaseSeatLock(io, (data && data.roomCode));   // 含超时：数据库再慢也不能让座位锁卡住
+      socket.emit('seat:error', { message: '调整座位失败，请重试' });
+    }
+  });
+
   socket.on('room:leave', async function(data) {
     try {
       const { roomCode } = data;
@@ -345,6 +443,10 @@ module.exports = function(io, socket) {
         `UPDATE gdo_queue SET status='cancelled' WHERE socket_id=$1 AND status='waiting'`,
         [socket.id]
       );
+      /* 正在挑座位挪人的玩家掉线了：立即放锁，不等 20 秒超时，别人不用干等 */
+      for (const [rc, lock] of seatLocks) {
+        if (lock.socketId === socket.id) releaseSeatLock(io, rc, lock.seat);
+      }
     } catch (e) {}
   });
 };

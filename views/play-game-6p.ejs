@@ -1071,6 +1071,24 @@
     .wait-seat.me .wait-seat-name { color: #FFE066; }
     .wait-seat-team { font-size: .62rem; color: rgba(255,255,255,.25); letter-spacing: 1px; margin-top: 2px; }
     .wait-seat.filled .wait-seat-team { color: rgba(255,255,255,.45); }
+    /* 私人房：座位可点击互换——先点一个有人的座位选中，再点目标位对调/移过去 */
+    .wait-seat.selectable { cursor: pointer; }
+    .wait-seat.selectable:active { transform: scale(.97); }
+    .wait-seat.selected {
+      border-color: #FFE066; background: rgba(255,224,102,.16);
+      box-shadow: 0 0 0 2px rgba(255,224,102,.45), 0 0 14px rgba(255,224,102,.35);
+      animation: waitSeatPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes waitSeatPulse {
+      0%,100% { box-shadow: 0 0 0 2px rgba(255,224,102,.45), 0 0 14px rgba(255,224,102,.35); }
+      50%     { box-shadow: 0 0 0 2px rgba(255,224,102,.75), 0 0 20px rgba(255,224,102,.6); }
+    }
+    .wait-seat.locked { border-color: rgba(255,150,60,.6); background: rgba(255,150,60,.08); }
+    .wait-seat-tag {
+      flex-shrink: 0; font-size: .6rem; color: #FFE066; letter-spacing: 1px;
+      background: rgba(0,0,0,.35); border-radius: 8px; padding: 2px 7px; white-space: nowrap;
+    }
+    .wait-seat.locked .wait-seat-tag { color: #FFB066; }
     /* 房间号分享区（私人房间显示） */
     #wait-room-code-box {
       display: none; text-align: center; background: rgba(0,0,0,.3);
@@ -1487,6 +1505,15 @@ var waitNeed     = 4;
 var IN_WAITING   = false;     // 随机参赛：是否处于"真实牌桌上等待"状态
 var _interSeats  = [];        // 上一局结算时的各座玩家（供"继续比赛"后在大屏等待时渲染座位）
 
+/* 私人房等候室·座位互换：全房间任意用户都能点座位调整队友顺序。
+   _lockedSeat/_lockedByMe 完全由服务端 seat:lock_update 广播驱动（不本地乐观置位），
+   避免"我以为选中了，其实服务端拒绝了"这类客户端/服务端状态不一致。 */
+var _waitSeatsData   = null;
+var _waitRoomCodeCur = '';
+var _waitRoomTypeCur = 'random';
+var _lockedSeat  = null;   // 当前全房间"正在移动中"的座位号（谁选的都算）
+var _lockedByMe  = false;
+
 /* ════════════════════ Socket ════════════════════ */
 var socket = io('/g6', { transports:['polling','websocket'] });  // 六人独立命名空间（先轮询后升级，受限网络更稳）
 if (window.gdConnGuard) gdConnGuard(socket, { timeout: 12000 });   // 超时/失败可见提示，绝不无声转圈
@@ -1511,6 +1538,7 @@ socket.on('game:waiting', function(d){
   levelTeam1   = d.levelTeam1 || 2;
   levelTeam2   = d.levelTeam2 || 2;
   updateCurrentLevel();
+  _lockedSeat = null; _lockedByMe = false;   // 新进/重连一个等候室：清掉上一个房间可能残留的选座状态
 
   if (d.roomType === 'random') {
     /* 立即随机参赛：直接在真实牌桌上等待（不再弹"等候室"遮罩）*/
@@ -1551,8 +1579,13 @@ socket.on('game:starting', function(){
   }, 600);
 });
 
-/* ── 渲染等候层 ── */
+/* ── 渲染等候层 ──
+   私人房间(roomType==='private')的座位可以互相调整：点一个有人的座位选中(高亮跳动金框)，
+   再点第二个座位——有人=两人对调，空位=移过去；点回选中的那个座位=取消。
+   同一时刻全房间只允许一笔进行中的调整，_lockedSeat 由服务端广播驱动，不本地乐观置位。 */
 function renderWaiting(seats, roomCode, roomType) {
+  _waitSeatsData = seats; _waitRoomCodeCur = roomCode; _waitRoomTypeCur = roomType;
+
   var filled = seats ? seats.length : 0;
   document.getElementById('wait-filled').textContent = filled;
   document.getElementById('wait-need').textContent   = waitNeed;
@@ -1566,24 +1599,53 @@ function renderWaiting(seats, roomCode, roomType) {
     codeBox.style.display = 'none';
   }
 
+  var canSwap = (roomType === 'private');
   var html = '';
   var TEAM_LABELS = ['','甲队','乙队','甲队','乙队','甲队','乙队'];
   for (var i = 1; i <= waitNeed; i++) {
     var s      = seats && seats.find(function(x){ return x.seat === i; });
     var isMe   = s && s.player_id === myPlayerId;
-    var isFilled = !!s;
-    var cls    = 'wait-seat' + (isFilled ? ' filled' : '') + (isMe ? ' me' : '');
-    var name   = s ? esc(s.display_name || s.name || '玩家') : '等待加入...';
-    html += '<div class="' + cls + '">' +
+    var isFilled   = !!s;
+    var isSelected = canSwap && _lockedByMe && _lockedSeat === i;
+    var isLocked   = canSwap && !isSelected && _lockedSeat === i;
+    var cls = 'wait-seat' + (isFilled ? ' filled' : '') + (isMe ? ' me' : '') +
+      (canSwap ? ' selectable' : '') + (isSelected ? ' selected' : '') + (isLocked ? ' locked' : '');
+    var name = s ? esc(s.display_name || s.name || '玩家') : '等待加入...';
+    var tag  = isSelected ? '<div class="wait-seat-tag">已选中·点目标位</div>' :
+               (isLocked  ? '<div class="wait-seat-tag">调整中…</div>' : '');
+    html += '<div class="' + cls + '"' + (canSwap ? ' onclick="onWaitSeatClick(' + i + ')"' : '') + '>' +
       '<div class="wait-seat-num">' + i + '</div>' +
       '<div class="wait-seat-info">' +
         '<div class="wait-seat-name">' + name + (isMe?' (我)':'') + '</div>' +
         '<div class="wait-seat-team">' + (TEAM_LABELS[i] || '') + '</div>' +
-      '</div>' +
+      '</div>' + tag +
     '</div>';
   }
   document.getElementById('wait-seats').innerHTML = html;
 }
+
+/* 点座位：第一下选源(必须有人)，第二下选目标(有人=对调/空位=移过去)，点回源座=取消 */
+function onWaitSeatClick(seat){
+  if (_waitRoomTypeCur !== 'private') return;
+  if (_lockedSeat == null) {
+    var occ = _waitSeatsData && _waitSeatsData.find(function(x){ return x.seat === seat; });
+    if (!occ) return;   // 空位不能作为移动源
+    socket.emit('seat:select', { token: MY_TOKEN, roomCode: ROOM_CODE, seat: seat });
+  } else if (_lockedSeat === seat) {
+    if (_lockedByMe) socket.emit('seat:cancel', { token: MY_TOKEN, roomCode: ROOM_CODE });
+    else showToast('其他用户正在调整该玩家位置，请稍等');
+  } else {
+    if (_lockedByMe) socket.emit('seat:move', { token: MY_TOKEN, roomCode: ROOM_CODE, toSeat: seat });
+    else showToast('其他用户正在调整该玩家位置，请稍等');
+  }
+}
+/* 服务端权威广播："座位互换锁"当前落在谁身上（seat:null=已释放）*/
+socket.on('seat:lock_update', function(d){
+  _lockedSeat = (d && d.seat != null) ? d.seat : null;
+  _lockedByMe = _lockedSeat != null && d.byPlayerId === myPlayerId;
+  renderWaiting(_waitSeatsData, _waitRoomCodeCur, _waitRoomTypeCur);
+});
+socket.on('seat:error', function(d){ showToast(d.message); });
 
 /* ════════ 随机参赛：真实牌桌上等待（方案A）════════ */
 function seatTeamOf(n){ return (n % 2 === 1) ? 1 : 2; }

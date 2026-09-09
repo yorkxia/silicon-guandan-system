@@ -1,6 +1,6 @@
 /* 六人掼蛋 · 独立数据库辅助层（gdo6_* 表；玩家表 gdo_players 与四人共用）
    fork 自 db/gdo.js，去掉 game_mode（本模块只服务六人，固定6座）*/
-const { query, queryOne } = require('./init');
+const { query, queryOne, withTransaction } = require('./init');
 const { getOrCreatePlayer, levelName } = require('./gdo');   // 玩家/工具共用
 
 const MAX_SEAT = 6;
@@ -100,6 +100,28 @@ async function getRoomState(roomCode) {
   return { room, seats };
 }
 
+/* ── 等候室互换座位（私人房，开局前）── 逻辑与四人版 db/gdo.js 的 swapSeats 完全对称，
+   只是换成 gdo6_seats 表；6 座同样 team 1={1,3,5}/2={2,4,6}，奇偶即队伍。 */
+async function swapSeats(roomCode, seatA, seatB) {
+  const room = await queryOne('SELECT * FROM gdo6_rooms WHERE room_code=$1', [roomCode]);
+  if (!room) return { error: '房间不存在' };
+  if (room.room_type !== 'private') return { error: '仅私人房间支持调整座位' };
+  if (room.status !== 'waiting') return { error: '对局已经开始，无法调整座位' };
+
+  const seats = await query('SELECT * FROM gdo6_seats WHERE room_id=$1', [room.id]);
+  const a = seats.find(s => s.seat === seatA);
+  const b = seats.find(s => s.seat === seatB);
+  if (!a) return { error: '该座位是空的，没有玩家可以移动' };
+  const teamOf = n => (n % 2 === 1) ? 1 : 2;
+
+  await withTransaction(async (client) => {
+    await client.query('UPDATE gdo6_seats SET seat=$1 WHERE id=$2', [-a.id, a.id]);
+    if (b) await client.query('UPDATE gdo6_seats SET seat=$1,team=$2 WHERE id=$3', [seatA, teamOf(seatA), b.id]);
+    await client.query('UPDATE gdo6_seats SET seat=$1,team=$2 WHERE id=$3', [seatB, teamOf(seatB), a.id]);
+  });
+  return { ok: true };
+}
+
 /* ── 找或建"永远有房间等候"的公开房间（六人）── */
 async function findOrCreateOpenRoom() {
   const existing = await queryOne(`
@@ -139,6 +161,7 @@ module.exports = {
   createRoom,
   joinRoomByCode,
   getRoomState,
+  swapSeats,
   findOrCreateOpenRoom,
   findRevivalRoom,
   MAX_SEAT
