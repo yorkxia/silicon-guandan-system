@@ -669,6 +669,17 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.4);
     }
     .sp-more { color: #fff; font-size: 11px; margin-left: 3px; align-self: center; text-shadow: 0 1px 2px #000; }
+    /* 提前收局摊牌：双下/三下或只剩末游一人时，把该家剩余全部手牌亮出来 10 秒，
+       跟平时贴座位的"这一手出牌"区分开——加金色描边 + 顶部"摊牌"标签，允许多行换行 */
+    .seat-play.sp-reveal {
+      flex-wrap: wrap; max-width: 232px; z-index: 46;
+      background: rgba(20,18,10,.6); border: 2px solid #FFD54A; border-radius: 14px;
+      padding: 5px 8px 6px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    }
+    .sp-reveal-tag {
+      flex: 0 0 100%; text-align: center; color: #FFD54A; font-weight: 900;
+      font-size: 12px; letter-spacing: 3px; margin-bottom: 3px; text-shadow: 0 1px 2px #000;
+    }
     /* 出牌结构化分列：同点数一列竖叠(牌同点，重叠不丢信息)，列按点数升序左→右，视觉对等平衡 */
     .sp-cols { display: flex; align-items: flex-start; justify-content: center; gap: 4px; }
     .sp-col  { display: flex; flex-direction: column; align-items: center; }
@@ -1899,6 +1910,13 @@ function renderSeatPlays(sp){
     if (play.pass){
       el.className = 'seat-play';
       el.innerHTML = '<span class="sp-pass">不出</span>';
+    } else if (play.reveal){
+      /* 提前收局摊牌：双下/三下或只剩末游一人，胜负已定——把这家剩余全部手牌摊出来，
+         不再像日常出牌那样截断到14张，让全场看清楚他手里到底还剩什么 */
+      var rCards = sortHandLevel(play.cards || [], levelCard), rHtml = '';
+      for (var ri = 0; ri < rCards.length; ri++) rHtml += miniCardHtml(rCards[ri]);
+      el.className = 'seat-play sp-reveal';
+      el.innerHTML = '<span class="sp-reveal-tag">摊牌 · ' + rCards.length + '张</span>' + rHtml;
     } else {
       /* 原有横向平铺：级牌感知排序后一张张横排；≤5张单行，>5张换行(每行≤5) */
       var cards = sortHandLevel(play.cards || [], levelCard), html = '';
@@ -1952,6 +1970,19 @@ socket.on('game:hand_update', function(d){
 
 /* ── 无效出牌 ── */
 socket.on('play:invalid',   function(d){ showToast(d.message); });
+
+/* ── 提前收局摊牌：双下/三下(头游整队先出完)或只剩末游一人，胜负已定——服务端把这些人
+   剩余的全部手牌发过来，贴其座位摊开显示 10 秒，随后 round:result 到达时会跟着
+   clearSeatPlays() 一起清掉；这里再加一道兜底定时器，万一 round:result 意外没收到，
+   摊牌气泡也不会一直悬在桌面上不消失。 */
+var _revealClearTimer = null;
+socket.on('game:reveal_hands', function(d){
+  var sp = {};
+  (d.hands || []).forEach(function(h){ sp[h.seat] = { cards: h.cards || [], reveal: true }; });
+  renderSeatPlays(sp);
+  if (_revealClearTimer) clearTimeout(_revealClearTimer);
+  _revealClearTimer = setTimeout(clearSeatPlays, 11000);
+});
 
 /* ── 玩家出完牌 ── */
 socket.on('player:finished', function(d){

@@ -674,6 +674,17 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.4);
     }
     .sp-more { color: #fff; font-size: 11px; margin-left: 3px; align-self: center; text-shadow: 0 1px 2px #000; }
+    /* 提前收局摊牌：整队(头/二/三游)先出完或只剩末游一人时，把该家剩余全部手牌亮出来 10 秒，
+       跟平时贴座位的"这一手出牌"区分开——加金色描边 + 顶部"摊牌"标签，允许多行换行 */
+    .seat-play.sp-reveal {
+      flex-wrap: wrap; max-width: 232px; z-index: 46;
+      background: rgba(20,18,10,.6); border: 2px solid #FFD54A; border-radius: 14px;
+      padding: 5px 8px 6px; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    }
+    .sp-reveal-tag {
+      flex: 0 0 100%; text-align: center; color: #FFD54A; font-weight: 900;
+      font-size: 12px; letter-spacing: 3px; margin-bottom: 3px; text-shadow: 0 1px 2px #000;
+    }
     /* 出牌统一展示：从小到大，每行固定最多6张(不依赖容器宽度自动换行的flex-wrap，
        保证任何屏幕上"一排6张"都是同一个数字) */
     .pc-rows { display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -2156,9 +2167,17 @@ function renderSeatPlays(sp){
     if (r.width === 0 && r.height === 0){ if(el) el.style.display='none'; continue; }
     if (!el){ el = document.createElement('div'); el.id = 'seat-play-'+seat; el.className = 'seat-play'; document.body.appendChild(el); }
     if (play.pass){
+      el.className = 'seat-play';
       el.innerHTML = '<span class="sp-pass">不出</span>';
+    } else if (play.reveal){
+      /* 提前收局摊牌：整队(头/二/三游)先出完或只剩末游一人，胜负已定——把这家剩余全部
+         手牌摊出来，不再像日常出牌那样截断到14张，让全场看清楚他手里到底还剩什么 */
+      var rCards = play.cards || [];
+      el.className = 'seat-play sp-reveal';
+      el.innerHTML = '<span class="sp-reveal-tag">摊牌 · ' + rCards.length + '张</span>' + playCardsRowsHtml(rCards, 0);
     } else {
       /* 从小到大排列，每行最多6张(最多14张) */
+      el.className = 'seat-play';
       el.innerHTML = playCardsRowsHtml(play.cards, 14);
     }
     var px = r.left + r.width/2, py = r.top + r.height/2;
@@ -2205,6 +2224,19 @@ socket.on('game:hand_update', function(d){
 
 /* ── 无效出牌 ── */
 socket.on('play:invalid',   function(d){ showToast(d.message); });
+
+/* ── 提前收局摊牌：整队(头/二/三游)先出完或只剩末游一人，胜负已定——服务端把这些人
+   剩余的全部手牌发过来，贴其座位摊开显示 10 秒，随后 round:result 到达时会跟着
+   clearSeatPlays() 一起清掉；这里再加一道兜底定时器，万一 round:result 意外没收到，
+   摊牌气泡也不会一直悬在桌面上不消失。 */
+var _revealClearTimer = null;
+socket.on('game:reveal_hands', function(d){
+  var sp = {};
+  (d.hands || []).forEach(function(h){ sp[h.seat] = { cards: h.cards || [], reveal: true }; });
+  renderSeatPlays(sp);
+  if (_revealClearTimer) clearTimeout(_revealClearTimer);
+  _revealClearTimer = setTimeout(clearSeatPlays, 11000);
+});
 
 /* ── 玩家出完牌 ── */
 socket.on('player:finished', function(d){

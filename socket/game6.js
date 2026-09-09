@@ -17,6 +17,9 @@ const FIRST_TURN_SECONDS = 60;   // 开局第一手：留 60 秒理牌（第一�
 const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
 const TRIBUTE_SECONDS    = 20;   // 供牌/还牌：玩家 20 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
+/* 提前收局展示时长：一方整队(头/二/三游)先出完，或桌上只剩末游一人，胜负已定、名次已经能
+   全部排出——没必要逼剩下的人继续打完，直接把他们手里的牌摊开给全场看 10 秒，再进结算/重新发牌。 */
+const REVEAL_DISPLAY_MS  = 10000;
 
 /* ─── 初始化游戏状态 ─────────────────────────────── */
 function initGameState(roomCode, roundId, roomId, seats, hands, levelTeam1, levelTeam2, gameMode, bankerTeam) {
@@ -931,17 +934,34 @@ async function applyPlay(io, state, playerId, cards, isAuto = false) {
   const headDone  = headTeam ? state.finishOrder.filter(f => f.team === headTeam).length : 0;
   const teamSize  = Math.floor(state.totalPlayers / 2);
   if (headDone >= teamSize || state.finishOrder.length >= state.totalPlayers - 1) {
-    /* 剩余玩家(负方)按当前顺序补入名次 */
-    const doneSet   = new Set(state.finishOrder.map(f => f.seat));
-    const remaining = state.seats.filter(s => !doneSet.has(s.seat));
+    /* 剩余玩家(负方)按当前顺序补入名次；他们手里可能还有一整把没打完的牌——胜负已经
+       没有悬念(整队先出完已提前锁定，或就剩这一人注定垫底)，摊牌快照要在写入名次前取，
+       之后 finishRound 会清空/重置这局的 state.hands，摊晚了就取不到了。 */
+    const doneSet     = new Set(state.finishOrder.map(f => f.seat));
+    const remaining   = state.seats.filter(s => !doneSet.has(s.seat));
+    const revealHands = remaining
+      .filter(s => (state.hands[String(s.playerId)] || []).length > 0)
+      .map(s => ({
+        seat: s.seat, playerId: s.playerId, name: s.name,
+        cards: sortHand(state.hands[String(s.playerId)] || [])
+      }));
     for (const s of remaining) {
       state.finishOrder.push({
         position: state.finishOrder.length + 1,
         seat: s.seat, playerId: s.playerId, name: s.name, team: s.team
       });
     }
-    if (state.gameMode === '6p') await finishRound6p(io, state);
-    else                         await finishRound(io, state);
+    /* 清掉回合倒计时，避免展示期间还有一个走完的倒计时环在转——此时胜负已定、
+       没人需要也不能再出牌，不存在"轮到谁却卡住"的死锁风险。*/
+    clearTurnTimer(state);
+    state.turnDeadline = 0;
+    broadcastState(io, state);
+    /* 摊牌：把提前出局方手里剩的牌亮给全场看，停留 10 秒后再切到结算页/重新发牌 */
+    if (revealHands.length) io.to(state.roomCode).emit('game:reveal_hands', { hands: revealHands });
+    setTimeout(() => {
+      const finish = state.gameMode === '6p' ? finishRound6p(io, state) : finishRound(io, state);
+      finish.catch(e => console.error('[finishRound_delayed]', e.message));
+    }, REVEAL_DISPLAY_MS);
     return { ok: true };
   }
 
