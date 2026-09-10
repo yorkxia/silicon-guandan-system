@@ -445,18 +445,21 @@
       height: calc(35px + env(safe-area-inset-bottom, 0));
       padding: 0 9px env(safe-area-inset-bottom, 0);
       background: transparent;   /* 底带透明，露出青绿毡面 */
+      overflow-x: auto; overflow-y: hidden;   /* 按钮多、窄屏放不下时横向滑动，绝不裁掉/藏起任何一个按钮 */
     }
     #combo-bar .cb-pill {
       height: 26px; padding: 0 16px; border-radius: 14px; border: none; cursor: pointer;   /* 框架尺寸不变，文字调大 */
       color: #fff; font-weight: 800; font-size: .85rem; letter-spacing: 1.6px;
       display: flex; align-items: center; box-shadow: 0 2px 7px rgba(0,0,0,.4);
-      transition: transform .1s;
+      transition: transform .1s; flex-shrink: 0;
     }
     #combo-bar .cb-pill:active { transform: scale(.94); }
     #combo-bar .cb-lock  { background: linear-gradient(#ff7a7a, #D32029); }  /* 红=锁牌 */
     #combo-bar .cb-reset { background: linear-gradient(#ffd657, #F2B705); color: #6a4e00; }  /* 黄=重置 */
     #combo-bar .cb-flush { background: linear-gradient(#c99bff, #7B3FE4); }  /* 紫=同花顺(智能凑牌) */
     #combo-bar .cb-straight { background: linear-gradient(#ffc061, #E67E22); }  /* 橙=顺子(智能凑牌·可换头尾) */
+    #combo-bar .cb-hint  { background: linear-gradient(#5FE0D8, #0FA79C); }  /* 青=提示(压牌建议) */
+    #combo-bar .cb-hint.active { box-shadow: 0 0 0 2px #fff, 0 2px 7px rgba(0,0,0,.4); }
 
     /* 发消息药丸（底栏最右）*/
     #chat-fab {
@@ -465,6 +468,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,.4); border: none;
       display: flex; align-items: center; justify-content: center;
       color: #1E6BE5; font-size: .95rem; font-weight: 900; letter-spacing: 1px;
+      flex-shrink: 0;
     }
     #chat-fab:active { transform: scale(.94); }
 
@@ -618,33 +622,37 @@
     #action-hint { display: none; }   /* 提示已由中央倒计时/徽章体现，避免遮挡 */
     #action-hint.my-lead  { color: #80D880; }
     #action-hint.my-beat  { color: #FFE066; }
-    /* 不出/出牌：整体尺寸仍比最初缩小约30%，但文字进一步放大更醒目 */
+    /* 不出/出牌：整体尺寸仍比最初缩小约30%，但文字进一步放大更醒目
+       ── 不用 backdrop-filter：华为/荣耀(MagicOS)等部分安卓定制 WebView 在"竖屏旋转(body 被
+       transform)+ fixed 定位+ backdrop-filter"叠加时，GPU 合成层会出现"串层"渲染 bug——
+       两个紧邻的半透明毛玻璃按钮会被错误合成成同一张位图，导致"不出"按钮视觉上被"出牌"
+       按钮的像素覆盖，看起来两侧都是"出牌"（文字本身没变，是合成层画错了）。改用不透明度
+       更高的纯色渐变达到近似的玻璃质感，同时完全避开这个合成器 bug。 */
     .action-btn {
       padding: 9px 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,.55);
       font-size: .85rem; font-weight: 900; letter-spacing: 1.8px; cursor: pointer;
       transition: all .15s; white-space: nowrap;
-      backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
     }
-    /* 不出 = 蓝色玻璃 */
+    /* 不出 = 蓝色 */
     .action-btn.pass {
-      background: linear-gradient(180deg,rgba(143,208,247,.5) 0%,rgba(63,155,224,.5) 55%,rgba(44,130,198,.5) 100%); color: #fff;
+      background: linear-gradient(180deg,#8FD0F7 0%,#3F9BE0 55%,#2C82C6 100%); color: #fff;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 9px rgba(0,60,120,.25);
       text-shadow: 0 1px 2px rgba(0,40,80,.55);
     }
     .action-btn.pass:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
     .action-btn.pass:disabled {
-      background: linear-gradient(180deg,rgba(204,204,204,.5),rgba(154,154,154,.5)); color: #eee;
+      background: linear-gradient(180deg,#ccc,#9a9a9a); color: #eee;
       box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
     }
-    /* 出牌 = 绿色玻璃 */
+    /* 出牌 = 绿色 */
     .action-btn.play {
-      background: linear-gradient(180deg,rgba(139,224,106,.5) 0%,rgba(67,181,42,.5) 55%,rgba(47,148,24,.5) 100%); color: #fff;
+      background: linear-gradient(180deg,#8BE06A 0%,#43B52A 55%,#2F9418 100%); color: #fff;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(20,110,0,.25);
       text-shadow: 0 1px 2px rgba(0,60,0,.5);
     }
     .action-btn.play:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); }
     .action-btn.play:disabled {
-      background: linear-gradient(180deg,rgba(204,204,204,.5),rgba(154,154,154,.5)); color: #eee;
+      background: linear-gradient(180deg,#ccc,#9a9a9a); color: #eee;
       box-shadow: none; text-shadow: none; border-color: rgba(255,255,255,.3); cursor: default;
     }
     /* 选牌无效/压不过：出牌按钮变红 */
@@ -1307,6 +1315,7 @@
   <button type="button" class="cb-pill cb-reset" onclick="comboTapBall(this, resetCombos)">重置</button>
   <button type="button" class="cb-pill cb-flush" onclick="comboTapBall(this, findFlushStraight)">同花顺</button>
   <button type="button" class="cb-pill cb-straight" onclick="comboTapBall(this, findStraight)">顺子</button>
+  <button type="button" class="cb-pill cb-hint" id="cb-hint-btn" onclick="comboTapBall(this, toggleHint)">提示</button>
   <button type="button" id="chat-fab" onclick="toggleChatPanel()">···</button>
 </div>
 <div id="chat-backdrop" onclick="closeChatPanel()"></div>
@@ -1692,6 +1701,13 @@ function clearBlockingOverlays(){
 /* ── 初始化手牌 ── */
 socket.on('game:hand', function(d){
   clearBlockingOverlays();     // 重连/恢复也走此入口 → 先清掉大胜/等候等遮罩，确保回到大屏
+  /* 关键防死锁：先清掉客户端残留的进贡态(tbEx)。这是"手牌/游戏状态"的权威快照——如果服务端
+     此时确实还在进贡阶段，下面会紧接着(同一次服务端处理里)再收到一条 tribute:phase 把 tbEx
+     重新填上；如果服务端进贡早已结束但客户端因弱网/丢包错过了 tribute:done/tribute:resisted，
+     不清掉的话 tbEx 会永远卡着非空，doPlay()/doPass() 因为「进贡尚未完成」永远拒绝出牌——
+     即使点「重置」重新拉取手牌也没用，因为原来的 game:hand 处理完全不碰 tbEx。这正是
+     "锁牌/重置都出不了牌"最常见的真根因，不是锁牌功能本身的 bug。*/
+  if (typeof clearTributeUI === 'function') clearTributeUI();
   IN_WAITING = false;          // 已发牌，退出"牌桌等待"态
   myTeam     = d.myTeam;
   mySeat     = d.mySeat;
@@ -1711,6 +1727,8 @@ socket.on('game:hand', function(d){
   lockedCombos = [];   // 新一局：清空上一局的锁定牌型组
   selected     = [];   // 新一局：清空上一局残留的选中态(否则新手牌里同 code+idx 的牌会莫名带着红框，
                         // 还贡阶段最容易被误当成"强制高亮"——见供还牌红框反馈)
+  if (typeof HINT_ACTIVE !== 'undefined') HINT_ACTIVE = false;   // 新一局：清"提示"锁定态
+  var _hb = document.getElementById('cb-hint-btn'); if (_hb) _hb.classList.remove('active');
 
   /* 切换布局 */
   if (GAME_MODE === '6p') {
@@ -2652,9 +2670,16 @@ function resetCombos(){
   lockedCombos   = [];
   selected       = [];                           // 清空一切选中
   _straightCycle = null;                         // 清顺子/同花顺凑牌循环状态
+  HINT_ACTIVE    = false;                         // 清"提示"锁定态
+  var _hbReset = document.getElementById('cb-hint-btn'); if (_hbReset) _hbReset.classList.remove('active');
   myHand = sortHandLevel(myHand, levelCard);     // 恢复原始级牌排序（不再有锁定组置左）
+  /* 万能急救 #2：立即（不等服务端往返）清掉进贡态残留——弱网/丢包错过 tribute:done 时，
+     tbEx 会一直非空，doPlay()/doPass() 因"进贡尚未完成"永远拒绝，这才是最常见的"重置也没用"
+     真根因。真进贡还没走完的话，下面 game:request_hand 的响应会立刻把 tribute:phase 重新下发，
+     UI 会马上恢复，不会让玩家绕过真实的进贡流程。 */
+  if (typeof clearTributeUI === 'function') clearTributeUI();
   comboReRender();                               // 重绘 + 刷新出牌按钮状态
-  /* 万能急救：向服务端重新拉取权威状态，修正任何残留的"必须压过"死锁
+  /* 万能急救 #1：向服务端重新拉取权威状态，修正任何残留的"必须压过"死锁
      —— 弱网/丢包导致 hasLastPlay/lastPlayType 过期时，先出方会被误判"压不过"而永远红色出不了牌，
      这里强制重同步 game:hand + game:state 后即可正常出牌。 */
   try { socket.emit('game:request_hand', { token: MY_TOKEN, roomCode: ROOM_CODE }); } catch(_){}
@@ -2787,6 +2812,189 @@ function findStraight(){
   _straightCycle = { lastSel: selected.slice().sort().join(','), anchor: anchor, pos: pos };
   comboReRender();
   showToast('✅ 已凑齐顺子' + (chosen.wilds ? '（用了' + chosen.wilds + '张逢人配）' : '') + (cands.length > 1 ? '　再点「顺子」换一副' : ''));
+}
+
+/* ══════════════════════════════════════════════════════════════
+ * 「提示」：看一下上家出的牌型，把手里所有能压过的牌型分别用不同颜色锁定，
+ * 点其中任意一副=选中整副（沿用现有「锁定组」点选逻辑），玩家再点绿色「出牌」即可。
+ * 复用 lockedCombos 这套现成的"锁定组"基础设施——每条提示建议只是多打一个 isHint:true
+ * 标记，这样第二次点「提示」只需按 isHint 过滤释放，绝不会动到玩家自己手动「锁牌」锁定
+ * 的组合（哪怕两者同时存在）。任何一条候选在真正打出前都还要经过 gdDetect() 二次校验和
+ * 服务端 applyPlay() 终审，这里算错/漏算最多是"少提示/不提示"，绝不会让玩家因此被锁死。
+ * ══════════════════════════════════════════════════════════════ */
+var HINT_ACTIVE = false;   // 当前手牌区是否正展示着「提示」锁定的建议组合
+var HINT_MAX_PICKS = 3;    // 最多同时提示几种牌型：选项太多反而眼花缭乱，只挑"刚好压过"的最优几种
+
+/* 通用"点数窗口"扫描：need=该窗口每个点数需要几张(顺子1/三连对2/钢板3)；
+   缺张时优先拿散牌，不够再用逢人配顶——与 findStraight() 同一思路，抽成通用版供各牌型复用。 */
+function _hintScanRankWindows(windows, need, availByRank, wildIdx){
+  var out = [];
+  windows.forEach(function(win){
+    var usedLocal = {}, pick = [], wUsed = 0, ok = true;
+    win.forEach(function(r){
+      if (!ok) return;
+      var list = (availByRank[r] || []).filter(function(i){ return !usedLocal[i]; });
+      var got  = list.slice(0, need);
+      if (got.length < need){
+        var wl = wildIdx.filter(function(i){ return !usedLocal[i]; }).slice(0, need - got.length);
+        if (got.length + wl.length < need){ ok = false; return; }
+        got = got.concat(wl);
+      }
+      got.forEach(function(i){ usedLocal[i] = true; pick.push(i); });
+    });
+    if (ok) out.push(pick);
+  });
+  return out;
+}
+/* 同花顺窗口扫描：同花色 5 连，缺张用逢人配顶——与 findFlushStraight() 同一思路 */
+function _hintScanFlushWindows(availByCode, wildIdx){
+  var out = [], suits = ['S','H','D','C'];
+  var windows = []; for (var top = 14; top >= 6; top--) windows.push([top,top-1,top-2,top-3,top-4]);
+  windows.push([14,5,4,3,2]);
+  suits.forEach(function(S){
+    windows.forEach(function(win){
+      var usedLocal = {}, pick = [], ok = true;
+      win.forEach(function(r){
+        if (!ok) return;
+        var list = (availByCode[S + _rankChar(r)] || []).filter(function(i){ return !usedLocal[i]; });
+        if (list.length){ usedLocal[list[0]] = true; pick.push(list[0]); return; }
+        var wl = wildIdx.filter(function(i){ return !usedLocal[i]; });
+        if (wl.length){ usedLocal[wl[0]] = true; pick.push(wl[0]); return; }
+        ok = false;
+      });
+      if (ok) out.push(pick);
+    });
+  });
+  return out;
+}
+/* 炸弹类候选：同点数 4~8 张（含逢人配，逢人配已按其点数天然并入该组），及双王/三王特殊炸 */
+function _hintScanBombs(availIdxs){
+  var byKey = {}, out = [];
+  availIdxs.forEach(function(idx){
+    var code = myHand[idx];
+    var key  = (code === 'BJ' || code === 'LJ') ? code : ('r' + RANK_ORD[code.slice(1)]);
+    (byKey[key] = byKey[key] || []).push(idx);
+  });
+  Object.keys(byKey).forEach(function(key){
+    if (key === 'BJ' || key === 'LJ') return;
+    var idxs = byKey[key];
+    for (var n = idxs.length; n >= 4; n--) out.push(idxs.slice(0, n));
+  });
+  var bj = byKey.BJ || [], lj = byKey.LJ || [];
+  if (bj.length >= 2 && lj.length >= 2) out.push(bj.slice(0,2).concat(lj.slice(0,2)));
+  if (bj.length >= 3 && lj.length >= 3) out.push(bj.slice(0,3).concat(lj.slice(0,3)));
+  if (bj.length >= 3) out.push(bj.slice(0,3));
+  if (lj.length >= 3) out.push(lj.slice(0,3));
+  return out;
+}
+/* 算出所有"能压过上家"的候选组合（互不占用同一张牌），按刚好能压过、优先小牌的顺序挑 */
+function computeHints(){
+  var used = {};
+  lockedCombos.forEach(function(c){ c.keys.forEach(function(k){ used[parseInt(k.slice(k.lastIndexOf('_')+1),10)] = true; }); });
+  var avail = [];
+  myHand.forEach(function(code, idx){ if (!used[idx]) avail.push(idx); });
+
+  var wild = levelCard ? ('H' + _rankChar(levelCard)) : null;
+  var wildIdx = [], availByRank = {}, availByCode = {};
+  avail.forEach(function(idx){
+    var code = myHand[idx];
+    if (wild && code === wild){ wildIdx.push(idx); return; }
+    if (code === 'BJ' || code === 'LJ') return;
+    var rv = RANK_ORD[code.slice(1)]; if (!rv) return;
+    (availByRank[rv] = availByRank[rv] || []).push(idx);
+    (availByCode[code] = availByCode[code] || []).push(idx);
+  });
+
+  var raw = [];
+  function pushIfBeats(idxs){
+    if (!idxs || !idxs.length) return;
+    var cards = idxs.map(function(i){ return myHand[i]; });
+    var pt = gdDetect(cards, levelCard);
+    if (pt && gdCanBeat(pt, lastPlayType)) raw.push({ idxs: idxs, pt: pt });
+  }
+
+  var lt = lastPlayType.type;
+  if (lt === 'single' || lt === 'pair' || lt === 'triple'){
+    var need = lt === 'triple' ? 3 : (lt === 'pair' ? 2 : 1);
+    Object.keys(availByRank).forEach(function(rv){
+      var list = availByRank[rv], got = list.slice(0, need);
+      if (got.length < need) got = got.concat(wildIdx.slice(0, need - got.length));
+      if (got.length === need) pushIfBeats(got);
+    });
+  } else if (lt === 'fullhouse'){
+    var trips = Object.keys(availByRank).filter(function(rv){ return availByRank[rv].length >= 3; });
+    var pairs = Object.keys(availByRank).filter(function(rv){ return availByRank[rv].length >= 2; });
+    trips.forEach(function(r3){ pairs.forEach(function(r2){
+      if (r3 === r2) return;
+      pushIfBeats(availByRank[r3].slice(0,3).concat(availByRank[r2].slice(0,2)));
+    }); });
+  } else if (lt === 'straight'){
+    var sw = []; for (var t1=14;t1>=6;t1--) sw.push([t1,t1-1,t1-2,t1-3,t1-4]); sw.push([14,5,4,3,2]);
+    _hintScanRankWindows(sw, 1, availByRank, wildIdx).forEach(pushIfBeats);
+  } else if (lt === 'dbl_straight'){
+    var dw = []; for (var t2=2;t2<=12;t2++) dw.push([t2,t2+1,t2+2]); dw.push([14,2,3]);
+    _hintScanRankWindows(dw, 2, availByRank, wildIdx).forEach(pushIfBeats);
+  } else if (lt === 'triple_straight'){
+    var tw = []; for (var t3=2;t3<=13;t3++) tw.push([t3,t3+1]); tw.push([14,2]);
+    _hintScanRankWindows(tw, 3, availByRank, wildIdx).forEach(pushIfBeats);
+  } else if (lt === 'flush_straight'){
+    _hintScanFlushWindows(availByCode, wildIdx).forEach(pushIfBeats);
+  }
+  /* 炸弹类始终参与：非炸弹上家必被任意炸弹压过；炸弹上家则由 gdCanBeat 按分数比大小 */
+  _hintScanBombs(avail).forEach(pushIfBeats);
+  if (lt !== 'flush_straight') _hintScanFlushWindows(availByCode, wildIdx).forEach(pushIfBeats);
+
+  raw.sort(function(a,b){
+    var sa = _isBomb(a.pt) ? 1e6 + _bombScore(a.pt) : (a.pt.value || 0);
+    var sb = _isBomb(b.pt) ? 1e6 + _bombScore(b.pt) : (b.pt.value || 0);
+    return sa - sb;   // 刚好压过的小牌优先，把炸弹这类"重武器"留到后面
+  });
+  var pickedUsed = {}, picked = [];
+  raw.forEach(function(c){
+    if (picked.length >= HINT_MAX_PICKS) return;   // 最多展示3种最佳选择，避免选项太多眼花缭乱
+    if (c.idxs.some(function(i){ return pickedUsed[i]; })) return;
+    c.idxs.forEach(function(i){ pickedUsed[i] = true; });
+    picked.push(c);
+  });
+  return picked;
+}
+/* 「提示」按钮：第一次点=计算并锁定所有能压过上家的牌型（各配一色）；
+   第二次点=无条件立即释放这些提示锁定——绝不阻拦玩家出任意牌，也绝不影响其他手动锁定的组合。*/
+function toggleHint(){
+  if (HINT_ACTIVE){ releaseHints(); return; }
+  if (!isMyTurn){ showToast('还没轮到您出牌'); return; }
+  if (typeof tbEx !== 'undefined' && tbEx.length){ showToast('进贡/还贡阶段暂不支持提示'); return; }
+  if (!hasLastPlay || !lastPlayType){ showToast('当前可自由出牌，无需提示'); return; }
+  var picks = computeHints();
+  if (!picks.length){ showToast('😔 没有能压过的牌型'); return; }
+  picks.forEach(function(c){
+    lockedCombos.push({
+      cards: c.idxs.map(function(i){ return myHand[i]; }),
+      keys:  c.idxs.map(function(i){ return myHand[i] + '_' + i; }),
+      color: comboNextColor(),
+      label: c.pt.label || '提示',
+      type:  c.pt.type,
+      value: c.pt.value,
+      isHint: true
+    });
+  });
+  selected = [];
+  reorderHandLockedFirst();
+  comboReRender();
+  scrollLockedIntoView(true);
+  HINT_ACTIVE = true;
+  var hb = document.getElementById('cb-hint-btn'); if (hb) hb.classList.add('active');
+  showToast('💡 已提示 ' + picks.length + ' 副可出的牌型，点其中一副再按「出牌」；再点一次「提示」可取消');
+}
+/* 释放「提示」锁定：只按 isHint 过滤，任何时候点第二次都必须立即生效，不能被别的状态挡住 */
+function releaseHints(){
+  lockedCombos = lockedCombos.filter(function(c){ return !c.isHint; });
+  selected = [];
+  reorderHandLockedFirst();
+  comboReRender();
+  HINT_ACTIVE = false;
+  var hb = document.getElementById('cb-hint-btn'); if (hb) hb.classList.remove('active');
+  showToast('↩️ 已取消提示');
 }
 
 /* 点圆球：执行动作，并短暂浮现该球的文字标签（触屏无悬停）*/
@@ -2961,7 +3169,9 @@ function updateSelInfo(){
 }
 
 function syncButtons(){
-  document.getElementById('btn-pass').disabled = !isMyTurn || !hasLastPlay;
+  var pb = document.getElementById('btn-pass');
+  pb.textContent = '不出';   // 防御性重申文字：个别安卓机型渲染层偶发串层，这里每次同步都强制纠正
+  pb.disabled = !isMyTurn || !hasLastPlay;
   updatePlayButtonState();
 }
 
@@ -3730,7 +3940,9 @@ function updateSelInfo6p() {
 }
 
 function syncButtons6p() {
-  document.getElementById('btn-pass-6p').disabled = !isMyTurn || !hasLastPlay;
+  var pb = document.getElementById('btn-pass-6p');
+  pb.textContent = '不出';   // 防御性重申文字：个别安卓机型渲染层偶发串层，这里每次同步都强制纠正
+  pb.disabled = !isMyTurn || !hasLastPlay;
   updatePlayButtonState();
 }
 </script>
