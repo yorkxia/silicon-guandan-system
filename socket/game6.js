@@ -353,26 +353,31 @@ async function rebuildState(roomCode, seat, round) {
    连续3次后：对方头游→退2级；己方头游+1→退3级
 */
 /* ─── 过A / A级不过 规则（四人六人统一）────────────
-   · 胜方本局开始时已在A(级14)且获胜 = 过A → 整盘完成，两队从2重开
-   · 输方本局开始时在A且没赢 → A级失败+1；连续3次退回2
+   · 冲A方必须是本局"受供方"（=上一局的胜方/本局庄家 state.bankerTeam）——用自己的级牌打这一局，
+     才算真正在"defending/冲击"自己的A级。若A队本局其实是进贡方(上一局输了、不是庄家)，
+     即使本局赢了也不算冲A这一次——不算过、也不占用/消耗冲关次数，等真正轮到他们坐庄那一局才算。
+   · 受供方本局头游、且队友未垫底(delta≥2=双上/头游+三游 等) → 过A成功，整盘完成，两队从2重开、胜局+1。
+     六人同理：头游队无人垫底(delta≥2)才算过A。
+   · 受供方本局没能"头游且不垫底"(delta==1头游+末游，或本方根本没拿头游) → A级失败+1；累计满3退回2(计数清零)。
+   2026-09-10 用户报告实例修复：蓝方在A、头游+三游(delta=2)获胜，但蓝方当时是进贡方(非受供方)，
+   旧逻辑只看 delta 没查庄家身份，误判成过A、整盘错误重开+误加胜局。
    返回 { newLv1, newLv2, aFail1, aFail2, guoA }
 */
 function applyAWinRule(state, result, a1, a2) {
-  const preLv = { 1: state.levelTeam1, 2: state.levelTeam2 };
+  const preLv  = { 1: state.levelTeam1, 2: state.levelTeam2 };
   const winner = result.winnerTeam;
+  const banker = state.bankerTeam;
   const newLv  = { 1: result.newLv1, 2: result.newLv2 };
   const fails  = { 1: a1, 2: a2 };
   let guoA = false;
 
-  /* 过A(成功)：在A(14)的队本局头游、且队友未垫底(delta≥2=双下/头游+三游 等) → 整盘完成，两队从2重开。
-     六人同理：头游队无人垫底(delta≥2)才算过A。 */
-  if (preLv[winner] === 14 && result.delta >= 2) {
+  if (preLv[winner] === 14 && winner === banker && result.delta >= 2) {
     guoA = true; newLv[1] = 2; newLv[2] = 2; fails[1] = 0; fails[2] = 0;
   } else {
-    /* 不过A(两种)：①对方拿头游(A队没头游)；②A队头游+末游(delta==1，队友垫底)。
-       对每个"本局开始在A、却没过A"的队：A级失败+1；累计满3退回2(计数清零)。 */
+    /* 只有"本局是受供方(庄家)、且本局开始时在A"的那一队才评估冲关成败；
+       进贡方(非庄家)哪怕这局在A也不评估——这局根本不是它的冲A局。 */
     [1, 2].forEach(function (t) {
-      if (preLv[t] === 14) {
+      if (preLv[t] === 14 && t === banker) {
         let f = fails[t] + 1;
         if (f >= 3) { newLv[t] = 2; f = 0; }
         fails[t] = f;
@@ -1385,6 +1390,6 @@ module.exports.seedDisconnectedFromDb = function(io, state, seatConnMap) {
 /* 供离线集成测试使用（阶段十）*/
 module.exports._test = {
   applyPlay, applyPass, onTurnTimeout, startTurnTimer, clearTurnTimer,
-  nextSeat, broadcastState, isSeatDisconnected,
+  nextSeat, broadcastState, isSeatDisconnected, applyAWinRule,
   TURN_SECONDS, DC_TURN_SECONDS, gameStates
 };

@@ -8,6 +8,8 @@ const vm = require('vm');
 const path = require('path');
 const CT = require('../utils/cardTypes');
 const { createDoubleDeck, createTripleDeck, shuffle } = require('../utils/cards');
+const G4 = require('../socket/game.js')._test;
+const G6 = require('../socket/game6.js')._test;
 
 const R = { sections: [] };
 function section(name) { const s = { name, pass: 0, fail: 0, notes: [], fails: [] }; R.sections.push(s); return s; }
@@ -138,6 +140,47 @@ function testSettle() {
   ok(s, settle6(fo([1, 2, 2, 2, 2, 1]), 2, 2).delta === 1, '六人 头游队有人垫底 = 末胜升1');
 }
 
+/* ══ D2. 过A规则：冲A方必须是本局"受供方"(庄家)，否则赢了也不算过/不算失败 ══
+   2026-09-10 用户实例：蓝方在A、头游+三游(delta=2)获胜，但蓝方当时是进贡方(非庄家)——
+   不该算过A、也不该动冲关次数。旧代码只看 delta≥2 不查庄家身份，误判成过A。 */
+function testAWinRule() {
+  const s = section('D2. 过A规则(受供方门禁)');
+  const fo4 = (teams) => teams.map((tm, i) => ({ position: i + 1, seat: i + 1, team: tm }));
+  const fo6 = fo4;
+
+  [
+    { name: '四人', G: G4, settle: CT.settle, fo: fo4, winTop2: [1, 1, 2, 2], winTop3: [1, 2, 1, 2], winLast: [1, 2, 2, 1] },
+    { name: '六人', G: G6, settle: CT.settle6p, fo: fo6, winTop2: [1, 1, 2, 2, 1, 2], winTop3: [1, 2, 2, 1, 1, 2], winLast: [1, 2, 2, 2, 2, 1] }
+  ].forEach(({ name, G, settle, fo, winTop2, winTop3, winLast }) => {
+    // 场景1：本队是受供方(庄家)，本局头游+非末游(delta≥2) → 应该过A成功
+    let result = settle(fo(winTop3), 14, 10);
+    let adj = G.applyAWinRule({ levelTeam1: 14, levelTeam2: 10, bankerTeam: 1 }, result, 0, 0);
+    ok(s, adj.guoA === true, name + ' 受供方(庄家)头游+非末游(delta=' + result.delta + ') → 应过A成功');
+    ok(s, adj.newLv1 === 2 && adj.newLv2 === 2, name + ' 过A成功后两队应回到2重开');
+
+    // 场景2（用户报告的真实bug）：本队在A，但本局是进贡方(非庄家)，即使头游+非末游获胜 → 不应算过A，冲关次数不变
+    result = settle(fo(winTop3), 14, 10);
+    adj = G.applyAWinRule({ levelTeam1: 14, levelTeam2: 10, bankerTeam: 2 }, result, 1, 0);
+    ok(s, adj.guoA === false, name + ' 【回归】进贡方(非庄家)在A即使头游+非末游获胜 → 不应算过A');
+    ok(s, adj.aFail1 === 1, name + ' 【回归】进贡方(非庄家)这局不算冲关，失败次数应保持不变(仍是1，不是2也不是0)');
+
+    // 场景3：本队是受供方(庄家)，本局头游+末游(delta=1) → 冲关失败+1
+    result = settle(fo(winLast), 14, 10);
+    adj = G.applyAWinRule({ levelTeam1: 14, levelTeam2: 10, bankerTeam: 1 }, result, 0, 0);
+    ok(s, adj.guoA === false && adj.aFail1 === 1, name + ' 受供方头游+末游(delta=1) → 冲关失败+1，不算过A');
+
+    // 场景4：本队是受供方(庄家)，本局完全没赢(对方头游) → 冲关失败+1
+    result = settle(fo(winTop2.map(t => 3 - t)), 10, 14);   // 把队伍反过来：对方(队2)头游+二游，本队(队1,在A)完全没赢
+    adj = G.applyAWinRule({ levelTeam1: 14, levelTeam2: 10, bankerTeam: 1 }, result, 1, 0);
+    ok(s, adj.guoA === false && adj.aFail1 === 2, name + ' 受供方本局完全没拿头游 → 冲关失败+1(1→2)');
+
+    // 场景5：连续3次冲关失败 → 退回2级，计数清零
+    result = settle(fo(winLast), 14, 10);
+    adj = G.applyAWinRule({ levelTeam1: 14, levelTeam2: 10, bankerTeam: 1 }, result, 2, 0);
+    ok(s, adj.newLv1 === 2 && adj.aFail1 === 0, name + ' 第3次冲关失败(2→3) → 退回2级、计数清零');
+  });
+}
+
 /* ══ E. 进贡角色（四人双下/单下、六人；异队）══ */
 function testTribute() {
   const s = section('E. 进贡角色分配');
@@ -203,7 +246,7 @@ function testSim() {
 }
 
 /* ── 运行并出报告 ── */
-testParity(); testTypes(); testBeat(); testSettle(); testTribute(); testJiefeng(); testGiveCandidates(); testSim();
+testParity(); testTypes(); testBeat(); testSettle(); testAWinRule(); testTribute(); testJiefeng(); testGiveCandidates(); testSim();
 
 let totalP = 0, totalF = 0;
 console.log('\n══════════ 掼蛋 4人/6人 离线全量测试报告 ══════════');
