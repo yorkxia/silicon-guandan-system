@@ -1,13 +1,14 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-/* PG_POOL_MAX：Render Postgres 各套餐的最大连接数上限不同，通过环境变量调，不用改代码/重新部署。
-   默认20只是比驱动默认值10保守上调一档；若要调更高，先去 Render 后台 Database 页面确认该套餐的
-   连接数上限，App 侧不能超过 DB 侧上限（多个服务共用同一个库时，还要给其它服务留够余量）。*/
+/* PG_POOL_MAX：先留成可调但不改默认值(=驱动默认10)——2026-09-19压测发现盲目调到20后
+   同档并发反而更差(还出现新的连接层错误)，猜测是这个库被 SiliconGuandanScoreboard 监控台
+   共用，两边一起可能撞穿了 Render Postgres 套餐自己的连接数上限，弄巧成拙。等去 Render 后台
+   Database 页面确认清楚该套餐的真实连接上限、且预留够监控台的份额之后，再考虑调高。*/
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  max: parseInt(process.env.PG_POOL_MAX || '20', 10)
+  max: parseInt(process.env.PG_POOL_MAX || '10', 10)
 });
 
 async function query(sql, params = []) {
