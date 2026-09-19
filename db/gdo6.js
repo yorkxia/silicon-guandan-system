@@ -86,6 +86,16 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
   return { room, seat: rows[0].seat };
 }
 
+/* ── 建房后插入唯一的第一个座位(仅 room:create 用)，理由与四人版 db/gdo.js 一致 ── */
+async function createFirstSeat(roomId, playerId, socketId) {
+  const rows = await query(
+    `INSERT INTO gdo6_seats(room_id,player_id,seat,team,socket_id)
+     VALUES($1,$2,1,1,$3) RETURNING *`,
+    [roomId, playerId, socketId]
+  );
+  return rows[0];
+}
+
 /* ── 查询房间完整状态（含座位 + 玩家名字）── */
 async function getRoomState(roomCode) {
   const room = await queryOne('SELECT * FROM gdo6_rooms WHERE room_code=$1', [roomCode]);
@@ -160,6 +170,7 @@ module.exports = {
   levelName,
   createRoom,
   joinRoomByCode,
+  createFirstSeat,
   getRoomState,
   swapSeats,
   findOrCreateOpenRoom,

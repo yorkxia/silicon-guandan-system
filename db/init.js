@@ -1,9 +1,13 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
+/* PG_POOL_MAX：Render Postgres 各套餐的最大连接数上限不同，通过环境变量调，不用改代码/重新部署。
+   默认20只是比驱动默认值10保守上调一档；若要调更高，先去 Render 后台 Database 页面确认该套餐的
+   连接数上限，App 侧不能超过 DB 侧上限（多个服务共用同一个库时，还要给其它服务留够余量）。*/
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  max: parseInt(process.env.PG_POOL_MAX || '20', 10)
 });
 
 async function query(sql, params = []) {

@@ -174,6 +174,19 @@ async function joinRoomByCode(roomCode, playerId, socketId) {
   return { room, seat: rows[0].seat };
 }
 
+/* ── 建房后插入唯一的第一个座位(仅 room:create 用) ──
+   跳过 joinRoomByCode 的查重/查满员逻辑——room 刚由 createRoom() 建出，必然 0 座位，
+   直接插入省 2 次查询往返，减轻建房瞬间并发对 DB 连接池的压力(压测发现6-10房间并发建房时
+   建房/发牌延迟明显劣化，2026-09-19)。 */
+async function createFirstSeat(roomId, playerId, socketId) {
+  const rows = await query(
+    `INSERT INTO gdo_seats(room_id,player_id,seat,team,socket_id)
+     VALUES($1,$2,1,1,$3) RETURNING *`,
+    [roomId, playerId, socketId]
+  );
+  return rows[0];
+}
+
 /* ── 查询房间完整状态（含座位 + 玩家名字） ── */
 async function getRoomState(roomCode) {
   const room = await queryOne('SELECT * FROM gdo_rooms WHERE room_code=$1', [roomCode]);
@@ -259,6 +272,7 @@ module.exports = {
   tryMatch,
   createMatch,
   joinRoomByCode,
+  createFirstSeat,
   getRoomState,
   swapSeats,
   levelName

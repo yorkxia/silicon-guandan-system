@@ -2,7 +2,7 @@
 const { query, queryOne } = require('../db/init');
 const {
   getOrCreatePlayer, createRoom, findOrCreateOpenRoom, findRevivalRoom,
-  joinRoomByCode, getRoomState, swapSeats
+  joinRoomByCode, createFirstSeat, getRoomState, swapSeats
 } = require('../db/gdo6');
 const { createDoubleDeck, createTripleDeck, shuffle, deal4, deal6 } = require('../utils/cards');
 const { initGameState, startTributePhase, seedDisconnectedFromDb, remapSeatOwner } = require('./game6');
@@ -290,13 +290,13 @@ module.exports = function(io, socket) {
       const { token, name, mode } = data;
       const player = await getOrCreatePlayer(token, name, sockMeta(socket));
       const room   = await createRoom('private');
-      const result = await joinRoomByCode(room.room_code, player.id, socket.id);
-      if (result.error) return socket.emit('room:error', { message: result.error });
+      /* 房间刚建出必然0座位，直接插第一个座位，理由与四人版 matchmaking.js 一致 */
+      const seat = await createFirstSeat(room.id, player.id, socket.id);
 
       socket.join(room.room_code);
       socket.emit('room:joined', { roomCode: room.room_code, playerId: player.id });
 
-      const state = await getRoomState(room.room_code);
+      const state = { room, seats: [{ ...seat, display_name: player.display_name }] };
       await broadcastWaiting(io, room.room_code, state);
     } catch (e) {
       console.error('[room:create]', e.message);
