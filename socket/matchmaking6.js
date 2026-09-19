@@ -283,7 +283,7 @@ module.exports = function(io, socket) {
     try {
       /* 反机器人：同一 IP 每分钟建房过频(≥10) → 判定机器人，踢出并临时封禁 */
       const ip = rateGuard.ipOf(socket);
-      if (!rateGuard.allow(ip, 'room:create')) {
+      if (!rateGuard.isBot(socket) && !rateGuard.allow(ip, 'room:create')) {
         rateGuard.kickIp(io, ip, '检测到疑似机器人：短时间内创建过多房间，已被临时限制，请稍后再试');
         return;
       }

@@ -58,7 +58,10 @@ function fmtMs(ms) { return ms == null ? '—' : (ms >= 1000 ? (ms / 1000).toFix
    序列搅成一堆几乎为0的假数据。 */
 function makeBot(ns, name, metrics, isReporter) {
   const url = BASE + (ns || '');
-  const sock = io(url, { transports: ['websocket'], forceNew: true, reconnection: false, timeout: 15000 });
+  const sock = io(url, {
+    transports: ['websocket'], forceNew: true, reconnection: false, timeout: 15000,
+    query: { botsecret: process.env.BOT_SECRET || 'guandan-botsim-2026' } // 豁免 rateGuard 反机器人限流，见 socket/rateGuard.js
+  });
   const bot = {
     name, token: uid(), sock, roomCode: null, mySeat: null, myPlayerId: null,
     gameMode: null, levelCard: 0, hand: [], turnSeat: null, lastCards: null,
