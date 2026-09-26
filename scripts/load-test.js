@@ -29,7 +29,7 @@ const MODE_ARG     = argv[1] || 'mix';           // 4p | 6p | mix
 const MAX_ROUNDS   = parseInt(argv[2] || '3', 10);
 const BASE         = argv[3] || 'https://silicon-guandan-system.onrender.com';
 const CREATE_STAGGER_MS = 150;   // 房间创建之间错开一点，避免"测试脚本自己"而非服务端成为瓶颈
-const ROOM_TIMEOUT_MS   = 90000; // 单房间从建房到达到目标局数(或失败)的总超时
+const ROOM_TIMEOUT_MS   = parseInt(process.env.ROOM_TIMEOUT_MS || '90000', 10); // 单房间从建房到达到目标局数(或失败)的总超时；线上单步耗时较长时可用环境变量调大
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const uid   = () => 'LT-' + Math.random().toString(36).slice(2, 10);

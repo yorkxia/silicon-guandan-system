@@ -437,11 +437,16 @@ async function _writeRoundResult(io, state, result, is6p, new1 = 0, new2 = 0, tr
 
   await query(`UPDATE gdo6_seats SET is_ready=FALSE WHERE room_id=$1`, [state.roomId]);
 
-  for (const f of state.finishOrder)
-    await query(`UPDATE gdo_players SET games_played=games_played+1 WHERE id=$1`, [f.playerId]);
-  const winners = state.finishOrder.filter(f => f.team === result.winnerTeam);
-  for (const f of winners)
-    await query(`UPDATE gdo_players SET games_won=games_won+1 WHERE id=$1`, [f.playerId]);
+  /* 原来是每个玩家一条顺序 UPDATE（六人房最多6次往返），改成两条批量 UPDATE——
+     每局结算都会跑一次，房间越多同时结算越容易把 DB 连接池(默认max10)占满排队，
+     压测(2026-09-26)已实测到并发房间数上升后单局耗时明显变长，这里先把最容易省的
+     往返次数省掉。 */
+  const allIds = state.finishOrder.map(f => f.playerId);
+  await query(`UPDATE gdo_players SET games_played=games_played+1 WHERE id = ANY($1::int[])`, [allIds]);
+  const winnerIds = state.finishOrder.filter(f => f.team === result.winnerTeam).map(f => f.playerId);
+  if (winnerIds.length) {
+    await query(`UPDATE gdo_players SET games_won=games_won+1 WHERE id = ANY($1::int[])`, [winnerIds]);
+  }
 
   const wrow = await queryOne('SELECT wins_team1, wins_team2 FROM gdo6_rooms WHERE room_code=$1', [state.roomCode]);
   io.to(state.roomCode).emit('round:result', {
