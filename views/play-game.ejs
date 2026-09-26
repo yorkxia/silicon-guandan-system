@@ -560,7 +560,6 @@
     /* 供牌候选 / 可还牌 高亮（在真实手牌上）*/
     .hand-card.tb-cand    { box-shadow: 0 0 0 3px #FFD54A, 0 0 14px 3px rgba(255,213,74,.7); border-color:#FFD54A; }
     .hand-card.tb-retok   { box-shadow: 0 0 0 3px #66D17A, 0 0 12px 2px rgba(102,209,122,.6); border-color:#66D17A; }
-    .hand-card.tb-dim     { opacity: .4; }
 
     /* 我方进贡提示条（手牌上方）*/
     #tb-prompt {
@@ -952,10 +951,11 @@
     .tie-card-box {
       display: flex; flex-direction: column; align-items: center; gap: 6px;
       padding: 8px; border-radius: 12px; border: 2px solid rgba(255,255,255,.25);
-      background: rgba(10,6,20,.88); box-shadow: 0 6px 22px rgba(0,0,0,.6); transition: all .2s;
+      background: rgba(255,255,255,.10); box-shadow: 0 6px 22px rgba(0,0,0,.6); transition: all .2s;
     }
-    .tie-card-box .tc-face { font-size: 1.7rem; }
-    .tie-card-box .tc-who  { font-size: .62rem; color: rgba(255,255,255,.55); letter-spacing: 1px; }
+    .tie-card-box .tc-face { width: 40px; height: 56px; }   /* 真实矢量牌面，正常颜色，不再是纯色emoji方块 */
+    .tie-card-box .tc-face svg { display: block; width: 100%; height: 100%; }
+    .tie-card-box .tc-who  { font-size: .62rem; color: rgba(255,255,255,.75); letter-spacing: 1px; }
     .tie-card-box.pickable { cursor: pointer; border-color: #FFE066; box-shadow: 0 0 14px rgba(255,224,102,.5); }
     .tie-card-box.pickable:hover { transform: translateY(-4px); }
     #tie-overlay .tie-countdown { font-size: .78rem; color: #FF9E6B; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 3px #000, 0 0 10px rgba(0,0,0,.8); }
@@ -3057,10 +3057,11 @@ function buildHandCardEl(code, idx, onClick){
   card.innerHTML = GDCard.faceSVG(code);              // 高清矢量牌面
   var _cmb = comboOfKey(key);
   if (_cmb) { card.classList.add('locked'); card.style.setProperty('--combo', _cmb.color); }
-  /* 进贡态：仅供牌方高亮最大牌，其余变暗；还供方不再锁牌高亮(挡视线)，手牌正常显示、直接点选 */
+  /* 进贡态：供牌方仅对推荐的最大牌加金色高亮提示，其余牌保持正常颜色可选（不再变暗/锁死）；
+     还供方同样手牌正常显示、直接点选——是否合规一律交给服务端终审，选错可立即重选 */
   if (typeof tbEx !== 'undefined' && tbEx.length) {
     var _g = tbMyGiveEx();
-    if (_g) card.classList.add(tbGiveCandsOf(_g).indexOf(code) >= 0 ? 'tb-cand' : 'tb-dim');
+    if (_g && tbGiveCandsOf(_g).indexOf(code) >= 0) card.classList.add('tb-cand');
   }
   attachTap(card, onClick);
   return card;
@@ -3478,22 +3479,21 @@ function renderTributeUI(){
   renderHand(myHand);   // 手牌高亮由 buildHandCardEl 依 tb 状态决定
 }
 /* 进贡态下点牌：供/还 */
+/* 不再前端锁死"只能点候选牌"——玩家自选任意一张，是否合规交给服务端 applyTributeGive/
+   applyTributeReturn 终审；选错会收到 tribute:invalid 并可立即重选，绝不会卡住供还。
+   tb-cand 高亮仍保留作为"推荐"提示，只是不再阻止点其他牌。 */
 function tbTapCard(code){
   if (tbBusy) return true;
   var g = tbMyGiveEx();
   if (g){
-    if (tbGiveCandsOf(g).indexOf(code) >= 0){
-      tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
-      socket.emit('tribute:give', { token:MY_TOKEN, roomCode:ROOM_CODE, card:code });
-    } else { showToast('请点击高亮的最大牌供出'); }
+    tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
+    socket.emit('tribute:give', { token:MY_TOKEN, roomCode:ROOM_CODE, card:code });
     return true;
   }
   var r = tbMyReturnEx();
   if (r){
-    if (canReturnCard(code)){
-      tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
-      socket.emit('tribute:return', { token:MY_TOKEN, roomCode:ROOM_CODE, returnCard:code });
-    } else { showToast('还供需点数≤10且非级牌'); }
+    tbBusy = true; document.getElementById('tb-prompt').style.display = 'none';
+    socket.emit('tribute:return', { token:MY_TOKEN, roomCode:ROOM_CODE, returnCard:code });
     return true;
   }
   return false;   // 非进贡态 → 交给普通选牌
@@ -3511,15 +3511,13 @@ function renderTieOverlay(){
   ov.style.display = 'block';
   var iAmActive = (tieActiveId === myPlayerId);
   var hint = document.getElementById('tie-hint');
-  hint.textContent = iAmActive
-    ? '轮到您了，请选一张还供牌'
-    : ('请靠近头游的玩家（' + esc(tieNameOf(tieActiveId)) + '）先选');
+  hint.textContent = iAmActive ? '轮到您了，请选一张还供牌' : '请下游选牌';
   var box = document.getElementById('tie-cards');
   box.innerHTML = '';
   tieCards.forEach(function(c){
     var el = document.createElement('div');
     el.className = 'tie-card-box' + (iAmActive ? ' pickable' : '');
-    el.innerHTML = '<div class="tc-face">' + cardEmoji(c.card) + '</div><div class="tc-who">' + esc(tieNameOf(c.giverId)) + '</div>';
+    el.innerHTML = '<div class="tc-face">' + GDCard.faceSVG(c.card) + '</div><div class="tc-who">' + esc(tieNameOf(c.giverId)) + '</div>';
     if (iAmActive) el.onclick = function(){
       socket.emit('tribute:tie_pick', { token: MY_TOKEN, roomCode: ROOM_CODE, card: c.card });
     };

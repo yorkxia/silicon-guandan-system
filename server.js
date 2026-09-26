@@ -14,11 +14,38 @@ const otStaffRoutes = require('./routes/otStaff');
 const internalRoutes = require('./routes/internal');
 const botRunner = require('./socket/botRunner');
 
+/* 兜底：Node 15+ 默认「未捕获的 Promise 拒绝」会直接终止整个进程——一旦某个边缘case漏了
+   try/catch，就会瞬间踢掉全服所有房间的所有玩家（这比任何单个bug本身伤害都大）。
+   这里只做"记录+不崩"，绝不能让一次孤立的业务错误变成全局断线事故；uncaughtException 属于
+   状态可能已损坏的更严重情况，仍记录后让进程退出，交给 Render 自动重启（比静默失联更快恢复、
+   且日志里能看到真实原因，而不是无迹可查的 OOM/无响应）。 */
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason && reason.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err && err.stack || err);
+  process.exit(1);
+});
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  /* 默认 pingTimeout=20s/pingInterval=25s 对"手机切后台/微信内置浏览器挂起/服务端瞬时繁忙"
+     太敏感，很容易把仍在场的玩家误判成掉线（进 40 秒宽限托管流程，体验上就是"莫名其妙被接管"）。
+     放宽到 60s/25s：真正断网的玩家仍会在 85 秒内被判定掉线（现有 40 秒宽限托管完全覆盖得住），
+     只是不再对短暂的网络抖动/后台节流过度敏感。 */
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
+
+/* 每 5 分钟记录一次内存占用，供排查"长时间运行是否内存持续增长"——只打日志，不做任何决策，
+   不影响主流程；Render 日志里能直接看到 rss/heapUsed 随时间的真实曲线，不用再凭空猜测。 */
+setInterval(() => {
+  const m = process.memoryUsage();
+  const mb = (n) => (n / 1024 / 1024).toFixed(1);
+  console.log(`[内存] rss=${mb(m.rss)}MB heapUsed=${mb(m.heapUsed)}MB heapTotal=${mb(m.heapTotal)}MB external=${mb(m.external)}MB`);
+}, 5 * 60 * 1000);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.set('view engine', 'ejs');
