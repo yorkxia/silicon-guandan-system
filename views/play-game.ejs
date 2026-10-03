@@ -561,12 +561,14 @@
     .hand-card.tb-cand    { box-shadow: 0 0 0 3px #FFD54A, 0 0 14px 3px rgba(255,213,74,.7); border-color:#FFD54A; }
     .hand-card.tb-retok   { box-shadow: 0 0 0 3px #66D17A, 0 0 12px 2px rgba(102,209,122,.6); border-color:#66D17A; }
 
-    /* 我方进贡提示条（手牌上方）*/
+    /* 我方进贡提示条：简短一行字，贴在手牌区正上方（由 JS gdPositionAboveHand 动态量出
+       手牌实际高度再摆放，任何机型/朝向都不会压住牌——不再用写死的 bottom 像素值）。
+       去掉深色块+投影，只留一条细边框的半透明提示，避免"大黑块挡牌" */
     #tb-prompt {
-      display: none; position: fixed; left: 50%; bottom: 128px; transform: translateX(-50%);
-      z-index: 245; background: rgba(20,8,8,.92); color: #FFE066; border: 1px solid rgba(212,172,13,.6);
-      padding: 8px 18px; border-radius: 12px; font-size: .9rem; font-weight: 800; letter-spacing: 1px;
-      white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+      display: none; position: fixed; left: 50%; top: 0; transform: translate(-50%, -100%);
+      z-index: 245; background: rgba(40,20,8,.62); color: #FFE066; border: 1px solid rgba(255,214,74,.4);
+      padding: 5px 14px; border-radius: 10px; font-size: .78rem; font-weight: 700; letter-spacing: .5px;
+      white-space: nowrap; box-shadow: none;
       pointer-events: none;   /* 提示条绝不能挡住点击——即使视觉上盖住某张牌，点击也必须穿透到牌上 */
     }
 
@@ -697,12 +699,14 @@
     #trick-area, #hex-trick { display: none !important; }
 
     /* 操作无效提示 toast */
+    /* 位置由 JS gdPositionAboveHand 按手牌区实际高度动态设置 top，不再写死 bottom——
+       避免不同机型/安全区下盖住手牌；去掉投影，降低不透明度，不做成遮挡式的大黑块 */
     #err-toast {
-      position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
-      background: rgba(192,0,15,.92); color: #fff; font-size: .8rem; font-weight: 700;
-      padding: 8px 18px; border-radius: 20px; z-index: 60;
-      display: none; letter-spacing: 1px; white-space: nowrap;
-      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+      position: fixed; top: 0; left: 50%; transform: translate(-50%, -100%);
+      background: rgba(192,0,15,.82); color: #fff; font-size: .78rem; font-weight: 700;
+      padding: 6px 16px; border-radius: 18px; z-index: 60;
+      display: none; letter-spacing: .5px; white-space: nowrap;
+      box-shadow: none; pointer-events: none;
     }
 
     /* ═══════════════ 加载层 ═══════════════ */
@@ -1940,7 +1944,10 @@ function gdToLocal(vx, vy){
   return { x: vy, y: window.innerWidth - vx };
 }
 /* 关键区域：手牌/操作按钮/顶部比分栏——浮层裁剪后若仍压到这些区域，只降半透明，绝不能移走或盖住它们 */
-var GD_PROTECT_IDS = ['my-hand-area','action-bar','top-bar'];
+/* 本模板同时留有 4 人(#my-hand-area/#action-bar)和 6 人(#my-hand-6p/#action-bar-6p)两套
+   标记(mode-6p 切换哪套显示)，两组 id 都列进来——隐藏的那组 getBoundingClientRect 是 0 宽高，
+   gdAvoidCollision 自己会跳过，不会误判 */
+var GD_PROTECT_IDS = ['my-hand-area','my-hand-6p','action-bar','action-bar-6p','top-bar'];
 function gdAvoidCollision(el){
   var r = el.getBoundingClientRect();
   var hit = GD_PROTECT_IDS.some(function(id){
@@ -1974,6 +1981,23 @@ function gdSafePlace(el, vx, vy, parent, vAnchor){
   el.style.top  = pos.y + 'px';
   gdAvoidCollision(el);
   return pos;
+}
+/* 把一个短提示条动态摆在"手牌区正上方"——量出 #my-hand-area 真实可视高度（随机型/朝向/
+   安全区变化）再定位，彻底取代写死的 bottom 像素值，保证任何设备都不会压住手牌。
+   el 需要已经 display:block（否则量不出宽高），且自带 transform:translate(-50%,-100%)。*/
+function gdPositionAboveHand(el, gap){
+  if (!el) return;
+  /* 正常 4 人模式用 #my-hand-area；若该模板切到 6 人布局(mode-6p)则它 display:none 量不出
+     高度，兜底改量 #my-hand-6p */
+  var hand = document.getElementById('my-hand-area');
+  var hr = hand ? hand.getBoundingClientRect() : null;
+  if (!hr || !hr.height) {
+    hand = document.getElementById('my-hand-6p');
+    hr = hand ? hand.getBoundingClientRect() : null;
+  }
+  var vx = window.innerWidth / 2;
+  var vy = (hr && hr.height) ? hr.top - (gap || 10) : window.innerHeight - 150;
+  gdSafePlace(el, vx, vy, document.body, 'bottom');
 }
 function renderSeatPlays(sp){
   sp = sp || {};
@@ -2031,6 +2055,7 @@ socket.on('game:auto_passed', function(d){ showToast((d.name||'玩家') + ' 超�
 
 /* ── 我出牌后更新手牌 ── */
 socket.on('game:hand_update', function(d){
+  _playFailStreak = 0;   // 成功出牌：清空"多次出不了牌"计数
   myHand   = sortHandLevel(d.hand, levelCard);   // 级牌感知排序
   selected = [];
   remapCombos(myHand);   // 出牌后：锁定组重新对应新手牌 idx；已打出的组自动移除
@@ -2049,7 +2074,7 @@ socket.on('game:hand_update', function(d){
 });
 
 /* ── 无效出牌 ── */
-socket.on('play:invalid',   function(d){ showToast(d.message); });
+socket.on('play:invalid',   function(d){ showToast(d.message); _notePlayFail(); });
 
 /* ── 提前收局摊牌：双下/三下(头游整队先出完)或只剩末游一人，胜负已定——服务端把这些人
    剩余的全部手牌发过来，贴其座位摊开显示 10 秒，随后 round:result 到达时会跟着
@@ -2425,9 +2450,21 @@ function sortComboCards(cards, combo, level){
 /* 触摸友好的点选：静止轻点才触发；滑动（滚动手牌）不触发，规避横向滚动吞掉 click。
    兼容鼠标（pointer 事件覆盖鼠标）。 */
 /* 轻点判定：移动 ≤ TAP_SLOP(14px) 视为一次点击（只选被点的这一张牌）；
-   超过阈值则交给"滑动选牌"，本次不再触发点击，避免同点叠牌列被误选成两张。*/
+   超过阈值则交给"滑动选牌"，本次不再触发点击，避免同点叠牌列被误选成两张。
+   ── 安卓兼容兜底(与六人大屏同款修复) ──
+   部分安卓机型/系统浏览器（华为、小米、OPPO 等）及微信内置浏览器对 Pointer Events
+   支持不完整：横向可滚动的手牌区里，一碰就被判定成原生滚动手势，只派发 pointercancel、
+   从不派发 pointerup，纯 Pointer Events 方案在这些设备上会出现"点好几次才选中"。
+   这里独立再挂一条 touch 事件通路 + 保底 click，用时间戳去重，任意一条通路命中即触发。*/
 var TAP_SLOP = 14;
 function attachTap(el, fn){
+  var lastFire = 0;
+  function fire(){
+    var now = Date.now();
+    if (now - lastFire < 300) return;   // 同一次点击可能被多条通路重复触发，去重
+    lastFire = now;
+    fn();
+  }
   var sx = 0, sy = 0, moved = false, down = false;
   el.addEventListener('pointerdown', function(e){
     down = true; moved = false; sx = e.clientX; sy = e.clientY;
@@ -2438,10 +2475,26 @@ function attachTap(el, fn){
     if (Math.abs(e.clientX - sx) > TAP_SLOP || Math.abs(e.clientY - sy) > TAP_SLOP) moved = true;
   });
   el.addEventListener('pointerup', function(){
-    if (down && !moved) fn();   // 仅"静止轻点"才选牌；一次点击=一张牌，绝不多选
+    if (down && !moved) fire();   // 仅"静止轻点"才选牌；一次点击=一张牌，绝不多选
     down = false;
   });
   el.addEventListener('pointercancel', function(){ down = false; moved = false; });
+
+  var tx = 0, ty = 0, tmoved = false, tdown = false;
+  el.addEventListener('touchstart', function(e){
+    tdown = true; tmoved = false;
+    var t = e.changedTouches && e.changedTouches[0];
+    if (t) { tx = t.clientX; ty = t.clientY; }
+  }, { passive: true });
+  el.addEventListener('touchmove', function(e){
+    if (!tdown) return;
+    var t = e.changedTouches && e.changedTouches[0];
+    if (t && (Math.abs(t.clientX - tx) > TAP_SLOP || Math.abs(t.clientY - ty) > TAP_SLOP)) tmoved = true;
+  }, { passive: true });
+  el.addEventListener('touchend',    function(){ if (tdown && !tmoved) fire(); tdown = false; });
+  el.addEventListener('touchcancel', function(){ tdown = false; tmoved = false; });
+
+  el.addEventListener('click', function(){ fire(); });   // 极端环境下最后兜底
 }
 
 /* 牌数格式：开局不显示，剩 ≤10 张才显示 */
@@ -2671,6 +2724,8 @@ function resetCombos(){
   selected       = [];                           // 清空一切选中
   _straightCycle = null;                         // 清顺子/同花顺凑牌循环状态
   HINT_ACTIVE    = false;                         // 清"提示"锁定态
+  _playFailStreak = 0;                           // 已按提示点了重置，清空失败计数
+  if (typeof swipeEnd === 'function') swipeEnd(); // 万一滑选状态卡死，重置时一并收尾
   var _hbReset = document.getElementById('cb-hint-btn'); if (_hbReset) _hbReset.classList.remove('active');
   myHand = sortHandLevel(myHand, levelCard);     // 恢复原始级牌排序（不再有锁定组置左）
   /* 万能急救 #2：立即（不等服务端往返）清掉进贡态残留——弱网/丢包错过 tribute:done 时，
@@ -3020,15 +3075,16 @@ function _swipeAdd(card){
 }
 function swipeMove(e){
   if (!_swipe.active) return;
+  var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;   // 兼容 touch/pointer 两种事件对象
   if (!_swipe.engaged) {
     /* 未超过阈值：当作轻点，暂不滑选（由 attachTap 处理单张）*/
-    if (Math.abs(e.clientX - _swipe.sx) <= TAP_SLOP && Math.abs(e.clientY - _swipe.sy) <= TAP_SLOP) return;
+    if (Math.abs(pt.clientX - _swipe.sx) <= TAP_SLOP && Math.abs(pt.clientY - _swipe.sy) <= TAP_SLOP) return;
     _swipe.engaged = true;
     /* 引擎启动时把起点那张牌也纳入，避免漏选第一张 */
     var s0 = document.elementFromPoint(_swipe.sx, _swipe.sy);
     _swipeAdd(s0 && s0.closest ? s0.closest('.hand-card') : null);
   }
-  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var el = document.elementFromPoint(pt.clientX, pt.clientY);
   _swipeAdd(el && el.closest ? el.closest('.hand-card') : null);
 }
 function swipeEnd(){
@@ -3036,16 +3092,35 @@ function swipeEnd(){
   document.removeEventListener('pointermove', swipeMove);
   document.removeEventListener('pointerup', swipeEnd);
   document.removeEventListener('pointercancel', swipeEnd);
+  document.removeEventListener('touchmove', swipeMove);
+  document.removeEventListener('touchend', swipeEnd);
+  document.removeEventListener('touchcancel', swipeEnd);
 }
 function swipeStart(e){
   if (typeof tbEx !== 'undefined' && tbEx.length) return;   // 进贡态不滑选（供/还是单张点选）
+  var pt = (e.touches && e.touches[0]) ? e.touches[0] : e;
   _swipe.active = true; _swipe.engaged = false; _swipe.seen = {};
-  _swipe.sx = e.clientX; _swipe.sy = e.clientY;
+  _swipe.sx = pt.clientX; _swipe.sy = pt.clientY;
   document.addEventListener('pointermove', swipeMove);
   document.addEventListener('pointerup', swipeEnd);
   document.addEventListener('pointercancel', swipeEnd);
+  /* 同 attachTap：部分安卓机型/微信内置浏览器 Pointer Events 不可靠，独立挂一条 touch 通路兜底 */
+  document.addEventListener('touchmove', swipeMove, { passive: true });
+  document.addEventListener('touchend', swipeEnd);
+  document.addEventListener('touchcancel', swipeEnd);
 }
-(function(){ var h = document.getElementById('hand-scroll'); if (h) h.addEventListener('pointerdown', swipeStart); })();
+/* 兜底：万一一次触摸序列中途被打断(切后台/来电/系统手势抢占)，touchend/pointerup/cancel
+   都没能触发，_swipe.active 会永久卡 true——此后哪怕只是正常点单张牌，只要指头有一点点
+   移动就会被当成"还在滑选"而误加牌。绝不能靠"重置"才能救回来，页面一旦不可见就直接强制收尾。*/
+document.addEventListener('visibilitychange', function(){ if (document.hidden) swipeEnd(); });
+window.addEventListener('blur', swipeEnd);
+(function(){
+  var h = document.getElementById('hand-scroll');
+  if (h) {
+    h.addEventListener('pointerdown', swipeStart);
+    h.addEventListener('touchstart', swipeStart, { passive: true });
+  }
+})();
 
 /* 构建单张手牌 DOM */
 function buildHandCardEl(code, idx, onClick){
@@ -3177,22 +3252,44 @@ function syncButtons(){
 }
 
 /* ── 出牌 / 不出 ── */
+/* 连续出牌失败计数：同一手牌连点几次都出不去时，额外提醒玩家点「重置」——
+   不是每次失败都提醒(会和原始错误提示打架)，攒够 PLAY_FAIL_HINT_AT 次才补提一次，
+   提醒后清零重新计数。任何一次真正成功的出牌(game:hand_update)或主动点重置都会清零。*/
+var _playFailStreak = 0;
+var PLAY_FAIL_HINT_AT = 3;
+function _notePlayFail(){
+  _playFailStreak++;
+  if (_playFailStreak >= PLAY_FAIL_HINT_AT){
+    _playFailStreak = 0;
+    setTimeout(function(){ showToast('请点击「重置」功能键，再选择出牌', 'rgba(140,90,0,.82)'); }, 2600);
+  }
+}
 function doPlay(){
-  if(!isMyTurn) return;
-  if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先出牌
-  if(selected.length===0){ showToast('请先选牌'); return; }
-  var cards = selected.map(function(key){ return key.split('_')[0]; });
-  var pt = gdDetect(cards, levelCard);
-  if(!pt){ showToast('无效牌型，请重新选择'); return; }
-  /* 牌型合法就发给服务端，由服务端做最终裁判(压不过会回 play:invalid 提示)。
-     不再本地硬挡「压不过」——避免弱网/状态残留误判导致「明明轮到我却永远出不了牌」。*/
-  socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
+  try {
+    if(!isMyTurn) return;
+    if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先出牌
+    if(selected.length===0){ showToast('请先选牌'); return; }
+    var cards = selected.map(function(key){ return key.split('_')[0]; });
+    var pt = gdDetect(cards, levelCard);
+    if(!pt){ _notePlayFail(); showToast('无效牌型，请重新选择'); return; }
+    /* 牌型合法就发给服务端，由服务端做最终裁判(压不过会回 play:invalid 提示)。
+       不再本地硬挡「压不过」——避免弱网/状态残留误判导致「明明轮到我却永远出不了牌」。*/
+    socket.emit('play:cards',{ token:MY_TOKEN, roomCode:ROOM_CODE, cards:cards });
+  } catch(err) {
+    console.error('[doPlay]', err);
+    showToast('⚠️ 出牌出错，请点「重置」后重试');
+  }
 }
 
 function doPass(){
-  if(!isMyTurn||!hasLastPlay) return;
-  if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先操作
-  socket.emit('play:pass',{ token:MY_TOKEN, roomCode:ROOM_CODE });
+  try {
+    if(!isMyTurn||!hasLastPlay) return;
+    if(tbEx.length) return;   // 进贡/还贡尚未完成，禁止抢先操作
+    socket.emit('play:pass',{ token:MY_TOKEN, roomCode:ROOM_CODE });
+  } catch(err) {
+    console.error('[doPass]', err);
+    showToast('⚠️ 操作出错，请点「重置」后重试');
+  }
 }
 
 /* ── 退出比赛：确认后离开大屏回大厅（断开连接，座位 40 秒宽限后转托管）── */
@@ -3289,8 +3386,9 @@ function setHint(msg, cls){
 function showToast(msg, color){
   var el = document.getElementById('err-toast');
   el.textContent   = msg;
-  el.style.background = color||'rgba(192,0,15,.92)';
+  el.style.background = color||'rgba(192,0,15,.82)';
   el.style.display    = 'block';
+  gdPositionAboveHand(el, 10);   // 动态贴在手牌区上方，绝不盖住牌型
   clearTimeout(el._t);
   el._t = setTimeout(function(){ el.style.display='none'; }, 2500);
 }
@@ -3473,8 +3571,8 @@ function renderTributeUI(){
     }
   });
   if (!tbBusy && prompt){
-    if (tbMyGiveEx())        { prompt.textContent = '👇 请点击你要供出的最大牌'; prompt.style.display = 'block'; }
-    else if (tbMyReturnEx()) { prompt.textContent = '👇 请点击你要还供的牌（点数≤10，非级牌）'; prompt.style.display = 'block'; }
+    if (tbMyGiveEx())        { prompt.textContent = '👇 请供出最大的牌'; prompt.style.display = 'block'; gdPositionAboveHand(prompt, 10); }
+    else if (tbMyReturnEx()) { prompt.textContent = '👇 请还供（≤10，非级牌）'; prompt.style.display = 'block'; gdPositionAboveHand(prompt, 10); }
   }
   renderHand(myHand);   // 手牌高亮由 buildHandCardEl 依 tb 状态决定
 }

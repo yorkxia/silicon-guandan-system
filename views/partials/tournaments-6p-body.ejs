@@ -490,9 +490,21 @@ function doJoinRoom() {
   if (code.length < 4) return setRoomMsg('请输入正确的房间号');
   if (window.gdHasName && !window.gdHasName()) { window.gdEnsureName(doJoinRoom); return; }
   gdRoomAction = 'join';
-  if (G6 && G6.connected) {
-    G6.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
-  } else { setRoomMsg('连接中，请稍候重试'); }
+  setRoomMsg('连接中...');
+  /* 原来只在 socket 已连接时才发，没连上就只提示"请稍候重试"、不会自动补发——
+     玩家看不到这条小字提示，会以为点击没反应，连点好几次才凑巧在已连接的瞬间生效。
+     改成跟 doScanJoin 一样自动重试，连上就立即补发，最多等 8 秒后才提示超时。*/
+  var waited = 0;
+  function tryJoin() {
+    if (G6 && G6.connected) {
+      G6.emit('room:join', { token: window.gdGetToken(), name: window.gdGetName(), roomCode: code });
+    } else {
+      waited += 300;
+      if (waited >= 8000) { setRoomMsg('⚠️ 连接超时，请检查网络后重试'); return; }
+      setTimeout(tryJoin, 300);
+    }
+  }
+  tryJoin();
 }
 function setRoomMsg(msg) { document.getElementById('room-msg').textContent = msg; }
 

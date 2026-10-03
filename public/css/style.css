@@ -23,6 +23,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
+/* 全站点击灵敏度：按钮/链接去掉移动端默认的"双击缩放判定"等待(部分安卓机型/微信内置
+   浏览器上会感觉成"点了没反应、要点好几次")，触屏上点击更快更跟手 */
+button, a, .btn, [onclick] { touch-action: manipulation; }
+
 body {
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   background: var(--cream);

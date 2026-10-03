@@ -14,7 +14,7 @@ const gameStates = require('./gameState');
 */
 const TURN_SECONDS       = 25;   // 常规回合：第一家出牌后每回合 25 秒
 const FIRST_TURN_SECONDS = 60;   // 开局第一手：留 60 秒理牌（第一张牌出去后转 25 秒）
-const DC_TURN_SECONDS    = 10;   // 掉线托管：AI 约 10 秒接替出牌
+const DC_TURN_SECONDS    = 8;    // 掉线托管：AI 约 8 秒接替出牌，尽快推进对局
 const TRIBUTE_SECONDS    = 20;   // 供牌/还牌：玩家 20 秒不操作则系统按规则自动供/还
 const TAKEOVER_GRACE_MS  = 40 * 1000;  // 退出/掉线满 40 秒 → 转机器人托管
 /* 提前收局展示时长：双下/三下(头游整队先出完)或只剩末游一人时，胜负已定，没必要逼剩下的
