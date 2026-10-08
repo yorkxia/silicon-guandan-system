@@ -4,8 +4,10 @@ const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
 const helmet = require('helmet');
+const compression = require('compression');
 const path = require('path');
 const { Server } = require('socket.io');
+const { createAdapter } = require('@socket.io/redis-adapter');
 const { initDB } = require('./db/init');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
@@ -39,6 +41,27 @@ const io = new Server(server, {
   pingInterval: 25000
 });
 
+/* 分布式改造 阶段1：REDIS_URL 配置了才接入跨实例广播适配器；没配置时 socket.io
+   走默认的单实例内存 adapter，行为与改造前完全一致（现在还没开 Redis 实例，
+   这一段此刻就是空操作，留着等 Render 那边开出 Key Value 实例再自动生效）。
+   adapter 只改变 io.to(room).emit() 这类广播的底层投递路径，不改变任何
+   事件名/payload/调用时机，对 game.js/game6.js 的对局逻辑零侵入。*/
+if (process.env.REDIS_URL) {
+  try {
+    const Redis = require('ioredis');
+    const pubClient = new Redis(process.env.REDIS_URL);
+    const subClient = pubClient.duplicate();
+    pubClient.on('error', (e) => console.error('[Redis adapter/pub]', e.message));
+    subClient.on('error', (e) => console.error('[Redis adapter/sub]', e.message));
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('[Redis] socket.io 已接入 Redis adapter（跨实例广播）');
+  } catch (e) {
+    console.error('[Redis] adapter 接入失败，socket.io 退回默认单实例 adapter:', e.message);
+  }
+} else {
+  console.log('[Redis] 未配置 REDIS_URL，socket.io 使用默认单实例 adapter');
+}
+
 /* 每 5 分钟记录一次内存占用，供排查"长时间运行是否内存持续增长"——只打日志，不做任何决策，
    不影响主流程；Render 日志里能直接看到 rss/heapUsed 随时间的真实曲线，不用再凭空猜测。 */
 setInterval(() => {
@@ -48,6 +71,7 @@ setInterval(() => {
 }, 5 * 60 * 1000);
 
 app.use(helmet({ contentSecurityPolicy: false }));
+app.use(compression());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
